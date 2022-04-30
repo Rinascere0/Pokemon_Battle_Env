@@ -1,0 +1,170 @@
+Aerodactyl @ Aerodactylite
+Ability: Unnerve
+EVs: 252 Atk / 4 Def / 252 Spe
+Jolly Nature
+- Stone Edge
+- Earthquake
+- Pursuit
+- Roost
+
+Aerodactyl @ Aerodactylite
+Ability: Unnerve
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Stealth Rock
+- Stone Edge
+- Earthquake
+- Ice Fang
+
+Aggron @ Aggronite
+Ability: Sturdy
+EVs: 252 HP / 4 Def / 252 SpD
+Careful Nature
+- Stealth Rock
+- Heavy Slam
+- Earthquake
+- Toxic
+
+Aggron @ Aggronite
+Ability: Sturdy
+EVs: 252 HP / 4 Def / 252 SpD
+Careful Nature
+- Heavy Slam
+- Curse
+- Rest
+- Sleep Talk
+
+Alomomola @ Leftovers
+Ability: Regenerator
+EVs: 40 HP / 252 Def / 216 SpD
+Bold Nature
+- Wish
+- Protect
+- Toxic
+- Scald
+
+Altaria @ Altarianite
+Ability: Natural Cure
+EVs: 252 Atk / 4 SpD / 252 Spe
+Adamant Nature
+- Dragon Dance
+- Return
+- Earthquake
+- Roost
+
+Altaria @ Altarianite
+Ability: Natural Cure
+EVs: 252 Atk / 4 SpD / 252 Spe
+Adamant Nature
+- Dragon Dance
+- Return
+- Refresh
+- Roost
+
+Altaria @ Altarianite
+Ability: Natural Cure
+EVs: 252 HP / 200 Def / 56 Spe
+Impish Nature
+- Return
+- Flamethrower
+- Heal Bell
+- Roost
+
+Altaria @ Altarianite
+Ability: Natural Cure
+EVs: 248 HP / 4 Def / 160 SpA / 96 Spe
+Modest Nature
+- Hyper Voice
+- Fire Blast
+- Toxic
+- Roost
+
+Amoonguss @ Rocky Helmet
+Ability: Regenerator
+EVs: 252 HP / 176 Def / 80 SpD
+Bold Nature
+- Spore
+- Giga Drain
+- Hidden Power Fire
+- Clear Smog
+
+Azelf @ Adrenaline Orb
+Ability: Levitate
+EVs: 4 Def / 252 SpA / 252 Spe
+Timid Nature
+- Nasty Plot
+- Psyshock
+- Flamethrower
+- Dazzling Gleam
+
+Azelf @ Focus Sash
+Ability: Levitate
+EVs: 252 Atk / 4 SpA / 252 Spe
+Jolly Nature
+- Stealth Rock
+- Explosion
+- Taunt
+- Knock Off
+
+Azelf @ Light Clay
+Ability: Levitate
+EVs: 252 Def / 40 SpD / 216 Spe
+Jolly Nature
+- Reflect
+- Light Screen
+- Taunt
+- U-turn
+
+Beedrill @ Beedrillite
+Ability: Swarm
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- U-turn
+- Poison Jab
+- Drill Run
+- Knock Off
+
+Bisharp @ Life Orb
+Ability: Defiant
+EVs: 252 Atk / 4 SpD / 252 Spe
+Adamant Nature
+- Swords Dance
+- Knock Off
+- Iron Head
+- Sucker Punch
+
+Bisharp @ Assault Vest
+Ability: Defiant
+EVs: 188 HP / 236 Atk / 84 Spe
+Adamant Nature
+- Pursuit
+- Knock Off
+- Iron Head
+- Sucker Punch
+
+Blissey @ Leftovers
+Ability: Natural Cure
+EVs: 252 HP / 252 Def / 4 SpD
+Bold Nature
+- Seismic Toss
+- Toxic
+- Soft-Boiled
+- Heal Bell
+
+Celebi @ Psychium Z
+Ability: Natural Cure
+EVs: 4 Def / 252 SpA / 252 Spe
+Timid Nature
+- Nasty Plot
+- Psychic
+- Giga Drain
+- Dazzling Gleam
+
+Chandelure @ Leftovers
+Ability: Flame Body
+EVs: 4 Def / 252 SpA / 252 Spe
+Timid Nature
+- Substitute
+- Calm Mind
+- Shadow Ball
+- Flamethrower
