@@ -48,17 +48,21 @@ class Game:
                 time.sleep(0.01)
             done, to_switch = self.utils.step_turn(self.env, self.round_players, self.moves)
             self.reset_round()
-            if len(to_switch) > 0:
+
+            while not done and len(to_switch) > 0:
                 for player in to_switch:
                     player.signal(Signal.Switch)
                 while len(self.moves) < len(to_switch):
                     time.sleep(0.01)
-                for player, move in zip(self.round_players, self.moves):
-                    player.switch(move)
+                if len(to_switch) < 2:
+                    self.round_players.append(self.players[1 - self.round_players[0].pid])
+                    self.moves.append(None)
+                done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
                 self.reset_round()
 
             Round += 1
             self.log.step_print()
+
         for player in self.players:
             player.signal(Signal.End)
 

@@ -85,8 +85,29 @@ class BattleLog:
         elif event == 'mold':
             log = 'is breaking the mold!'
 
-        elif event=='pressure':
-            log='is exerting pressure!'
+        elif event == 'pressure':
+            log = 'is exerting pressure!'
+
+        elif event == 'intimidate':
+            log = 'intimidated ' + val + '!'
+
+        elif event == 'download':
+            log = '\'s download activated!'
+
+        elif event == 'soulheart':
+            log = '\'s Soul-Heart activated!'
+
+        elif event == 'beastboost':
+            log = '\'s Beast Boost activated!'
+
+        elif event == 'anticipate':
+            log = 'anticipated danger!'
+
+        elif event == 'frisk':
+            log = 'discovered the opponent\'s ' + val
+
+        elif event == 'trace':
+            log = 'copied the opponent\'s' + val
 
         elif event == 'splash':
             log = 'But nothing happened...'
@@ -135,6 +156,8 @@ class BattleLog:
             actor = None
 
         elif event == 'use':
+            if 'Hidden Power' in val:
+                val = 'Hidden Power'
             log = 'used ' + str(val) + '!'
 
         elif event == 'fail':
@@ -184,6 +207,18 @@ class BattleLog:
 
         elif event == 'solarpower':
             log = 'lost it\'s health due to Solar Power!'
+
+        elif event == '+leechseed':
+            log = '\'s health was snapped by leech seed!'
+
+        elif event == 'ooze':
+            log = 'was hurt by liquid ooze!'
+
+        elif event == 'balloon':
+            log = 'is floating with Air Balloon!'
+
+        elif event == '-balloon':
+            log = '\'s Air Balloon popped!'
 
         #  elif event=='lockedmove':
         #     log='locked'

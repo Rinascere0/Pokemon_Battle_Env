@@ -22,9 +22,13 @@ class Pokemon:
                     key in ['iAtk', 'iDef', 'iSpA', 'iSpD', 'iSpe', 'iHP']}
         self.nature = info['Nature']
         self.moves = [info['Move1'], info['Move2'], info['Move3'], info['Move4']]
-        self.pp = [Moves[move]['pp'] * 1.6 for move in self.moves]
+        self.move_infos = [Moves[move.replace(' ', '').replace('-', '').replace('[', '').replace(']', '').lower()] for
+                           move in self.moves]
+        self.pp = [move['pp'] * 1.6 for move in self.move_infos]
         self.lv = info['Lv']
         self.item = info['Item']
+        self.base_item = info['Item']
+        self.used_item = None
         self.base_ability = info['Ability']
         self.current_ability = info['Ability']
         self.ability = info['Ability']
@@ -32,7 +36,13 @@ class Pokemon:
         # load dex info
         pkm_info = pokedex[self.name.replace(' ', '').replace('-', '').lower()]
         self.sp = pkm_info['baseStats']
-        self.attr = pkm_info['types']
+        self.base_attr = pkm_info['types']
+        if self.name == 'Silvally' and self.item in memories:
+            self.base_attr = [memories[self.item]]
+        if self.name == 'Arceus' and self.item in plates:
+            self.base_attr = [plates[self.item]]
+        self.attr = copy.deepcopy(self.base_attr)
+
         self.base_weight = pkm_info['weightkg']
 
         # state
@@ -56,6 +66,7 @@ class Pokemon:
         # {'brn': 0, 'slp': 0, 'tox': 0, 'psn': 0, 'par': 0, 'frz': 0}
         self.status_turn = 0
         self.metronome = 0
+        self.unburden = False
         self.move_mask = np.ones(4)
 
         # lock skill e.g. outrage, iceball
@@ -86,9 +97,18 @@ class Pokemon:
         self.pkm_id = -1
         self.turn = 0
         self.alive = True
+        self.protect = False
+        self.switch_on = False
 
         self.player = None
         self.log = None
+
+    def use_item(self):
+        self.used_item = self.item
+        self.base_item = None
+        self.item = None
+        if self.ability == 'Unburden':
+            self.unburden = True
 
     def setup(self, pkm_id, player, env, log):
         self.pkm_id = pkm_id
@@ -151,7 +171,13 @@ class Pokemon:
             elif vstatus in ['smackdown', 'partiallytrapped', 'foresight']:
                 turn = -1
             elif vstatus == 'protect':
-                turn = 1
+                if random.uniform(0, 1) <= math.pow(1 / 2, self.vstatus['protect'] - 1):
+                    turn = self.vstatus['protect'] + 1
+                    self.protect = True
+                else:
+                    turn = 0
+                    self.protect = False
+                    self.log.add(event='fail')
         # 持续时间给出
         elif 'duration' in cond:
             turn = cond['duration']
@@ -189,19 +215,25 @@ class Pokemon:
         if sk_name not in self.future:
             self.future.append({sk_name: {round: 2, user: user}})
 
-        self.log(self, 'pred')
+        self.log.add(self, 'pred')
 
-    def heal(self, val, perc=False):
+    def heal(self, val, perc=False, target=None):
         if perc:  # 百分比治疗
             val = int(self.maxHP * perc)
 
         if self.item == 'Big Root':
             val = int(val * 1.3)
 
-        self.HP = min(self.maxHP, self.HP + val)
-        self.log(self, 'heal', val / self.maxHP)
+        if target and target.ability == 'Liquid Ooze':
+            self.log.add(self, 'ooze')
+            self.damage(val)
+        else:
+            self.HP = min(self.maxHP, self.HP + val)
+            self.log.add(self, 'heal', val / self.maxHP)
 
     def boost(self, stat, lv, src=None):
+        if self.ability == 'Contrary':
+            lv = -lv
         if lv > 0:
             if self.stat_lv[stat] == 6:
                 self.log.add(self, '+7', full_stat[stat])
@@ -233,32 +265,30 @@ class Pokemon:
                     self.log.add(self, '-2', full_stat[stat])
                 if self.ability == 'Competitive' and src is not None:
                     self.boost('spa', 2 * val)
-                    self.log.add(self, '+2', full_stat['spa'])
+                    self.log.add(self, '+2', full_stat['spa'], 'Competitive')
                 if self.ability == 'Defiant' and src is not None:
                     self.boost('atk', 2 * val)
-                    self.log.add(self, '+2', full_stat['atk'])
+                    self.log.add(self, '+2', full_stat['atk'], 'Defiant')
 
     def moldbreak(self):
-        if self.current in ['Battle Armor', 'Clear Body', 'Damp', 'Dry Skin', 'Filter', 'Flash Fire',
+        if self.ability in ['Battle Armor', 'Clear Body', 'Damp', 'Dry Skin', 'Filter', 'Flash Fire',
                             'Flower Gift', 'Heatproof', 'Hyper Cutter', 'Immunity', 'Inner Focus', 'Insomnia',
                             'Keen Eye', 'Leaf Guard', 'Levitate', 'Lightning Rod', 'Limber', 'Magma Armor',
                             'Marvel Scale', 'Motor Drive', 'Oblivious', 'Own Tempo', 'Sand Veil', 'Shell Armor',
                             'Shield Dust', 'Simple', 'Snow Cloak', 'Solid Rock', 'Soundproof', 'Sticky Hold',
                             'Storm Drain', 'Sturdy', 'Suction Cups', 'Tangled Feet', 'Thick Fat', 'Unaware',
                             'Vital Spirit', 'Volt Absorb', 'Water Absorb', 'Water Veil', 'White Smoke',
-                            'Wonder Guard,\tBig Pecks', 'Contrary', 'Friend Guard', 'Heavy Metal', 'Light Metal',
+                            'Wonder Guard,\tBig Pecks', 'Contrary', 'Friend Guard', 'Heavy Metal',
+                            'Light Metal',
                             'Magic Bounce', 'Multiscale', 'Sap Sipper', 'Telepathy', 'Wonder Skin,Aroma Veil',
                             'Bulletproof', 'Flower Veil', 'Fur Coat', 'Overcoat', 'Sweet Veil,Dazzling',
                             'Disguise', 'Fluffy', 'Queenly Majesty', 'Water Bubble,\tMirror Armor', 'Punk Rock',
                             'Ice Scales', 'Ice Face', 'Pastel Veil ']:
             self.ability = ""
 
-    def damage(self, val, perc=False, const=0, attr=Attr.NoAttr, in_turn=True):
+    def damage(self, val, perc=False, const=0, attr=Attr.NoAttr, user=None):
         if val < 0:
             #    print('but it didn\'t work!')
-            return False
-        if in_turn and self.vstatus['protect'] != 0:
-            self.log.add(self, 'protect_from')
             return False
         if perc:  # 百分比伤害
             val = int(self.maxHP * perc)
@@ -276,21 +306,42 @@ class Pokemon:
             self.HP = 0
             if self.to_faint():
                 self.faint()
+
+                if user and user is not self:
+                    if user.ability == 'Beast Boost':
+                        max_stat = 'Atk'
+                        max_val = 0
+                        for stat, val in user.base_stats.items():
+                            if stat != 'HP' and val > max_val:
+                                max_stat = stat
+                                max_val = val
+                        self.log.add(user, 'beastboost')
+                        user.boost(max_stat.lower(), 1)
+                foe_pivot = self.player.get_opponent_pivot()
+                if foe_pivot.ability == 'Soul-Heart':
+                    self.log.add(foe_pivot, 'soulheart')
+                    foe_pivot.boost('spa', 1)
             else:
                 self.HP += 1
         else:
             self.log.add(self, 'lost', int(val / self.maxHP * 100))
             self.HP = self.HP - val
+
+        if self.item is 'Air Balloon':
+            self.use_item()
+            self.log.add(self, '-balloon')
+
         return True
 
     def prep(self, env):
         self.ability = self.current_ability
         self.calc_stat(env)
         self.turn = True
+        self.protect = False
 
-    def end_turn(self):
-        for vstate in self.vstatus:
-            self.vstatus[vstate] = max(0, self.vstatus[vstate] - 1)
+    def end_turn(self, env, target):
+        if not self.protect:
+            self.vstatus['protect'] = 0
         if self.item == 'leftovers':
             self.log.add(self, 'leftovers')
             self.heal(0, perc=1 / 16)
@@ -304,14 +355,12 @@ class Pokemon:
                     break
 
         if self.vstatus['taunt'] > 0:
-            for move_id, move in enumerate(self.moves):
-                move = move.replace('-', '').replace(' ', '').lower()
-                if Moves[move]['category'] == 'Status':
+            for move_id, move in enumerate(self.move_infos):
+                if move['category'] == 'Status':
                     self.move_mask[move_id] = 0
 
         if self.ability == 'Speed Boost':
-            self.log.add(self, 'speedboost')
-            self.boost('spe', 1)
+            self.boost('spe', 1, 'Speed Boost')
 
         if self.ability == 'Moody':
             inc, dec = random.sample(['atk', 'def', 'spa', 'spd', 'spe'])
@@ -319,9 +368,14 @@ class Pokemon:
             self.boost(inc, 2)
             self.boost(dec, -1)
 
-        if self.ability == 'Solar Power' and self.player.env.weather is 'sunnyday':
+        if self.ability == 'Solar Power' and env.weather is 'sunnyday':
             self.log.add(self, 'solarpower')
             self.damage(0, 1 / 8)
+            target.recover(0, 1 / 8)
+
+        if self.vstatus['leechseed']:
+            self.log.add(self, '+leechseed')
+            self.damage(val=0, prec=1 / 8)
 
         if self.status == 'tox':
             self.damage(val=0, perc=self.status_turn / 16, attr=Attr.NoAttr)
@@ -360,32 +414,34 @@ class Pokemon:
             self.Acc = calc_stat_lv(Acc_lv)
 
         # Ability Buff
-        if not moldbreak:
-            if self.ability == 'Defeatist' and self.HP / self.maxHP <= 1 / 2:
-                self.Atk *= 0.5
-                self.Satk *= 0.5
-            if self.ability in ['Huge Power', 'Pure Power']:
-                self.Atk *= 2
-            if self.ability == 'Guts' and self.cond:
-                self.Atk *= 1.5
-            if self.ability == 'Quick Feet' and self.cond:
-                self.Spe *= 1.5
-            if self.ability == 'Tangled Feet' and self.vstatus['confusion']:
-                self.Eva *= 2
-            if self.ability == 'Solar Power' and env.weather == Weather.Harsh:
-                self.Satk *= 2
-            if self.ability == 'Chlorophyll' and env.weather == Weather.Harsh:
-                self.Spe *= 2
-            if self.ability == 'Swift Swim' and env.weather == Weather.Rain:
-                self.Spe *= 2
-            if self.ability == 'Sand Rush' and env.weather == Weather.Sandstorm:
-                self.Spe *= 2
-            if self.ability == 'Slush Rush' and env.weather == Weather.Hail:
-                self.Spe *= 2
-            if self.ability == 'Snow Clock' and env.weather == Weather.Hail:
-                self.Eva *= 1.25
-            if self.ability == 'Sand Veil' and env.weather == Weather.Sandstorm:
-                self.Eva *= 1.25
+
+        if self.ability == 'Defeatist' and self.HP / self.maxHP <= 1 / 2:
+            self.Atk *= 0.5
+            self.Satk *= 0.5
+        if self.ability in ['Huge Power', 'Pure Power']:
+            self.Atk *= 2
+        if self.ability == 'Guts' and self.cond:
+            self.Atk *= 1.5
+        if self.ability == 'Quick Feet' and self.cond:
+            self.Spe *= 1.5
+        if self.ability == 'Tangled Feet' and self.vstatus['confusion']:
+            self.Eva *= 2
+        if self.ability == 'Solar Power' and env.weather == Weather.Harsh:
+            self.Satk *= 2
+        if self.ability == 'Chlorophyll' and env.weather == Weather.Harsh:
+            self.Spe *= 2
+        if self.ability == 'Swift Swim' and env.weather == Weather.Rain:
+            self.Spe *= 2
+        if self.ability == 'Sand Rush' and env.weather == Weather.Sandstorm:
+            self.Spe *= 2
+        if self.ability == 'Slush Rush' and env.weather == Weather.Hail:
+            self.Spe *= 2
+        if self.ability == 'Snow Clock' and env.weather == Weather.Hail:
+            self.Eva *= 1.25
+        if self.ability == 'Sand Veil' and env.weather == Weather.Sandstorm:
+            self.Eva *= 1.25
+        if self.unburden:
+            self.Spe *= 2
 
         # Item Buff
         if self.item == 'Choice Band':
@@ -411,8 +467,25 @@ class Pokemon:
             self.Spe *= 0.5
 
         self.weight = self.base_weight
+        self.ability = self.current_ability
 
-    def switch(self, pivot):
+    def reset(self):
+        for stat in self.stat_lv:
+            self.stat_lv[stat] = 0
+        for vstatus in self.vstatus:
+            self.vstatus[vstatus] = 0
+        self.current_ability = self.base_ability
+        self.attr = self.base_attr
+        self.used_item = None
+        self.unburden = False
+
+    def switch(self, env, old_pivot, boton=False):
+        if boton:
+            self.stat_lv = old_pivot.stat_lv
+            self.vstatus['substitute'] = copy.deepcopy(old_pivot['substitute'])
+            self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
+        old_pivot.reset()
+
         if not imm_ground(self):
             if self.get_sidecond()['toxicspikes'] > 0:
                 if 'Posion' in self.attr:
@@ -441,53 +514,45 @@ class Pokemon:
         if self.ability == 'Pressure':
             self.log.add(self, 'pressure')
 
+        if self.ability == 'Unnerve':
+            self.log.add(self, 'unnerve')
+
         if self.ability == 'Drizzy':
-            self.player.env.set_weather(weather='Raindance', item=self.item)
+            env.set_weather(weather='Raindance', item=self.item)
 
         if self.ability == 'Drought':
-            self.player.env.set_weather(weather='sunnyday', item=self.item)
+            env.set_weather(weather='sunnyday', item=self.item)
 
         if self.ability == 'Snow Warning':
-            self.player.env.set_weather(weather='hail', item=self.item)
+            env.set_weather(weather='hail', item=self.item)
 
         if self.ability == 'Sand Stream':
-            self.player.env.set_weather(weather='Sandstorm', item=self.item)
+            env.set_weather(weather='Sandstorm', item=self.item)
 
         if self.ability == 'Electric Surge':
-            self.player.env.set_terrain(weather='electricterrain', item=self.item)
+            env.set_terrain(terrain='electricterrain', item=self.item)
 
         if self.ability == 'Grass Surge':
-            self.player.env.set_terrain(weather='grassyterrain', item=self.item)
+            env.set_terrain(terrain='grassyterrain', item=self.item)
 
         if self.ability == 'Mist Surge':
-            self.player.env.set_terrain(weather='mistterrain', item=self.item)
+            env.set_terrain(terrain='mistterrain', item=self.item)
 
         if self.ability == 'Psychic Surge':
-            self.player.env.set_terrain(weather='psychicterrain', item=self.item)
-
-        if self.ability == 'Unnerve':
-            # TODO
-            pass
-
-        if self.ability == 'Anticipation':
-            # TODO
-            pass
-
-        if self.ability == 'Download':
-            # TODO
-            pass
-
-        if self.ability == 'Intimidate':
-            # TODO
-            pass
+            env.set_terrain(terrain='psychicterrain', item=self.item)
 
         if self.item in ['Electric Seed', 'Grassy Seed']:
-            self.log(self, 'use item')
+            self.log.add(self, 'use item')
+            self.use_item()
             self.boost('def', 1)
 
         if self.item in ['Psychic Seed', 'Mist Seed']:
-            self.log(self, 'use item')
+            self.log.add(self, 'use item')
+            self.use_item()
             self.boost('spd', 1)
+
+        if self.item is 'Air Balloon':
+            self.log.add(self, 'balloon')
 
     def act(self):
         if self.status == 'slp':
@@ -502,6 +567,7 @@ class Pokemon:
     def to_faint(self):
         if self.HP == self.maxHP and self.item == 'Focus Sash':
             self.log.add(self, 'sash')
+            self.use_item()
         elif self.vstatus['endure']:
             self.log.add(self, 'endure')
         else:

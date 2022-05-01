@@ -24,14 +24,29 @@ volt switch
 【Add】\
 weather ability & stop\
 terrain ability & stop\
-seeds\
+terrain seeds\
 pressure\
 pp\
+protect\
+hidden power\
+unburden\
+use item\
+acrobatics\
+rocky helmet & rough skin\
+beast boost\
+soul heart\
+air balloon \
+focus sash
 
 【Todo】\
-download \
-anticipation\
+✔download \
+✔anticipation\
 unnerve\
-intimidate\
-ssilvally\
-arceus\
+✔intimidate\
+✔frisk\
+✔trace\
+✔silvally\
+✔arceus\
+match-up switch-on
+is to ==
+

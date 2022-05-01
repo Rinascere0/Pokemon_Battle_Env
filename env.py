@@ -53,5 +53,5 @@ class Env:
             self.terrain = terrain
             self.terrain_turn = turn
 
-    def set_pseudo_weather(self, pd_weather):
-        self.pseudo_weather[pd_weather] = 5
+    def set_pseudo_weather(self, pseudo_weather):
+        self.pseudo_weather[pseudo_weather] = 5

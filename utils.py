@@ -15,11 +15,10 @@ class Utils:
     def __init__(self, log):
         self.log = log
 
-    def step_turn(self, env, players, move_names):
+    def step_turn(self, env, players, moves):
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
         pkms[0].prep(env)
         pkms[1].prep(env)
-        moves = [Moves[move_names[0]], Moves[move_names[1]]]
         prior = np.zeros(2)
         if pkms[0].Spe > pkms[1].Spe:
             prior[0] += 0.1
@@ -33,12 +32,12 @@ class Utils:
         if env.pseudo_weather['trickroom'] > 0:
             prior = 1 - prior
 
-        if type(move_names[0]) is int:
+        if type(moves[0]) is int:
             prior[0] += 10
         else:
             prior[0] += moves[0]['priority']
 
-        if type(move_names[1]) is int:
+        if type(moves[1]) is int:
             prior[1] += 10
         else:
             prior[1] += moves[1]['priority']
@@ -70,23 +69,66 @@ class Utils:
 
         # end turn
 
-        done = False
-        to_switch = []
-        for pid, player in enumerate(players):
-            if player.lose():
-                self.log.add(player, 'lose')
-                done = True
-            elif not player.get_pivot().alive:
-                to_switch.append(player)
-            else:
-                player.get_pivot().end_turn()
+        done, to_switch = self.check_switch(env, players)
 
         return done, to_switch
 
-    def step_turn_pkm(self, env, pkms, move_names):
+    def check_switch(self, env, players, pivots=[None, None]):
+        done = False
+        to_switch = []
+        for pid, (player, pivot) in enumerate(zip(players, pivots)):
+            if pivot is not None:
+                player.switch(env, pivot)
+
+            if not player.get_pivot().alive:
+                if player.lose():
+                    self.log.add(player, 'lose')
+                    done = True
+                else:
+                    to_switch.append(player)
+            else:
+                player.get_pivot().end_turn(env, players[1 - pid].get_pivot())
+
+        if not to_switch:
+            self.switch_on(players, env)
+
+        return done, to_switch
+
+    def switch_on(self, players, env):
+        for pid, player in enumerate(players):
+            user = player.get_pivot()
+            target = players[1 - pid].get_pivot()
+            if user.switch_on:
+                user.switch_on = False
+                if user.ability == 'Anticipation':
+                    for move in target.move_infos:
+                        if calc_type_buff(move, user) > 1 or 'ohko' in move:
+                            self.log.add(user, 'anticipate')
+                            break
+
+                if user.ability == 'Frish':
+                    if target.item:
+                        self.log.add(user, 'frisk', target.item)
+
+                if user.ability == 'Download':
+                    self.log.add(user, 'download')
+                    if target.Def > target.SpD:
+                        user.boost('spa', 1)
+                    else:
+                        user.boost('atk', 1)
+
+                if user.ability == 'Trace':
+                    self.log.add(user, 'trace', target.ability)
+                    user.current_ability = target.ability
+
+                if user.ability == 'Intimidate':
+                    self.log.add(user, 'intimidate', target.name)
+                    target.boost('atk', -1, user)
+
+    def step_turn_pkm(self, env, pkms, moves):
         pkms[0].prep(env)
         pkms[1].prep(env)
-        moves = [Moves[move_names[0]], Moves[move_names[1]]]
+        moves = [Moves[moves[0]], Moves[moves[1]]]
         prior = np.zeros(2)
         if pkms[0].Spe > pkms[1].Spe:
             prior[0] += 0.1
@@ -130,10 +172,10 @@ class Utils:
                 return
 
         self.log.add(user, 'use', move['name'])
-        if target.ability is 'Pressure':
-            self.loss_pp(move, 2)
+        if target.ability == 'Pressure':
+            user.loss_pp(move, 2)
         else:
-            self.loss_pp(move, 1)
+            user.loss_pp(move, 1)
 
         if move['name'] == 'Splash':
             self.log.add(event='splash')
@@ -177,6 +219,8 @@ class Utils:
                 self.log.add(actor=target, event='0effect')
                 user.set_lock()
 
+
+
     def effect_move(self, user: Pokemon, target: Pokemon, move, env, last):
         ctg = move['category']
         if ctg != 'Status':
@@ -193,7 +237,7 @@ class Utils:
 
             for _ in range(count):
                 dmg = self.calc_dmg(user, target, move, env, last)
-                target.damage(val=dmg, perc=False, in_turn=True)
+                target.damage(val=dmg, perc=False, user=user)
 
             sec_target = target
             if 'secondary' in move:
@@ -233,12 +277,7 @@ class Utils:
             # drain move
             if 'drain' in move:
                 heal = int(move['drain'][0] / move['drain'][1] * dmg)
-                if target.ability == 'Liquid Ooze':
-                    if user.item == 'Big Root':
-                        heal = int(heal * 1.3)
-                    user.damage(heal)
-                else:
-                    user.heal(heal)
+                user.heal(heal, False, target)
 
             # lock round move
             if move['name'] in ['Outrage', 'Petal Dance', 'Thrash']:
@@ -296,8 +335,8 @@ class Utils:
                 env.set_weather(weather, user.item)
 
             if 'pseudoWeather' in move:
-                pd_weather = move['pseudoWeather']
-                env.set_pd_weather(pd_weather)
+                pseudo_weather = move['pseudoWeather']
+                env.set_pseudo_weather(pseudo_weather)
 
             if 'terrain' in move:
                 terrain = move['terrain']
@@ -316,12 +355,14 @@ class Utils:
                         user.boost('atk', 6)
                 else:
                     self.log.add(user, 'belly_fail_hp')
-        if target.ability in ['Iron Barbs', 'Rough Skin']:
-            user.damage(0, perc=1 / 8)
-            self.log.add()
 
-        if target.item == 'Rocky Helmet':
-            user.damage(0, prec=1 / 6)
+        if 'contact' in move['flags']:
+            if target.ability in ['Iron Barbs', 'Rough Skin']:
+                user.damage(0, perc=1 / 8)
+                self.log.add()
+
+            if target.item == 'Rocky Helmet':
+                user.damage(0, perc=1 / 6)
 
     def check_useful(self, user, target, move):
         sk_type = move['type']
@@ -331,6 +372,14 @@ class Utils:
         acc = move['accuracy']
         acc_buff = 1
         # 特性修正
+
+        if target.protect == True:
+            if sk_name == 'Feint':
+                self.log.add(user, 'feint', target.name)
+                target.protect = 2
+            else:
+                self.log.add(target, 'protect_from')
+                return NoEffect
 
         if user.ability in ['Moldbreaker', 'Teravolt', 'Turboblaze']:
             target.moldbreak()
@@ -451,6 +500,9 @@ class Utils:
             for key, boost in user.stat_lv.items():
                 if boost > 0:
                     power += boost * 20
+
+        if sk_name == 'Acrobatics' and user.item is None:
+            power *= 2
 
         if sk_name in ['Low Kick', 'Grass Knot']:
             if target.weight < 10:
@@ -762,4 +814,4 @@ if __name__ == '__main__':
         pkm.setup(0, player, env, log)
     env = Env()
 
-    utils.step_turn_pkm(env=env, pkms=[pkms1[2], pkms2[5]], move_names=['stealthrock', 'shadowball'])
+    utils.step_turn_pkm(env=env, pkms=[pkms1[2], pkms2[5]], moves=['stealthrock', 'shadowball'])

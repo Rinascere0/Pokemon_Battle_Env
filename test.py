@@ -30,16 +30,4 @@ def get_key(key):
 def get_move(name):
     print(Moves[name])
 
-
-# print(Moves['bide'])
-def fun():
-    a = 'bjk'
-    b = 'bjk'
-    d = 'cjk'
-    c = 'bjk'
-    print(a is c)
-
-fun()
-
-get_move('electricterrain')
-get_key('selfdestruct')
+print(Moves['taunt'])

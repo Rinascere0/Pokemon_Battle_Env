@@ -13,8 +13,25 @@ def minus(x, y):
         return x - y
 
 
+def calc_type_buff(move, target):
+    sk_name, sk_type = move['name'], move['type']
+    type_buff = 1
+    for attr in target.attr:
+        type_buff *= get_attr_fac(sk_type, attr)
+
+    if sk_name == 'Flying Press':
+        for attr in target.attr:
+            type_buff *= get_attr_fac(Attr.Flying, attr)
+
+    if sk_name == 'Freeze Dry' and target.attr:
+        # should be effective
+        type_buff *= 4
+
+    return type
+
+
 def imm_ground(pkm):
-    if 'Flying' in pkm.attr or pkm.ability == 'Levitate':
+    if 'Flying' in pkm.attr or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon':
         return True
     return False
 

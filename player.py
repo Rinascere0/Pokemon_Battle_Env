@@ -48,6 +48,9 @@ class Player:
     def lose(self):
         return not self.alive.any()
 
+    def get_opponent_pivot(self):
+        return self.game.players[1 - self.pid].get_pivot()
+
     def faint(self, pkm_id):
         self.alive[pkm_id] = False
 
@@ -83,16 +86,15 @@ class RandomPlayer(Player):
 
     def gen_move(self):
         pivot = self.pkms[self.pivot]
-        return np.random.choice(pivot.moves, p=pivot.move_mask / pivot.move_mask.sum()).replace(' ', '').replace('-',
-                                                                                                                 '').lower()
+        return np.random.choice(pivot.move_infos, p=pivot.move_mask / pivot.move_mask.sum())
 
     def gen_switch(self):
         return np.random.choice(np.arange(0, 6), p=self.alive / self.alive.sum())
 
-    def switch(self, pivot):
+    def switch(self, env, pivot):
         self.log.add(self, 'withdraw', self.get_pivot().name)
         self.log.add(self, 'switch', self.pkms[pivot].name)
-        self.pkms[pivot].switch(self.get_pivot())
+        self.pkms[pivot].switch(env, self.get_pivot())
         self.pivot = pivot
 
     def make_switch(self, random=False):

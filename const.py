@@ -7,6 +7,20 @@ class Signal:
     Wait, Move, Switch, End = range(4)
 
 
+memories = {'Bug Memory': 'Bug', 'Dark Memory': 'Dark', 'Dragon Memory': 'Dragon', 'Electric Memory': 'Electric',
+            'Fairy Memory': 'Fairy', 'Fighting Memory': 'Fighting', 'Fire Memory': 'Fire', 'Flying Memory': 'Flying',
+            'Ghost Memory': 'Ghost', 'Grass Memory': 'Grass', 'Ground Memory': 'Ground', 'Ice Memory': 'Ice',
+            'Poison Memory': 'Poison', 'Psychic Memory': 'Psychic', 'Rock Memory': 'Rock', 'Steel Memory': 'Steel',
+            'Water Memory': 'Water'}
+
+plates = {'Pixie Plate': 'Fairy', 'Draco Plate': 'Dragon', 'Dread Plate': "Dark", 'Earth Plate': 'Ground',
+          'Fist Plate': 'Fighting',
+          'Flame Plate': 'Fire', 'Icicle Plate': 'Ice', 'Insect Plate': 'Bug', 'Iron Plate': 'Steel',
+          'Meadow Plate': 'Grass',
+          'Mind Plate': 'Psychic', 'Sky Plate': 'Flying', 'Splash Plate': 'Water', 'Spooky Plate': 'Ghost',
+          'Stone Plate': 'Rock', 'Toxic Plate': 'Poison', 'Zap Plate': 'Electric'}
+
+
 class Weather:
     Harsh, Rain, Sandstorm, Hail = range(4)
 

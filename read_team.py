@@ -1,3 +1,4 @@
+import random
 import re
 from pokemon import Pokemon
 import pickle
@@ -12,10 +13,10 @@ def read_set():
     evs = '(\nEVs:\s((?P<HP>[0-9]+)\sHP)?(\s\/\s)?((?P<Atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<Def>[0-9]+)\sDef)?(\s\/\s)?((?P<SpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<SpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<Spe>[0-9]+)\sSpe)?)?'
     ivs = '(\nIVs:\s((?P<iHP>[0-9]+)\sHP)?(\s\/\s)?((?P<iAtk>[0-9]+)\sAtk)?(\s\/\s)?((?P<iDef>[0-9]+)\sDef)?(\s\/\s)?((?P<iSpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<iSpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<iSpe>[0-9]+)\sSpe)?)?'
     nature = '(\n(?P<Nature>[a-zA-Z]+)\sNature)?'
-    move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-]+))'
-    move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-]+))?'
-    move3 = '(\n\-\s(?P<Move3>[a-zA-Z0-9 \-]+))?'
-    move4 = '(\n\-\s(?P<Move4>[a-zA-Z0-9 \-]+))?'
+    move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-\[\]]+))'
+    move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-\[\]]+))?'
+    move3 = '(\n\-\s(?P<Move3>[a-zA-Z0-9 \-\[\]]+))?'
+    move4 = '(\n\-\s(?P<Move4>[a-zA-Z0-9 \-\[\]]+))?'
     total = info + ability + shiny + evs + ivs + nature + move1 + move2 + move3 + move4
     pms = s.split('\n\n')
 
@@ -41,21 +42,23 @@ def read_set():
         f.write('ou_sets=' + str(pkm_dicts))
 
 
-def read_team():
-    with open('team/2', 'r') as f:
+def read_team(tid=0):
+    if tid==0:
+        tid=random.choice(list(range(1,6)))
+    with open('team/' + str(tid), 'r') as f:
         s = f.read()
 
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
-    ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 ]+))'
+    ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 \-]+))'
     shiny = '(\nShiny:\s(?P<Shiny>[a-zA-Z]+))?'
     evs = '(\nEVs:\s((?P<HP>[0-9]+)\sHP)?(\s\/\s)?((?P<Atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<Def>[0-9]+)\sDef)?(\s\/\s)?((?P<SpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<SpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<Spe>[0-9]+)\sSpe)?)?'
     ivs = '(\nIVs:\s((?P<iHP>[0-9]+)\sHP)?(\s\/\s)?((?P<iAtk>[0-9]+)\sAtk)?(\s\/\s)?((?P<iDef>[0-9]+)\sDef)?(\s\/\s)?((?P<iSpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<iSpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<iSpe>[0-9]+)\sSpe)?)?'
     nature = '(\n(?P<Nature>[a-zA-Z]+)\sNature)?'
-    move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-]+))'
-    move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-]+))?'
-    move3 = '(\n\-\s(?P<Move3>[a-zA-Z0-9 \-]+))?'
-    move4 = '(\n\-\s(?P<Move4>[a-zA-Z0-9 \-]+))?'
-    total = info + ability + shiny + evs + ivs + nature + move1 + move2 + move3 + move4
+    move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-\[\]]+))'
+    move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-\[\]]+))?'
+    move3 = '(\n\-\s(?P<Move3>[a-zA-Z0-9 \-\[\]]+))?'
+    move4 = '(\n\-\s(?P<Move4>[a-zA-Z0-9 \-\[\]]+))?'
+    total = info + ability + shiny + evs + nature + ivs + move1 + move2 + move3 + move4
     pms = s.split('\n\n')
     pkms = []
     for pm in pms:
@@ -65,9 +68,8 @@ def read_team():
             res['Lv'] = 100
         pkms.append(Pokemon(res))
 
-
     return pkms
 
 
 if __name__ == '__main__':
-    read_set()
+    read_team()
