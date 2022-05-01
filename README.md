@@ -18,3 +18,20 @@ counter\
 mirror coat\
 U-turn\
 volt switch
+
+2020.5.1
+
+【Add】\
+weather ability & stop\
+terrain ability & stop\
+seeds\
+pressure\
+pp\
+
+【Todo】\
+download \
+anticipation\
+unnerve\
+intimidate\
+ssilvally\
+arceus\

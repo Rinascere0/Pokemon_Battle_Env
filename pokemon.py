@@ -14,7 +14,7 @@ class Pokemon:
     def __init__(self, info):
         # load team info
         self.name = info['Name']
-        #    self.nickname = info['nickname']
+        #    self.nickname = info['nicknam]e']
         self.gender = info['Gender']
         self.evs = {key: None2Zero(value) for key, value in info.items() if
                     key in ['Atk', 'Def', 'SpA', 'SpD', 'Spe', 'HP']}
@@ -22,6 +22,7 @@ class Pokemon:
                     key in ['iAtk', 'iDef', 'iSpA', 'iSpD', 'iSpe', 'iHP']}
         self.nature = info['Nature']
         self.moves = [info['Move1'], info['Move2'], info['Move3'], info['Move4']]
+        self.pp = [Moves[move]['pp'] * 1.6 for move in self.moves]
         self.lv = info['Lv']
         self.item = info['Item']
         self.base_ability = info['Ability']
@@ -97,6 +98,11 @@ class Pokemon:
 
     def get_sidecond(self):
         return self.env.side_condition[self.player.pid]
+
+    def loss_pp(self, move, pp):
+        for i, m in enumerate(self.moves):
+            if m == move['name']:
+                self.pp[i] -= pp
 
     def faint(self):
         self.log.add(self, 'faint')
@@ -428,6 +434,60 @@ class Pokemon:
         if self.get_sidecond()['stealthrock'] > 0 and self.ability != 'Magic Guard':
             self.log.add(self, '+stealthrock')
             self.damage(0, perc=1 / 8, attr=Attr.Rock)
+
+        if self.ability == 'Moldbreaker':
+            self.log.add(self, 'mold')
+
+        if self.ability == 'Pressure':
+            self.log.add(self, 'pressure')
+
+        if self.ability == 'Drizzy':
+            self.player.env.set_weather(weather='Raindance', item=self.item)
+
+        if self.ability == 'Drought':
+            self.player.env.set_weather(weather='sunnyday', item=self.item)
+
+        if self.ability == 'Snow Warning':
+            self.player.env.set_weather(weather='hail', item=self.item)
+
+        if self.ability == 'Sand Stream':
+            self.player.env.set_weather(weather='Sandstorm', item=self.item)
+
+        if self.ability == 'Electric Surge':
+            self.player.env.set_terrain(weather='electricterrain', item=self.item)
+
+        if self.ability == 'Grass Surge':
+            self.player.env.set_terrain(weather='grassyterrain', item=self.item)
+
+        if self.ability == 'Mist Surge':
+            self.player.env.set_terrain(weather='mistterrain', item=self.item)
+
+        if self.ability == 'Psychic Surge':
+            self.player.env.set_terrain(weather='psychicterrain', item=self.item)
+
+        if self.ability == 'Unnerve':
+            # TODO
+            pass
+
+        if self.ability == 'Anticipation':
+            # TODO
+            pass
+
+        if self.ability == 'Download':
+            # TODO
+            pass
+
+        if self.ability == 'Intimidate':
+            # TODO
+            pass
+
+        if self.item in ['Electric Seed', 'Grassy Seed']:
+            self.log(self, 'use item')
+            self.boost('def', 1)
+
+        if self.item in ['Psychic Seed', 'Mist Seed']:
+            self.log(self, 'use item')
+            self.boost('spd', 1)
 
     def act(self):
         if self.status == 'slp':

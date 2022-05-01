@@ -35,8 +35,11 @@ def get_move(name):
 def fun():
     a = 'bjk'
     b = 'bjk'
-    a = a.replace('b', 'c')
     d = 'cjk'
+    c = 'bjk'
+    print(a is c)
 
-get_move('mist')
+fun()
+
+get_move('electricterrain')
 get_key('selfdestruct')

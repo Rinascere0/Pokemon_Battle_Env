@@ -130,6 +130,11 @@ class Utils:
                 return
 
         self.log.add(user, 'use', move['name'])
+        if target.ability is 'Pressure':
+            self.loss_pp(move, 2)
+        else:
+            self.loss_pp(move, 1)
+
         if move['name'] == 'Splash':
             self.log.add(event='splash')
 
@@ -328,7 +333,6 @@ class Utils:
         # 特性修正
 
         if user.ability in ['Moldbreaker', 'Teravolt', 'Turboblaze']:
-            self.log.add(user, 'mold')
             target.moldbreak()
 
         if sk_ctg == 'Status':

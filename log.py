@@ -85,6 +85,9 @@ class BattleLog:
         elif event == 'mold':
             log = 'is breaking the mold!'
 
+        elif event=='pressure':
+            log='is exerting pressure!'
+
         elif event == 'splash':
             log = 'But nothing happened...'
 
