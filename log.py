@@ -19,8 +19,8 @@ class BattleLog:
             for pkm in player.pkms:
                 pkm_str += pkm.name + '/'
             self.log.append([None, player.name + '\'s pokemons: ' + pkm_str[:-1]])
-        for player in players:
-            self.log.append([None, player.name + ' sent out ' + player.get_pivot().name + '!'])
+
+    def match_up(self):
         self.total_logs.append(self.log)
         self.step_print()
 
@@ -57,8 +57,8 @@ class BattleLog:
         elif event == 'rough':
             log = 'was hurt by rough skin!'
 
-        #    elif event == 'heal':
-        #        log = 'was healed ' + str(val) + '% of it\'s health!'
+        elif event == 'heal':
+            log = 'was healed ' + str(val) + '% of it\'s health!'
 
         elif event == 'lost':
             log = 'lost ' + str(val) + '% of it\'s health!'
@@ -112,6 +112,12 @@ class BattleLog:
         elif event == 'splash':
             log = 'But nothing happened...'
 
+        elif event == 'knockoff':
+            log = 'knocked off ' + val.name + '\'s ' + val.item + '!'
+
+        elif event == 'obtain':
+            log = 'obtained ' + val + '!'
+
         elif event == 'taunt':
             log = 'was taunted!'
 
@@ -137,7 +143,7 @@ class BattleLog:
             actor = None
 
         elif event == '+toxicspikes':
-            log = 'was influenced by toxic spikes.'
+            log = 'was influenced by toxic spikes!'
 
         elif event == '-toxicspikes':
             log = 'absorbed the toxic spikes!'
@@ -147,7 +153,13 @@ class BattleLog:
             actor = None
 
         elif event == '+spikes':
-            log = 'was hurt by spikes.'
+            log = 'was hurt by spikes!'
+
+        elif event == '+posion':
+            log = 'was hurt by it\'s posion!'
+
+        elif event == '+burn':
+            log = 'was hurt by it\'s burn!'
 
         elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
                        '-quickguard',
@@ -159,6 +171,9 @@ class BattleLog:
             if 'Hidden Power' in val:
                 val = 'Hidden Power'
             log = 'used ' + str(val) + '!'
+
+        elif event == 'use_item':
+            log = 'used ' + val + '!'
 
         elif event == 'fail':
             log = 'But it failed!'
@@ -220,7 +235,25 @@ class BattleLog:
         elif event == '-balloon':
             log = '\'s Air Balloon popped!'
 
-        #  elif event=='lockedmove':
+        elif event == 'Rocky Helmet':
+            log = 'was hurt by Rocky Helmet!'
+
+        elif event in ['Iron Barbs', 'Rough Skin']:
+            log = 'was hurt by ' + event + '!'
+
+        elif event == 'steadfast':
+            log = '\'s Steadfast activated!'
+
+        elif event == 'justified':
+            log = '\'s Justified activated!'
+
+        elif event == 'protean':
+            log = '\'s Protean activated!'
+
+        elif event == 'change_type':
+            log = '\'s type changed to ' + val + '!' \
+                                                 ''
+        # elif event=='lockedmove':
         #     log='locked'
 
         elif event == '+1':

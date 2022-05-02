@@ -5,6 +5,7 @@ from data.moves import Moves
 from read_team import *
 from player import Player
 from env import Env
+from const import *
 
 from log import BattleLog
 
@@ -54,7 +55,7 @@ class Utils:
             else:
                 self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, last=True)
                 if pkms[first].turn:
-                    players[first].switch(moves[first])
+                    players[first].switch(moves[first], withdraw=True)
                     pkms[1 - first].turn = False
                 return
         else:
@@ -73,10 +74,16 @@ class Utils:
 
         return done, to_switch
 
+    def match_up(self, env, players, pivots):
+        for pid, (player, pivot) in enumerate(zip(players, pivots)):
+            player.switch(env, pivot)
+        self.log.match_up()
+
     def check_switch(self, env, players, pivots=[None, None]):
         done = False
         to_switch = []
         for pid, (player, pivot) in enumerate(zip(players, pivots)):
+            player.get_pivot().switch_on = False
             if pivot is not None:
                 player.switch(env, pivot)
 
@@ -86,12 +93,12 @@ class Utils:
                     done = True
                 else:
                     to_switch.append(player)
-            else:
-                player.get_pivot().end_turn(env, players[1 - pid].get_pivot())
 
-        if not to_switch:
+        if not to_switch and not done:
             self.switch_on(players, env)
-
+            for player, pivot in zip(players, pivots):
+                if pivot is None:
+                    player.get_pivot().end_turn(env, players[1 - pid].get_pivot())
         return done, to_switch
 
     def switch_on(self, players, env):
@@ -99,14 +106,13 @@ class Utils:
             user = player.get_pivot()
             target = players[1 - pid].get_pivot()
             if user.switch_on:
-                user.switch_on = False
                 if user.ability == 'Anticipation':
                     for move in target.move_infos:
                         if calc_type_buff(move, user) > 1 or 'ohko' in move:
                             self.log.add(user, 'anticipate')
                             break
 
-                if user.ability == 'Frish':
+                if user.ability == 'Frisk':
                     if target.item:
                         self.log.add(user, 'frisk', target.item)
 
@@ -156,6 +162,9 @@ class Utils:
     def use_move(self, user: Pokemon, target: Pokemon, move, env, last):
         if user.vstatus['flinch']:
             self.log.add(user, '+flinch')
+            if user.ability == 'Steadfast':
+                self.log.add(user, 'steadfast')
+                user.boost('spe', 1)
             return
         if user.status is 'slp':
             if user.status_turn == 0:
@@ -177,8 +186,17 @@ class Utils:
         else:
             user.loss_pp(move, 1)
 
+        if user.ability == 'Protean':
+            self.log.add(user, 'protean')
+            self.log.add(user, 'change_type', move['type'])
+            user.attr = [move['type']]
+
         if move['name'] == 'Splash':
             self.log.add(event='splash')
+
+        if move['name'] in ['Fake Out', 'First Impression'] and not user.switch_on:
+            self.log.add(event='fail')
+            return
 
         if 'charge' in move['flags']:
             if user.charge is None:
@@ -207,7 +225,7 @@ class Utils:
         if 'multiaccuracy' in move:
             count = move['multihit']
         for _ in range(count):
-            useful = self.check_useful(user, target, move)
+            useful = self.check_useful(env, user, target, move)
             if useful == Hit:
                 if self_destruct == 'ifHit':
                     user.damage(0, 100)
@@ -218,8 +236,6 @@ class Utils:
             else:
                 self.log.add(actor=target, event='0effect')
                 user.set_lock()
-
-
 
     def effect_move(self, user: Pokemon, target: Pokemon, move, env, last):
         ctg = move['category']
@@ -237,7 +253,7 @@ class Utils:
 
             for _ in range(count):
                 dmg = self.calc_dmg(user, target, move, env, last)
-                target.damage(val=dmg, perc=False, user=user)
+                target.damage(val=dmg, perc=False, attr=move['type'], user=user)
 
             sec_target = target
             if 'secondary' in move:
@@ -315,10 +331,9 @@ class Utils:
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
+                cond = None
                 if 'condition' in move:
                     cond = move['condition']
-                else:
-                    cond = None
                 target.add_vstate(vstatus, cond)
 
             #     if 'sideCondition' in move:
@@ -358,13 +373,14 @@ class Utils:
 
         if 'contact' in move['flags']:
             if target.ability in ['Iron Barbs', 'Rough Skin']:
+                self.log.add(user, target.ability)
                 user.damage(0, perc=1 / 8)
-                self.log.add()
 
             if target.item == 'Rocky Helmet':
+                self.log.add(user, 'Rocky Helmet')
                 user.damage(0, perc=1 / 6)
 
-    def check_useful(self, user, target, move):
+    def check_useful(self, env, user, target, move):
         sk_type = move['type']
         sk_name = move['name']
         sk_ctg = move['category']
@@ -406,7 +422,7 @@ class Utils:
             elif env.weather is 'Sandstorm':
                 sk_type = 'Rock'
 
-        if sk_type == Attr.Water:
+        if sk_type == 'Water':
             if target.ability == 'Water Absorb':
                 target.heal(1 / 4, perc=Hit)
                 return NoEffect
@@ -417,12 +433,12 @@ class Utils:
             target.Satk_lv += 1
             return NoEffect
 
-        if sk_type == Attr.Fire:
+        if sk_type == 'Fire':
             if target.ability == 'Flash Fire':
                 target.flash_fire = Hit
                 return NoEffect
 
-        if sk_type == Attr.Electric:
+        if sk_type == 'Electric':
             if target.ability == 'Lightning Rod':
                 target.Satk_lv += 1
                 return NoEffect
@@ -433,13 +449,13 @@ class Utils:
                 target.heal(1 / 4, perc=Hit)
                 return NoEffect
 
-        if sk_type == Attr.Grass:
+        if sk_type == 'Grass':
             if target.ability == 'Sap Sipper':
                 target.Atk_lv += 1
                 return NoEffect
 
-        if sk_type == Attr.Ground:
-            if target.ability == 'Levitate':
+        if sk_type == 'Ground':
+            if imm_ground(target):
                 return NoEffect
 
         if target.ability == 'Bulletproof' and 'bullet' in sk_flag:
@@ -495,6 +511,14 @@ class Utils:
 
         if 'ohko' in move:
             return target.HP
+
+        if sk_name == 'Knock Off':
+            if target.item and target.item not in mega_stones and not (
+                    target.name == 'Arceus' and target.item in plates) and not (
+                    target.name == 'Silvally' and target.item in memories) and 'ium Z' not in target.item:
+                power *= 1.5
+                self.log.add(user, 'knockoff', target)
+                target.lose_item()
 
         if sk_name == 'Stored Power':
             for key, boost in user.stat_lv.items():
@@ -604,7 +628,7 @@ class Utils:
 
         if sk_name == 'Flying Press':
             for attr in target.attr:
-                type_buff *= get_attr_fac(Attr.Flying, attr)
+                type_buff *= get_attr_fac('Flying', attr)
 
         if sk_name == 'Freeze Dry' and target.attr:
             # should be effective
@@ -648,64 +672,64 @@ class Utils:
         if user.metronome > 0:
             other_buff = 1 + 0.1 * user.metronome
 
-        if sk_type == Attr.Fire and user.item == 'Flame Plate':
+        if sk_type == 'Fire' and user.item == 'Flame Plate':
             other_buff = 1.2
-        if sk_type == Attr.Grass and user.item == 'Meadow Plate':
+        if sk_type == 'Grass' and user.item == 'Meadow Plate':
             other_buff = 1.2
-        if sk_type == Attr.Water and user.item == 'Splash Plate':
+        if sk_type == 'Water' and user.item == 'Splash Plate':
             other_buff = 1.2
-        if sk_type == Attr.Ground and user.item == 'Earth Plate':
+        if sk_type == 'Ground' and user.item == 'Earth Plate':
             other_buff = 1.2
-        if sk_type == Attr.Bug and user.item == 'Insect Plate':
+        if sk_type == 'Bug' and user.item == 'Insect Plate':
             other_buff = 1.2
-        if sk_type == Attr.Ice and user.item == 'Icicle Plate':
+        if sk_type == 'Ice' and user.item == 'Icicle Plate':
             other_buff = 1.2
-        if sk_type == Attr.Steel and user.item == 'Iron Plate':
+        if sk_type == 'Steel' and user.item == 'Iron Plate':
             other_buff = 1.2
-        if sk_type == Attr.Fighting and user.item == 'Fist Plate':
+        if sk_type == 'Fighting' and user.item == 'Fist Plate':
             other_buff = 1.2
-        if sk_type == Attr.Psychic and user.item == 'Mind Plate':
+        if sk_type == 'Psychic' and user.item == 'Mind Plate':
             other_buff = 1.2
-        if sk_type == Attr.Flying and user.item == 'Sky Plate':
+        if sk_type == 'Flying' and user.item == 'Sky Plate':
             other_buff = 1.2
-        if sk_type == Attr.Dark and user.item == 'Dread Plate':
+        if sk_type == 'Dark' and user.item == 'Dread Plate':
             other_buff = 1.2
-        if sk_type == Attr.Ghost and user.item == 'Spooky Plate':
+        if sk_type == 'Ghost' and user.item == 'Spooky Plate':
             other_buff = 1.2
-        if sk_type == Attr.Rock and user.item == 'Stone Plate':
+        if sk_type == 'Rock' and user.item == 'Stone Plate':
             other_buff = 1.2
-        if sk_type == Attr.Electric and user.item == 'Zap Plate':
+        if sk_type == 'Electric' and user.item == 'Zap Plate':
             other_buff = 1.2
-        if sk_type == Attr.Poison and user.item == 'Toxic Plate':
+        if sk_type == 'Poison' and user.item == 'Toxic Plate':
             other_buff = 1.2
-        if sk_type == Attr.Fairy and user.item == 'Pixie Plate':
+        if sk_type == 'Fairy' and user.item == 'Pixie Plate':
             other_buff = 1.2
-        if sk_type == Attr.Dragon and user.item == 'Draco Plate':
+        if sk_type == 'Dragon' and user.item == 'Draco Plate':
             other_buff = 1.2
 
         # ability buff
-        if user.ability == 'Aerilate' and attr == Attr.Normal:
-            attr = Attr.Flying
+        if user.ability == 'Aerilate' and attr == 'Normal':
+            attr = 'Flying'
             other_buff *= 1.3
 
-        if user.ability == 'Galvanize' and attr == Attr.Normal:
-            attr = Attr.Electric
+        if user.ability == 'Galvanize' and attr == 'Normal':
+            attr = 'Electric'
             other_buff *= 1.3
 
-        if user.ability == 'Refrigerate' and attr == Attr.Normal:
-            attr = Attr.Ice
+        if user.ability == 'Refrigerate' and attr == 'Normal':
+            attr = 'Ice'
             other_buff *= 1.3
 
-        if user.ability == 'Pixilate' and attr == Attr.Normal:
-            attr = Attr.Fairy
+        if user.ability == 'Pixilate' and attr == 'Normal':
+            attr = 'Fairy'
             other_buff *= 1.3
 
         if user.ability == 'Liquid Voice':
             if sk_name in sound_move:
-                attr = Attr.Water
+                attr = 'Water'
 
         if user.ability == 'Normalize':
-            attr = Attr.Normal
+            attr = 'Normal'
             other_buff *= 1.2
 
         if user.ability == 'Flare Boost' and user.status is 'brn' and ctg == 'Special':
@@ -721,22 +745,22 @@ class Utils:
         if user.ability == 'Analytic' and last:
             other_buff *= 1.3
 
-        if user.ability == 'Blaze' and user.HP <= user.maxHP / 3 and sk_type == Attr.Fire:
+        if user.ability == 'Blaze' and user.HP <= user.maxHP / 3 and sk_type == 'Fire':
             other_buff *= 1.5
 
-        if user.ability == 'Overgrow' and user.HP <= user.maxHP / 3 and sk_type == Attr.Grass:
+        if user.ability == 'Overgrow' and user.HP <= user.maxHP / 3 and sk_type == 'Grass':
             other_buff *= 1.5
 
-        if user.ability == 'Torrent' and user.HP <= user.maxHP / 3 and sk_type == Attr.Water:
+        if user.ability == 'Torrent' and user.HP <= user.maxHP / 3 and sk_type == 'Water':
             other_buff *= 1.5
 
-        if user.ability == 'Swarm' and user.HP <= user.maxHP / 3 and sk_type == Attr.Bug:
+        if user.ability == 'Swarm' and user.HP <= user.maxHP / 3 and sk_type == 'Bug':
             other_buff *= 1.5
 
-        if 'Dark Aura' in [user.ability, target.ability] and attr == Attr.Dark:
+        if 'Dark Aura' in [user.ability, target.ability] and attr == 'Dark':
             other_buff *= 1.3
 
-        if 'Fairy Aura' in [user.ability, target.ability] and attr == Attr.Fairy:
+        if 'Fairy Aura' in [user.ability, target.ability] and attr == 'Fairy':
             other_buff *= 1.3
 
         if user.ability == 'Iron Fist' and 'Punch' in sk_name and sk_name != 'Sucker Punch':
@@ -755,7 +779,7 @@ class Utils:
                 other_buff *= 0.75
 
         if user.ability == 'Sand Force' and env.weather == Weather.Sandstorm:
-            if sk_type in [Attr.Rock, Attr.Steel, Attr.Ground]:
+            if sk_type in ['Rock', 'Steel', 'Ground']:
                 other_buff *= 1.3
 
         if user.ability == 'Strong Jaw' and sk_name in biting_move:
@@ -770,25 +794,25 @@ class Utils:
         if user.ability == 'Tough Claws' and 'contact' in flag:
             other_buff *= 1.3
 
-        if user.ability == 'Water Bubble' and sk_type == Attr.Water:
+        if user.ability == 'Water Bubble' and sk_type == 'Water':
             other_buff *= 2
 
         # Defence Buff
         if target.ability == 'Fluffy':
-            if sk_type == Attr.Fire:
+            if sk_type == 'Fire':
                 other_buff *= 2
             if 'contact' in flag:
                 other_buff *= 0.5
 
         if target.ability == 'Thick Fat':
-            if sk_type in [Attr.Ice, Attr.Fire]:
+            if sk_type in ['Ice', 'Fire']:
                 other_buff *= 0.5
 
-        if target.ability == 'Water Bubble' and sk_type == Attr.Fire:
+        if target.ability == 'Water Bubble' and sk_type == 'Fire':
             other_buff *= 0.5
 
         if target.ability == 'Dry Skin':
-            if sk_type == Attr.Fire:
+            if sk_type == 'Fire':
                 other_buff *= 1.25
 
         if target.ability in ['Prism Armor', 'Filter', 'Solid Rock'] and type_buff > 1:
@@ -814,4 +838,4 @@ if __name__ == '__main__':
         pkm.setup(0, player, env, log)
     env = Env()
 
-    utils.step_turn_pkm(env=env, pkms=[pkms1[2], pkms2[5]], moves=['stealthrock', 'shadowball'])
+    utils.step_turn_pkm(env=env, pkms=[pkms1[2], pkms2[5]], moves=['gigadrain', 'shadowball'])

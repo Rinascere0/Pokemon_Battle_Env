@@ -1,6 +1,7 @@
 import random
 import time
 import numpy as np
+from abc import abstractmethod
 
 from pokemon import Pokemon
 from const import *
@@ -67,15 +68,13 @@ class Player:
             elif self.status == Signal.End:
                 return
 
+    @abstractmethod
     def gen_move(self):
         # TODO
         return
 
+    @abstractmethod
     def gen_switch(self):
-        # TODO
-        return
-
-    def switch(self):
         # TODO
         return
 
@@ -91,8 +90,9 @@ class RandomPlayer(Player):
     def gen_switch(self):
         return np.random.choice(np.arange(0, 6), p=self.alive / self.alive.sum())
 
-    def switch(self, env, pivot):
-        self.log.add(self, 'withdraw', self.get_pivot().name)
+    def switch(self, env, pivot, withdraw=False):
+        if withdraw:
+            self.log.add(self, 'withdraw', self.get_pivot().name)
         self.log.add(self, 'switch', self.pkms[pivot].name)
         self.pkms[pivot].switch(env, self.get_pivot())
         self.pivot = pivot

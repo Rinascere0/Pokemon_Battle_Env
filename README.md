@@ -47,6 +47,20 @@ unnerve\
 ✔trace\
 ✔silvally\
 ✔arceus\
-match-up switch-on
+✔match-up switch-\
 is to ==
 
+2020.5.2
+
+【Add】\
+Justified\
+Steadfast\
+Fake Out\
+First Impression
+
+【Todo】\
+Trick\
+Sucker Punch
+
+【ToFix】\
+反复去世！

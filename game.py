@@ -37,9 +37,17 @@ class Game:
         time.sleep(0.1)
         self.log.reset(self.players)
 
-        Round = 1
-        done = False
+        # Match-up
         self.moves = []
+        self.players[0].signal(Signal.Switch)
+        self.players[1].signal(Signal.Switch)
+        while len(self.moves) < 2:
+            time.sleep(0.01)
+        done = self.utils.match_up(self.env, self.round_players, self.moves)
+        self.reset_round()
+
+        # Mainloop
+        Round = 1
         while not done:
             print('Round', Round)
             self.players[0].signal(Signal.Move)

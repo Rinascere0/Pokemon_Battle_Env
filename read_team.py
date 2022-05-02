@@ -43,8 +43,8 @@ def read_set():
 
 
 def read_team(tid=0):
-    if tid==0:
-        tid=random.choice(list(range(1,6)))
+    if tid == 0:
+        tid = random.choice(list(range(1, 11)))
     with open('team/' + str(tid), 'r') as f:
         s = f.read()
 
@@ -66,6 +66,14 @@ def read_team(tid=0):
         res = re.search(total, pm).groupdict()
         if 'Lv' not in res:
             res['Lv'] = 100
+        if '-Mega-X' in res['Name']:
+            res['Name'] = res['Name'].replace('-Mega-X', '')
+        if '-Mega-X' in res['Name']:
+            res['Name'] = res['Name'].replace('-Mega-Y', '')
+        if '-Ash' in res['Name']:
+            res['Name'] = res['Name'].replace('-Ash', '')
+        if '-Mega' in res['Name']:
+            res['Name'] = res['Name'].replace('-Mega', '')
         pkms.append(Pokemon(res))
 
     return pkms

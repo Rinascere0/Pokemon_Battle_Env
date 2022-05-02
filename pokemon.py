@@ -73,6 +73,10 @@ class Pokemon:
         self.lock_move = None
         self.lock_round = 0
 
+        # charge move e.g. solar beam
+        self.charge = None
+        self.charge_round = 0
+
         # multihit buff e.g. triple kick
         self.multi_count = 0
 
@@ -104,11 +108,23 @@ class Pokemon:
         self.log = None
 
     def use_item(self):
+        self.log.add(self, 'use_item', self.item)
         self.used_item = self.item
         self.base_item = None
         self.item = None
         if self.ability == 'Unburden':
             self.unburden = True
+
+    def lose_item(self, sub=None):
+        if sub:
+            self.base_item = sub
+            self.item = sub
+            self.log.add(self, 'obtain', sub)
+        else:
+            self.base_item = None
+            self.item = None
+            if self.ability == 'Unburden':
+                self.unburden = True
 
     def setup(self, pkm_id, player, env, log):
         self.pkm_id = pkm_id
@@ -195,8 +211,9 @@ class Pokemon:
         self.vstatus[vstatus] = turn
 
     def add_sidecond(self, sidecond, cond=None):
-        if sidecond == 'toxicspikes' and self.get_sidecond()[sidecond] > 1 or sidecond != 'toxicspikes' and \
-                self.get_sidecond()[sidecond] > 0:
+        if sidecond == 'toxicspikes' and self.get_sidecond()[sidecond] > 1 \
+                or sidecond == 'spikes' and self.get_sidecond()[sidecond] > 1 \
+                or 'spikes' not in sidecond and self.get_sidecond()[sidecond] > 0:
             self.log.add(event='fail')
             return
         if sidecond == 'auroraveil' and self.env.weather['hail'] == 0:
@@ -220,7 +237,6 @@ class Pokemon:
     def heal(self, val, perc=False, target=None):
         if perc:  # 百分比治疗
             val = int(self.maxHP * perc)
-
         if self.item == 'Big Root':
             val = int(val * 1.3)
 
@@ -228,8 +244,9 @@ class Pokemon:
             self.log.add(self, 'ooze')
             self.damage(val)
         else:
-            self.HP = min(self.maxHP, self.HP + val)
-            self.log.add(self, 'heal', val / self.maxHP)
+            val = min(val, self.maxHP - self.HP)
+            self.HP += val
+            self.log.add(self, 'heal', int(100*val / self.maxHP))
 
     def boost(self, stat, lv, src=None):
         if self.ability == 'Contrary':
@@ -286,7 +303,7 @@ class Pokemon:
                             'Ice Scales', 'Ice Face', 'Pastel Veil ']:
             self.ability = ""
 
-    def damage(self, val, perc=False, const=0, attr=Attr.NoAttr, user=None):
+    def damage(self, val, perc=False, const=0, attr='NoAttr', user=None):
         if val < 0:
             #    print('but it didn\'t work!')
             return False
@@ -295,7 +312,7 @@ class Pokemon:
         if const:
             val = const
         for my_attr in self.attr:
-            val *= Attr_Mat[attr][Attr_dict[my_attr]]
+            val *= get_attr_fac(attr, my_attr)
         if self.vstatus['substitute'] > 0:  # 替身伤害
             self.vstatus['substitute'] = minus(self.vstatus['substitute'], val)
             self.log.add(event='sub_dmg')
@@ -359,6 +376,12 @@ class Pokemon:
                 if move['category'] == 'Status':
                     self.move_mask[move_id] = 0
 
+        if self.charge:
+            self.charge_round += 1
+            if self.charge_round == 2:
+                self.charge = None
+                self.charge_round = 0
+
         if self.ability == 'Speed Boost':
             self.boost('spe', 1, 'Speed Boost')
 
@@ -378,14 +401,17 @@ class Pokemon:
             self.damage(val=0, prec=1 / 8)
 
         if self.status == 'tox':
-            self.damage(val=0, perc=self.status_turn / 16, attr=Attr.NoAttr)
+            self.log.add(self, '+poison')
+            self.damage(val=0, perc=self.status_turn / 16)
             self.status_turn += 1
         if self.status == 'psn':
-            self.damage(val=0, perc=1 / 8, attr=Attr.NoAttr)
+            self.log.add(self, '+poison')
+            self.damage(val=0, perc=1 / 8)
         if self.status == 'brn':
-            self.damage(val=0, perc=1 / 16, attr=Attr.NoAttr)
+            self.log.add(self, '+burn')
+            self.damage(val=0, perc=1 / 16)
 
-        for vs in self.vstatus:
+        for vs in vstatus_turn:
             if self.vstatus[vs] > 0:
                 self.vstatus[vs] -= 1
                 if self.vstatus[vs] == 0:
@@ -420,9 +446,9 @@ class Pokemon:
             self.Satk *= 0.5
         if self.ability in ['Huge Power', 'Pure Power']:
             self.Atk *= 2
-        if self.ability == 'Guts' and self.cond:
+        if self.ability == 'Guts' and self.status:
             self.Atk *= 1.5
-        if self.ability == 'Quick Feet' and self.cond:
+        if self.ability == 'Quick Feet' and self.status:
             self.Spe *= 1.5
         if self.ability == 'Tangled Feet' and self.vstatus['confusion']:
             self.Eva *= 2
@@ -499,14 +525,14 @@ class Pokemon:
                         self.add_status('tox')
             if self.get_sidecond()['spikes'] > 0 and self.ability != 'Magic Guard':
                 self.log.add(self, '+spikes')
-                self.damage(0, perc=self.get_sidecond()['spikes'] / 8, attr=Attr.NoAttr)
+                self.damage(0, perc=self.get_sidecond()['spikes'] / 8)
             if self.get_sidecond()['stickyweb'] > 0:
                 self.log.add(self, '+stickyweb')
                 self.boost('spe', -1)
 
         if self.get_sidecond()['stealthrock'] > 0 and self.ability != 'Magic Guard':
             self.log.add(self, '+stealthrock')
-            self.damage(0, perc=1 / 8, attr=Attr.Rock)
+            self.damage(0, perc=1 / 8, attr='Rock')
 
         if self.ability == 'Moldbreaker':
             self.log.add(self, 'mold')

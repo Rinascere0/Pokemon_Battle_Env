@@ -7,6 +7,10 @@ class Signal:
     Wait, Move, Switch, End = range(4)
 
 
+vstatus_turn = ['taunt','encore','flinch']
+
+mega_stones = {}
+
 memories = {'Bug Memory': 'Bug', 'Dark Memory': 'Dark', 'Dragon Memory': 'Dragon', 'Electric Memory': 'Electric',
             'Fairy Memory': 'Fairy', 'Fighting Memory': 'Fighting', 'Fire Memory': 'Fire', 'Flying Memory': 'Flying',
             'Ghost Memory': 'Ghost', 'Grass Memory': 'Grass', 'Ground Memory': 'Ground', 'Ice Memory': 'Ice',
@@ -38,8 +42,8 @@ class Status:
 full_status = {
     'brn': 'burned',
     'slp': 'asleep',
-    'tox': 'toxic',
-    'psn': 'posioned',
+    'tox': 'badly poisoned',
+    'psn': 'poisoned',
     'par': 'paralysed',
     'frz': 'frozen'
 }
