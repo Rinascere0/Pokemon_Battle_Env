@@ -7,17 +7,17 @@ Base physical/special moves\
 Spikes (add and effect)
 
 【Todo】\
-defog \
-rapid spin\
-leech seed\
-knock off\
+✔defog \
+✔rapid spin\
+✔leech seed\
+✔knock off\
 magic room\
 status moves fail after taunt\
-contrary\
+✔contrary\
 counter\
 mirror coat\
-U-turn\
-volt switch
+✔U-turn\
+✔volt switch
 
 2020.5.1
 
@@ -60,7 +60,9 @@ First Impression
 
 【Todo】\
 Trick\
-Sucker Punch
+Sucker Punch\
+Pain Split\
+Choice Items
 
 【ToFix】\
 反复去世！

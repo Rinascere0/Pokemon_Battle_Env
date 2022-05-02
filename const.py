@@ -4,10 +4,10 @@ names = ['Satoshi', 'BJK']
 
 
 class Signal:
-    Wait, Move, Switch, End = range(4)
+    Wait, Move, Switch, End, Switch_in_turn = range(5)
 
 
-vstatus_turn = ['taunt','encore','flinch']
+vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost']
 
 mega_stones = {}
 
@@ -53,7 +53,9 @@ full_stat = {
     'def': 'Defence',
     'spa': 'Special Attack',
     'spd': 'Special Defence',
-    'spe': 'Speed'
+    'spe': 'Speed',
+    'eva': 'Evasion',
+    'acc': 'Accuracy'
 }
 
 sound_move = ['Boomburst ', 'Bug Buzz ', 'Chatter ', 'Clanging Scales ', 'Clangorous Soul ', 'Clangorous Soulblaze ',

@@ -15,6 +15,7 @@ class Game:
         self.players = []
         self.moves = []
         self.round_players = []
+        self.switch_in_turn = []
 
         for _ in range(2):
             self.add_player(RandomPlayer())
@@ -23,13 +24,39 @@ class Game:
         player.set_game(self, len(self.players), self.env, self.log)
         self.players.append(player)
 
-    def send(self, pid, move):
-        self.round_players.append(self.players[pid])
-        self.moves.append(move)
+    def send(self, pid, move, in_turn=False):
+        # check_valid
+        if type(move) is int:
+            # in turn switch
+            if in_turn:
+                if move == self.players[pid].pivot and self.players[pid].alive.sum() > 1:
+                    self.players[pid].signal(Signal.Switch_in_turn)
+                else:
+                    self.switch_in_turn.append(move)
+            else:
+                # common switch
+                if move == self.players[pid].pivot:
+                    self.players[pid].signal(Signal.Switch)
+                else:
+                    self.round_players.append(self.players[pid])
+                    self.moves.append(move)
+        else:
+            # use move
+            self.round_players.append(self.players[pid])
+            self.moves.append(move)
 
     def reset_round(self):
         self.round_players = []
         self.moves = []
+
+    def call_switch(self, player):
+        player.signal(Signal.Switch_in_turn)
+        while len(self.switch_in_turn) == 0:
+            time.sleep(0.01)
+        self.switch_in_turn.append(None)
+        self.utils.check_switch(self.env, [player, self.players[1 - player.pid]], self.switch_in_turn,
+                                check=False)
+        self.switch_in_turn = []
 
     def start(self):
         for player in self.players:
@@ -54,7 +81,7 @@ class Game:
             self.players[1].signal(Signal.Move)
             while len(self.moves) < 2:
                 time.sleep(0.01)
-            done, to_switch = self.utils.step_turn(self.env, self.round_players, self.moves)
+            done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
             self.reset_round()
 
             while not done and len(to_switch) > 0:
@@ -62,6 +89,7 @@ class Game:
                     player.signal(Signal.Switch)
                 while len(self.moves) < len(to_switch):
                     time.sleep(0.01)
+
                 if len(to_switch) < 2:
                     self.round_players.append(self.players[1 - self.round_players[0].pid])
                     self.moves.append(None)

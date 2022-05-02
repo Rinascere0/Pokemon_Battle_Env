@@ -31,9 +31,8 @@ def calc_type_buff(move, target):
 
 
 def imm_ground(pkm):
-    if 'Flying' in pkm.attr or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon':
-        return True
-    return False
+    return 'Flying' in pkm.attr or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' and not pkm.vstatus[
+        'roost'] and not pkm.vstatus['smackdown']
 
 
 def gen_stats(sp, evs, ivs, lv, nature):

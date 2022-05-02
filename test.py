@@ -30,4 +30,4 @@ def get_key(key):
 def get_move(name):
     print(Moves[name])
 
-print(Moves['taunt'])
+

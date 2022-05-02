@@ -16,7 +16,7 @@ class Utils:
     def __init__(self, log):
         self.log = log
 
-    def step_turn(self, env, players, moves):
+    def step_turn(self, game, env, players, moves):
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
         pkms[0].prep(env)
         pkms[1].prep(env)
@@ -27,8 +27,6 @@ class Utils:
             prior[1] += 0.1
         else:
             prior[random.randint(0, 1)] += 0.1
-
-        # switch
 
         if env.pseudo_weather['trickroom'] > 0:
             prior = 1 - prior
@@ -48,27 +46,34 @@ class Utils:
         else:
             first = 1
 
-        # move first
+        # switch
+
         if type(moves[first]) is int:
             if moves[1 - first]['name'] != 'Pursuit':
                 players[first].switch(moves[first])
             else:
-                self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, last=True)
+                # pursuit
+                self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, game=game,
+                              last=True)
                 if pkms[first].turn:
                     players[first].switch(moves[first], withdraw=True)
                     pkms[1 - first].turn = False
                 return
         else:
-            self.use_move(user=pkms[first], target=pkms[1 - first], move=moves[first], env=env, last=False)
+            self.use_move(user=pkms[first], target=pkms[1 - first], move=moves[first], env=env, game=game, last=False)
 
         # move last
         if pkms[1 - first].turn:
             if type(moves[1 - first]) is int:
                 players[1 - first].switch(moves[1 - first])
             else:
-                self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, last=True)
+                self.use_move(user=players[1 - first].get_pivot(), target=players[first].get_pivot(),
+                              move=moves[1 - first], env=env, game=game,
+                              last=True)
 
         # end turn
+        for pid, player in enumerate(players):
+            player.get_pivot().end_turn(env, players[1 - pid].get_pivot())
 
         done, to_switch = self.check_switch(env, players)
 
@@ -79,26 +84,24 @@ class Utils:
             player.switch(env, pivot)
         self.log.match_up()
 
-    def check_switch(self, env, players, pivots=[None, None]):
+    def check_switch(self, env, players, pivots=[None, None], check=True):
         done = False
         to_switch = []
         for pid, (player, pivot) in enumerate(zip(players, pivots)):
-            player.get_pivot().switch_on = False
             if pivot is not None:
-                player.switch(env, pivot)
+                player.switch(env, pivot, not check)
 
-            if not player.get_pivot().alive:
-                if player.lose():
-                    self.log.add(player, 'lose')
-                    done = True
-                else:
-                    to_switch.append(player)
+            if check:
+                if not player.get_pivot().alive:
+                    if player.lose():
+                        self.log.add(player, 'lose')
+                        done = True
+                    else:
+                        to_switch.append(player)
 
         if not to_switch and not done:
             self.switch_on(players, env)
-            for player, pivot in zip(players, pivots):
-                if pivot is None:
-                    player.get_pivot().end_turn(env, players[1 - pid].get_pivot())
+
         return done, to_switch
 
     def switch_on(self, players, env):
@@ -115,6 +118,52 @@ class Utils:
                 if user.ability == 'Frisk':
                     if target.item:
                         self.log.add(user, 'frisk', target.item)
+
+                if user.ability == 'Moldbreaker':
+                    self.log.add(user, 'mold')
+
+                if user.ability == 'Pressure':
+                    self.log.add(user, 'pressure')
+
+                if user.ability == 'Unnerve':
+                    self.log.add(user, 'unnerve')
+
+                if user.ability == 'Drizzy':
+                    env.set_weather(weather='Raindance', item=user.item)
+
+                if user.ability == 'Drought':
+                    env.set_weather(weather='sunnyday', item=user.item)
+
+                if user.ability == 'Snow Warning':
+                    env.set_weather(weather='hail', item=user.item)
+
+                if user.ability == 'Sand Stream':
+                    env.set_weather(weather='Sandstorm', item=user.item)
+
+                if user.ability == 'Electric Surge':
+                    env.set_terrain(terrain='electricterrain', item=user.item)
+
+                if user.ability == 'Grassy Surge':
+                    env.set_terrain(terrain='grassyterrain', item=user.item)
+
+                if user.ability == 'Misty Surge':
+                    env.set_terrain(terrain='mistyterrain', item=user.item)
+
+                if user.ability == 'Psychic Surge':
+                    env.set_terrain(terrain='psychicterrain', item=user.item)
+
+                if user.item in ['Electric Seed', 'Grassy Seed']:
+                    self.log.add(user, 'use item')
+                    user.use_item()
+                    user.boost('def', 1)
+
+                if user.item in ['Psychic Seed', 'Misty Seed']:
+                    self.log.add(user, 'use item')
+                    user.use_item()
+                    user.boost('spd', 1)
+
+                if user.item is 'Air Balloon':
+                    self.log.add(user, 'balloon')
 
                 if user.ability == 'Download':
                     self.log.add(user, 'download')
@@ -154,12 +203,12 @@ class Utils:
         else:
             first = 1
 
-        self.use_move(user=pkms[first], target=pkms[1 - first], move=moves[first], env=env, last=False)
-        self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, last=True)
+        self.use_move(user=pkms[first], target=pkms[1 - first], move=moves[first], env=env, game=None, last=False)
+        self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, game=None, last=True)
 
         self.log.step_print()
 
-    def use_move(self, user: Pokemon, target: Pokemon, move, env, last):
+    def use_move(self, user: Pokemon, target: Pokemon, move, env, game, last):
         if user.vstatus['flinch']:
             self.log.add(user, '+flinch')
             if user.ability == 'Steadfast':
@@ -198,6 +247,10 @@ class Utils:
             self.log.add(event='fail')
             return
 
+        if move['priority'] > 0 and env.terrain == 'psychicterrain':
+            self.log.add(target, 'psychicsurge')
+            return
+
         if 'charge' in move['flags']:
             if user.charge is None:
                 user.charge = move['name']
@@ -229,7 +282,12 @@ class Utils:
             if useful == Hit:
                 if self_destruct == 'ifHit':
                     user.damage(0, 100)
+                if not target.alive:
+                    break
                 self.effect_move(user, target, move, env, last)
+                if move['name'] in ['U-turn', 'Volt Switch', 'Boton Pass']:
+                    game.call_switch(user.player)
+
             elif useful == Miss:
                 self.log.add(target, 'avoid')
                 user.multi_count = 0
@@ -275,7 +333,7 @@ class Utils:
                         if 'self' in effect:
                             effect = effect['self']
                         if 'status' in effect:
-                            sec_target.add_status(effect['status'])
+                            sec_target.add_status(effect['status'], env)
                         if 'volatileStatus' in effect:
                             sec_target.add_vstate(effect['volatileStatus'])
                         if 'boosts' in effect:
@@ -284,11 +342,11 @@ class Utils:
                         if move['name'] == 'Tri Attack':
                             status = random.randint(0, 2)
                             if status == 0:
-                                sec_target.add_status('par')
+                                sec_target.add_status('par', env)
                             elif status == 1:
-                                sec_target.add_status('brn')
+                                sec_target.add_status('brn', env)
                             else:
-                                sec_target.add_status('frz')
+                                sec_target.add_status('frz', env)
 
             # drain move
             if 'drain' in move:
@@ -309,12 +367,16 @@ class Utils:
             if move['name'] == 'Uproar':
                 if user.lock_round == 3:
                     user.set_lock()
+            if move['name'] == 'Rapid Spin':
+                env.clear_field(user.player, type='spike', log=self.log)
 
             # same round move
             if move['name'] in ['Triple Axel', 'Triple Kick']:
                 user.multi_count += 1
 
         else:
+            if move['target'] == 'self':
+                target = user
             if 'boosts' in move:
                 boosts = move['boosts']
                 for stat in boosts:
@@ -327,7 +389,7 @@ class Utils:
 
             if 'status' in move:
                 status = move['status']
-                target.add_status(status)
+                target.add_status(status, env)
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
@@ -361,6 +423,12 @@ class Utils:
                 sidecond = move['sideCondition']
                 target.add_sidecond(sidecond)
 
+            # TODO: Multiple types of heal
+            if 'heal' in move:
+                if target.maxHP == target.HP:
+                    self.log.add('fail')
+                else:
+                    target.heal(0, move['heal'][0] / move['heal'][1])
             if move['name'] == 'Belly Drum':
                 if user.HP > user.maxHP / 2:
                     if user.stat_lv['atk'] == 6:
@@ -370,6 +438,17 @@ class Utils:
                         user.boost('atk', 6)
                 else:
                     self.log.add(user, 'belly_fail_hp')
+
+            if move['name'] == 'Defog':
+                target.boost('eva', -1)
+                env.clear_field(user.player, type='spike', log=self.log)
+                env.clear_field(target.player, type='spike', log=self.log)
+                env.clear_field(target.player, type='wall', log=self.log)
+
+            if 'self' in move:
+                side_effect = move['self']
+                if 'volatileStatus' in side_effect:
+                    user.add_vstate(side_effect['volatileStatus'])
 
         if 'contact' in move['flags']:
             if target.ability in ['Iron Barbs', 'Rough Skin']:
@@ -489,7 +568,8 @@ class Utils:
             return Hit
 
         final_acc = acc * user_acc / target_eva * acc_buff / 100
-
+        if final_acc >= 1:
+            return Hit
         hit = np.random.choice([0, 1], p=[final_acc, 1 - final_acc])
         return hit
 

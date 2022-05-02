@@ -53,5 +53,36 @@ class Env:
             self.terrain = terrain
             self.terrain_turn = turn
 
+    def step_field(self, fields):
+        for field in self.fields:
+            if self.field[field] > 0:
+                self.field[field] -= 1
+                if self.field[field] == 0:
+                    self.log.add(event='-' + field)
+
+    def step(self, players):
+        for player in players:
+            sidecond = self.side_condition[player.pid]
+            for cond in ['auroraveil', 'craftyshield', 'lightscreen', 'luckychant', 'matblock', 'mist', 'quickguard',
+                         'reflect', 'safeguard', 'tailwind', 'wideguard']:
+                if sidecond[cond] > 0:
+                    sidecond[cond] -= 1
+                    if sidecond[cond] == 0:
+                        self.log.add(player, '-' + cond)
+
+        self.step_field(self.weather)
+        self.step_field(self.terrain)
+        self.step_field(self.pseudo_weather)
+
     def set_pseudo_weather(self, pseudo_weather):
         self.pseudo_weather[pseudo_weather] = 5
+
+    def clear_field(self, player, type,log):
+        pid = player.pid
+        if type == 'spike':
+            sideconds = ['stealthrock', 'toxicspikes', 'spikes', 'stickyweb']
+        if type == 'wall':
+            sideconds = ['reflect', 'lightscreen', 'auroraveil', 'safeguard', 'mist']
+        for sidecond in sideconds:
+            if self.side_condition[pid][sidecond] > 0:
+                log.add(player, 'clear', sidecond)

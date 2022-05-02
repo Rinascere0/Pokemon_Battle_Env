@@ -155,16 +155,32 @@ class BattleLog:
         elif event == '+spikes':
             log = 'was hurt by spikes!'
 
-        elif event == '+posion':
+        elif event == '+poison':
             log = 'was hurt by it\'s posion!'
 
         elif event == '+burn':
             log = 'was hurt by it\'s burn!'
 
+        elif event == 'mistyterrain':
+            log = 'was protected by Misty Terrain!'
+
+        elif event == 'grassyterrain':
+            log = 'was healed by Grassy Terrain!'
+
+        elif event == 'electricterrain':
+            log = 'was protected by Electric Terrain!'
+
+        elif event == 'psychicterrain':
+            log = 'was protected by Psychic Terrain!'
+
+        elif event == 'clear':
+            log = val + ' on ' + actor.name + '\'s field was cleared.'
+            actor = None
+
         elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
                        '-quickguard',
                        '-reflect', '-safeguard', '-tailwind', '-wideguard']:
-            log = event + ' on ' + actor.player.name + '\'s field ended.'
+            log = event + ' on ' + actor.name + '\'s field ended.'
             actor = None
 
         elif event == 'use':
