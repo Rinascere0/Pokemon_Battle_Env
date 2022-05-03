@@ -9,7 +9,7 @@ from const import *
 
 from log import BattleLog
 
-Hit, Miss, NoEffect = 0, 1, 2
+Hit, Miss, NoEffect, Onhold = 0, 1, 2, 3
 
 
 class Utils:
@@ -82,6 +82,7 @@ class Utils:
     def match_up(self, env, players, pivots):
         for pid, (player, pivot) in enumerate(zip(players, pivots)):
             player.switch(env, pivot)
+        self.switch_on(players, env)
         self.log.match_up()
 
     def check_switch(self, env, players, pivots=[None, None], check=True):
@@ -130,28 +131,36 @@ class Utils:
                     self.log.add(actor=user, event='unnerve', type=logType.ability)
 
                 if user.ability == 'Drizzy':
-                    env.set_weather(weather='Raindance', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_weather(weather='Raindance', item=user.item, log=self.log)
 
                 if user.ability == 'Drought':
-                    env.set_weather(weather='sunnyday', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_weather(weather='sunnyday', item=user.item, log=self.log)
 
                 if user.ability == 'Snow Warning':
-                    env.set_weather(weather='hail', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_weather(weather='hail', item=user.item, log=self.log)
 
                 if user.ability == 'Sand Stream':
-                    env.set_weather(weather='Sandstorm', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_weather(weather='Sandstorm', item=user.item, log=self.log)
 
                 if user.ability == 'Electric Surge':
-                    env.set_terrain(terrain='electricterrain', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_terrain(terrain='electricterrain', item=user.item, log=self.log)
 
                 if user.ability == 'Grassy Surge':
-                    env.set_terrain(terrain='grassyterrain', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_terrain(terrain='grassyterrain', item=user.item, log=self.log)
 
                 if user.ability == 'Misty Surge':
-                    env.set_terrain(terrain='mistyterrain', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_terrain(terrain='mistyterrain', item=user.item, log=self.log)
 
                 if user.ability == 'Psychic Surge':
-                    env.set_terrain(terrain='psychicterrain', item=user.item, log=log)
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    env.set_terrain(terrain='psychicterrain', item=user.item, log=self.log)
 
                 if user.item in ['Electric Seed', 'Grassy Seed']:
                     self.log.add(actor=user, event='use item')
@@ -256,18 +265,6 @@ class Utils:
             self.log.add(actor=target, event='+psychicterrain')
             return
 
-        if 'charge' in move['flags']:
-            if user.charge is None:
-                user.charge = move['name']
-                if move['name'] in ['Solar Beam', 'Solar Blade']:
-                    self.log.add(actor=user, event='solar')
-                    if env.weather is 'sunnyday':
-                        user.charge = None
-                if user.charge is not None:
-                    return
-            else:
-                user.charge = None
-
         user.calc_stat(env)
         target.calc_stat(env)
         if move['target'] == 'self':
@@ -282,13 +279,16 @@ class Utils:
         count = 1
         if 'multiaccuracy' in move:
             count = move['multihit']
-        for _ in range(count):
+
+        for i in range(count):
+            if not target.alive:
+                if i == 0:
+                    self.log.add('fail')
+                break
             useful = self.check_useful(env, user, target, move)
             if useful == Hit:
                 if self_destruct == 'ifHit':
                     user.damage(0, 100)
-                if not target.alive:
-                    break
                 self.effect_move(user, target, move, env, last)
                 if move['name'] in ['U-turn', 'Volt Switch', 'Boton Pass']:
                     game.call_switch(user.player)
@@ -296,9 +296,13 @@ class Utils:
             elif useful == Miss:
                 self.log.add(actor=target, event='avoid')
                 user.multi_count = 0
-            else:
+                if move['name'] in ['Jump Kick', 'High Jump Kick']:
+                    self.log.add(actor=user, event='drop')
+                    user.damage(0, 1 / 2)
+            elif useful == NoEffect:
                 self.log.add(actor=target, event='0effect')
                 user.set_lock()
+                break
 
     def effect_move(self, user: Pokemon, target: Pokemon, move, env, last):
         ctg = move['category']
@@ -358,6 +362,11 @@ class Utils:
                 heal = int(move['drain'][0] / move['drain'][1] * dmg)
                 user.heal(heal, False, target)
 
+            if 'recoil' in move:
+                recoil = int(move['recoil'][0] / move['recoil'][1] * dmg)
+                self.log.add(actor=user, event='recoil')
+                user.damage(recoil)
+
             # lock round move
             if move['name'] in ['Outrage', 'Petal Dance', 'Thrash']:
                 if user.lock_round == 3:
@@ -414,15 +423,15 @@ class Utils:
 
             if 'weather' in move:
                 weather = move['weather']
-                env.set_weather(weather, user.item)
+                env.set_weather(weather, user.item, self.log)
 
             if 'pseudoWeather' in move:
                 pseudo_weather = move['pseudoWeather']
-                env.set_pseudo_weather(pseudo_weather)
+                env.set_pseudo_weather(pseudo_weather, self.log)
 
             if 'terrain' in move:
                 terrain = move['terrain']
-                env.set_terrain(terrain, user.item)
+                env.set_terrain(terrain, user.item, self.log)
 
             if 'sideCondition' in move:
                 sidecond = move['sideCondition']
@@ -452,7 +461,7 @@ class Utils:
 
             if move['name'] == 'Trick':
                 self.log.add(actor=user, event='trick', target=target)
-                item = user.lose(target.item)
+                item = user.lose_item(target.item)
                 if item:
                     target.lose_item(item)
 
@@ -469,12 +478,16 @@ class Utils:
 
         if 'contact' in move['flags']:
             if target.ability in ['Iron Barbs', 'Rough Skin']:
-                self.log.add(actor=user, event=target.ability, type=logType.ability)
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 user.damage(0, perc=1 / 8)
 
             if target.item == 'Rocky Helmet':
-                self.log.add(actor=user, event='Rocky Helmet')
+                self.log.add(actor=user, event='rockyhelmet')
                 user.damage(0, perc=1 / 6)
+
+        if move['name'] == 'Knock Off' and target.item:
+            self.log.add(actor=user, event='knockoff', target=target, val=target.item)
+            target.lose_item()
 
     def check_useful(self, env, user, target, move):
         sk_type = move['type']
@@ -485,9 +498,27 @@ class Utils:
         acc_buff = 1
         # 特性修正
 
+        if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig']:
+            if user.off_field:
+                user.off_field = ""
+        else:
+            user.off_field = sk_name
+
+        if 'charge' in move['flags']:
+            if user.charge is None:
+                user.charge = move['name']
+                if move['name'] in ['Solar Beam', 'Solar Blade']:
+                    self.log.add(actor=user, event='solar')
+                    if env.weather is 'sunnyday':
+                        user.charge = None
+                if user.charge is not None:
+                    return Onhold
+            else:
+                user.charge = None
+
         if target.protect == True:
             if sk_name == 'Feint':
-                self.log.add(actor=user, event='feint', target=target.name)
+                self.log.add(actor=user, event='feint', target=target)
                 target.protect = 2
             else:
                 self.log.add(actor=target, event='protect_from')
@@ -615,8 +646,6 @@ class Utils:
                     target.name == 'Arceus' and target.item in plates) and not (
                     target.name == 'Silvally' and target.item in memories) and 'ium Z' not in target.item:
                 power *= 1.5
-                self.log.add(actor=user, event='knockoff', target=target)
-                target.lose_item()
 
         if sk_name == 'Stored Power':
             for key, boost in user.stat_lv.items():

@@ -102,8 +102,8 @@ class RandomPlayer(Player):
 
     def switch(self, env, pivot, withdraw=False):
         if withdraw and pivot == self.pivot:
-            self.log.add(actor=self,event= 'withdraw', target=self.get_pivot().name)
-        self.log.add(actor=self, event='switch', target=self.pkms[pivot].name)
+            self.log.add(actor=self, event='withdraw', val=self.get_pivot().name)
+        self.log.add(actor=self, event='switch', val=self.pkms[pivot].name)
         if self.pivot == -1:
             self.pkms[pivot].switch(env, None)
         else:

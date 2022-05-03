@@ -65,10 +65,14 @@ Sucker Punch\
 ✔Choice Items
 
 【ToFix】\
-反复去世！
+✔Faint over and over!
 
 2020.5.3
 
 【Todo】
 Own Tempo
 Vital Spirit
+Healing Wish
+Synthesis
+Water Bubble
+Skill Link

@@ -105,6 +105,7 @@ class Pokemon:
         self.alive = True
         self.protect = False
         self.switch_on = True
+        self.off_field = True
 
         self.player = None
         self.log = None
@@ -227,7 +228,7 @@ class Pokemon:
 
     def add_sidecond(self, sidecond, cond=None):
         if sidecond == 'toxicspikes' and self.get_sidecond()[sidecond] > 1 \
-                or sidecond == 'spikes' and self.get_sidecond()[sidecond] > 1 \
+                or sidecond == 'spikes' and self.get_sidecond()[sidecond] > 2 \
                 or 'spikes' not in sidecond and self.get_sidecond()[sidecond] > 0:
             self.log.add(event='fail')
             return
@@ -256,13 +257,13 @@ class Pokemon:
             val = int(self.maxHP * perc)
         if self.item == 'Big Root':
             val = int(val * 1.3)
-        if val == 0:
-            return
         if target and target.ability == 'Liquid Ooze':
             self.log.add(actor=self, event='ooze', type=logType.ability)
             self.damage(val)
         else:
             val = min(val, self.maxHP - self.HP)
+            if val == 0:
+                return
             self.HP += val
             self.log.add(actor=self, event='heal', val=int(100 * val / self.maxHP))
 
@@ -270,6 +271,7 @@ class Pokemon:
         if not self.alive:
             return
         if self.ability == 'Contrary':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
             lv = -lv
         if lv > 0:
             if self.stat_lv[stat] == 6:
@@ -286,9 +288,11 @@ class Pokemon:
                     self.log.add(actor=self, event='+6', val=full_stat[stat])
         else:
             if self.ability in ['White Smoke', 'Full Metal Body', 'Clear Body'] and src is not None:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
                 self.log.add(actor=self, event='-0', val=full_stat[stat])
                 return
             if self.ability == 'Mirror Armor' and src is not None:
+                self.log.add(actor=self, event='Mirror Armor', type=logType.ability)
                 src.boost(stat, lv)
                 return
             if self.stat_lv[stat] == -6:
@@ -316,11 +320,11 @@ class Pokemon:
                             'Shield Dust', 'Simple', 'Snow Cloak', 'Solid Rock', 'Soundproof', 'Sticky Hold',
                             'Storm Drain', 'Sturdy', 'Suction Cups', 'Tangled Feet', 'Thick Fat', 'Unaware',
                             'Vital Spirit', 'Volt Absorb', 'Water Absorb', 'Water Veil', 'White Smoke',
-                            'Wonder Guard,\tBig Pecks', 'Contrary', 'Friend Guard', 'Heavy Metal',
+                            'Wonder Guard', 'Big Pecks', 'Contrary', 'Friend Guard', 'Heavy Metal',
                             'Light Metal',
-                            'Magic Bounce', 'Multiscale', 'Sap Sipper', 'Telepathy', 'Wonder Skin,Aroma Veil',
+                            'Magic Bounce', 'Multi Scale', 'Sap Sipper', 'Telepathy', 'Wonder Skin', 'Aroma Veil',
                             'Bulletproof', 'Flower Veil', 'Fur Coat', 'Overcoat', 'Sweet Veil,Dazzling',
-                            'Disguise', 'Fluffy', 'Queenly Majesty', 'Water Bubble,\tMirror Armor', 'Punk Rock',
+                            'Disguise', 'Fluffy', 'Queenly Majesty', 'Water Bubble', 'Mirror Armor', 'Punk Rock',
                             'Ice Scales', 'Ice Face', 'Pastel Veil ']:
             self.ability = ""
 
@@ -355,11 +359,11 @@ class Pokemon:
                             if stat != 'HP' and val > max_val:
                                 max_stat = stat
                                 max_val = val
-                        self.log.add(actor=user, event='beastboost', type=logType.ability)
+                        self.log.add(actor=user, event='Beast Boost', type=logType.ability)
                         user.boost(max_stat.lower(), 1)
                 foe_pivot = self.player.get_opponent_pivot()
                 if foe_pivot.ability == 'Soul-Heart':
-                    self.log.add(actor=foe_pivot, event='soulheart', type=logType.ability)
+                    self.log.add(actor=foe_pivot, event='Soul Heart', type=logType.ability)
                     foe_pivot.boost('spa', 1)
             else:
                 self.HP += 1
@@ -386,12 +390,13 @@ class Pokemon:
         if not self.protect:
             self.vstatus['protect'] = 0
         if self.item == 'Leftovers':
-            self.log.add(actor=self, event='leftovers')
-            self.heal(0, perc=1 / 16)
+            if self.HP < self.maxHP:
+                self.log.add(actor=self, event='leftovers')
+                self.heal(0, perc=1 / 16)
 
         if env.terrain == 'grassyterrain':
             if not imm_ground(self):
-                self.log.add(actor=self, event='grassyterrain')
+                self.log.add(actor=self, event='+grassyterrain')
                 self.heal(0, 1 / 16)
 
         if self.status == 'tox':
@@ -410,24 +415,24 @@ class Pokemon:
             self.damage(0, 1 / 8)
 
         if self.ability == 'Dry Skin' and env.weather is 'sunnyday':
-            self.log.add(actor=self, event='-dryskin')
+            self.log.add(actor=self, event='dryskin')
             self.damage(0, 1 / 8)
 
         if self.ability == 'Dry Skin' and env.weather is 'Raindance':
-            self.log.add(actor=self, event='+dryskin')
+            self.log.add(actor=self, event='dryskin')
             self.heal(0, 1 / 8)
 
         if env.weather == 'Raindance' and self.ability == 'Rain Dish':
-            self.log.add(actor=self, event='raindish')
+            self.log.add(actor=self, event='Rain Dish')
             self.heal(0, 1 / 16)
 
         if env.weather == 'hail' and self.ability == 'Ice Body':
-            self.log.add(actor=self, event='icebody')
+            self.log.add(actor=self, event='Ice Body')
             self.heal(0, 1 / 16)
 
         if env.weather == 'Raindance' and self.ability == 'Hydration':
             if self.status:
-                self.log.add(actor=self, event='hydration', type=logType.ability)
+                self.log.add(actor=self, event='Hydration', type=logType.ability)
                 self.cure_status()
 
         if self.vstatus['leechseed']:

@@ -14,12 +14,16 @@ class BattleLog:
     def reset(self, players):
         self.total_logs = []
         self.log = []
-        self.log.append([None, 'The game between ' + players[0].name + ' and ' + players[1].name + ' started!'])
+        self.open_log = []
+        self.open_log.append('The game between ' + players[0].name + ' and ' + players[1].name + ' started!')
         for player in players:
             pkm_str = ""
             for pkm in player.pkms:
                 pkm_str += pkm.name + '/'
-            self.log.append([None, player.name + '\'s pokemons: ' + pkm_str[:-1]])
+            self.open_log.append(player.name + '\'s pokemons: ' + pkm_str[:-1])
+        for log in self.open_log:
+            print(log)
+        print()
 
     def match_up(self):
         self.total_logs.append(self.log)
@@ -27,14 +31,9 @@ class BattleLog:
 
     def step_print(self):
         self.total_logs.append(self.log)
-        for actor, event in self.log:
-            if actor:
-                if type(actor) is Pokemon:
-                    print(actor.player.name + '\'s', actor.name, event)
-                else:
-                    print(actor.name, event)
-            else:
-                print(event)
+        for log in self.log:
+            if log:
+                print(self.translate(log))
         print()
         self.log = []
 
@@ -45,22 +44,31 @@ class BattleLog:
         val = raw_log['val']
         logtype = raw_log['logType']
 
-        if type(actor) is Pokemon:
-            actor = actor.player.name + '\'s', actor.name
-        else:
-            actor = actor.name
+        log = None
 
-        if type(actor) is Pokemon:
-            target = target.player.name + '\'s', target.name
-        else:
-            target = target.name
+        if actor:
+            if type(actor) is Pokemon:
+                actor = actor.player.name + ' \'s ' + actor.name + ' '
+            else:
+                if type(actor) is str:
+                    print(actor)
+                actor = actor.name + ' '
+
+        if target:
+            if type(target) is Pokemon:
+                target = target.player.name + ' \'s ' + target.name
+            else:
+                target = target.name
 
         # ability
         if logtype == logType.ability:
             log = '[' + actor + '\'s ' + event + ']'
 
+        if log:
+            return log
+
         # common
-        elif event == 'use':
+        if event == 'use':
             if 'Hidden Power' in val:
                 val = 'Hidden Power'
             log = 'used ' + str(val) + '!'
@@ -68,7 +76,7 @@ class BattleLog:
         elif event == 'use_item':
             log = 'used ' + val + '!'
 
-        if event == 'lost':
+        elif event == 'lost':
             log = 'lost ' + str(val) + '% of it\'s health!'
 
         elif event == 'sub_make':
@@ -150,8 +158,8 @@ class BattleLog:
         elif event == '+burn':
             log = 'was hurt by it\'s burn!'
 
-        if event == 'confusion':
-            output = actor + 'is confused!'
+        elif event == 'confusion':
+            log = 'is confused!'
 
         elif event == '+flinch':
             log = 'flinched and could not move!'
@@ -163,7 +171,7 @@ class BattleLog:
             log = 'is out of frozen!'
 
         elif event == 'wake':
-            log = actor, 'woke up!'
+            log = 'woke up!'
 
         elif event == 'taunt':
             log = 'was taunted!'
@@ -176,6 +184,9 @@ class BattleLog:
 
         elif event == 'istatus':
             log = 'is already ' + str(val) + '!'
+
+        elif event == '-status':
+            log = val + ' was healed!'
 
         # weather event
         elif event == '+mistyterrain':
@@ -190,7 +201,10 @@ class BattleLog:
         elif event == '+psychicterrain':
             log = 'was protected by Psychic Terrain!'
 
-        elif event == 'mistyterrain':
+        if log:
+            return actor + log
+
+        if event == 'mistyterrain':
             log = 'Mist swirled around the battlefield!'
 
         elif event == 'grassyterrain':
@@ -240,16 +254,31 @@ class BattleLog:
 
         # field event
         elif event == '+stealthrock':
-            log = 'Pointed stone stuck into ' + actor.name + '\'s body.'
+            log = 'Pointed stone stuck into ' + actor + '\'s body.'
             actor = None
 
         elif event == 'stealthrock':
-            log = 'Pointed stone floated on ' + actor.player.name + '\'s field.'
+            log = 'Pointed stone floated on ' + actor + '\'s field.'
             actor = None
 
         elif event == 'toxicspikes':
-            log = 'Toxic spikes were scattered on ' + actor.player.name + '\'s field.'
+            log = 'Toxic spikes were scattered on ' + actor + '\'s field.'
             actor = None
+
+        elif event == 'spikes':
+            log = 'Spikes were scattered on ' + actor + '\'s field.'
+            actor = None
+
+        elif event == 'clear':
+            log = val + ' on ' + actor + '\'s field was cleared.'
+
+        elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
+                       '-quickguard',
+                       '-reflect', '-safeguard', '-tailwind', '-wideguard']:
+            log = event + ' on ' + actor + '\'s field ended.'
+
+        if log:
+            return log
 
         elif event == '+toxicspikes':
             log = 'was influenced by toxic spikes!'
@@ -257,22 +286,11 @@ class BattleLog:
         elif event == '-toxicspikes':
             log = 'absorbed the toxic spikes!'
 
-        elif event == 'spikes':
-            log = 'Spikes were scattered on ' + actor.player.name + '\'s field.'
-            actor = None
-
         elif event == '+spikes':
             log = 'was hurt by spikes!'
 
-        elif event == 'clear':
-            log = val + ' on ' + actor.name + '\'s field was cleared.'
-            actor = None
-
-        elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
-                       '-quickguard',
-                       '-reflect', '-safeguard', '-tailwind', '-wideguard']:
-            log = event + ' on ' + actor.name + '\'s field ended.'
-            actor = None
+        if log:
+            return actor + log
 
         # no actor
         elif event == 'ct':
@@ -285,7 +303,7 @@ class BattleLog:
             log = 'It\'s not very effective...'
 
         elif event == '0effect':
-            log = 'It didn\'t effect ' + actor.name + '...'
+            log = 'It didn\'t effect ' + actor + '...'
 
         elif event == 'splash':
             log = 'But nothing happened...'
@@ -293,23 +311,26 @@ class BattleLog:
         elif event == 'fail':
             log = 'But it failed!'
 
+        if log:
+            return log
+
         # skill
         elif event == 'knockoff':
-            log = 'knocked off ' + val.name + '\'s ' + val.item + '!'
+            log = 'knocked off ' + target + '\'s ' + val + '!'
 
         elif event == 'trick':
-            log = 'switched its item with ' + val.name + '!'
+            log = 'switched its item with ' + target + '!'
 
         elif event == 'obtain':
             log = 'obtained ' + val + '!'
 
         elif event == 'painsplit':
-            log = 'splited the pain with ' + val.name + '!'
+            log = 'split the pain with ' + target + '!'
 
         elif event == '+leechseed':
             log = '\'s health was snapped by leech seed!'
 
-        elif event == 'pred':
+        elif event == 'predict':
             log = 'predicted an attack!'
 
         elif event == 'solar':
@@ -321,8 +342,14 @@ class BattleLog:
         elif event == 'belly_fail_atk':
             log = '\'s Attack is already maximum!'
 
+        elif event == 'drop':
+            log = 'dropped to the ground!'
+
+        elif event == 'recoil':
+            log = 'was hurt by the recoil!'
+
         # +ability
-        elif event == '+moldbreak':
+        elif event == '+moldbreaker':
             log = 'is breaking the mold!'
 
         elif event == '+pressure':
@@ -349,14 +376,14 @@ class BattleLog:
         elif event == '+icebody':
             log = 'was healed by Ice Body!'
 
-        elif event == '+hydration':
-            log = val + ' was healed by Hydration!'
-
         elif event == '+ironbarbs':
-            log = 'was hurt by ' + event + '!'
+            log = 'was hurt by Iron Barbs!'
 
         elif event == '+roughskin':
-            log = 'was hurt by ' + event + '!'
+            log = 'was hurt by Rough Skin!'
 
-    def add(self, actor=None, event=None, target=None, val=0, type=logType.ability):
+        if log:
+            return actor + log
+
+    def add(self, actor=None, event=None, target=None, val=0, type=logType.common):
         self.log.append({'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type})

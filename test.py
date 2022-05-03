@@ -30,7 +30,4 @@ def get_key(key):
 def get_move(name):
     print(Moves[name])
 
-
-a=""
-if a:
-    print(1)
+print(get_move('woodhammer'))

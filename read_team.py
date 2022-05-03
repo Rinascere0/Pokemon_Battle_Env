@@ -44,7 +44,7 @@ def read_set():
 
 def read_team(tid=0):
     if tid == 0:
-        tid = random.choice(list(range(1, 11)))
+        tid = random.choice(list(range(1,20)))
     with open('team/' + str(tid), 'r') as f:
         s = f.read()
 
