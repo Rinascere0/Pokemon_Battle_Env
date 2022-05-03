@@ -173,9 +173,31 @@ class BattleLog:
         elif event == 'psychicterrain':
             log = 'was protected by Psychic Terrain!'
 
+        elif event == 'raindish':
+            log = 'was healed by Rain Dish!'
+
+        elif event == '+dryskin':
+            log = 'was healed by Dry Skin!'
+
+        elif event == '-dryskin':
+            log = 'was hurt by Dry Skin!'
+
+        elif event == 'icebody':
+            log = 'was healed by Ice Body!'
+
+        elif event == 'hydration':
+            log = val + ' was healed by Hydration!'
+
         elif event == 'clear':
             log = val + ' on ' + actor.name + '\'s field was cleared.'
             actor = None
+
+        elif event == 'trick':
+            log = 'switched its item with ' + val + '!'
+
+        elif event == 'painsplit':
+            log = 'splited the pain with ' + val + '!'
+
 
         elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
                        '-quickguard',

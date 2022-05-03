@@ -31,3 +31,6 @@ def get_move(name):
     print(Moves[name])
 
 
+a=""
+if a:
+    print(1)

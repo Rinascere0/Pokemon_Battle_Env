@@ -73,6 +73,8 @@ class Pokemon:
         self.lock_move = None
         self.lock_round = 0
 
+        self.choice_move = None
+
         # charge move e.g. solar beam
         self.charge = None
         self.charge_round = 0
@@ -117,14 +119,17 @@ class Pokemon:
 
     def lose_item(self, sub=None):
         if sub:
+            temp = self.base_item
             self.base_item = sub
             self.item = sub
             self.log.add(self, 'obtain', sub)
+            return temp
         else:
             self.base_item = None
             self.item = None
             if self.ability == 'Unburden':
                 self.unburden = True
+            return
 
     def setup(self, pkm_id, player, env, log):
         self.pkm_id = pkm_id
@@ -361,7 +366,7 @@ class Pokemon:
             self.use_item()
             self.log.add(self, '-balloon')
 
-        return True
+        return val
 
     def prep(self, env):
         self.ability = self.current_ability
@@ -398,11 +403,32 @@ class Pokemon:
         if self.ability == 'Solar Power' and env.weather is 'sunnyday':
             self.log.add(self, 'solarpower')
             self.damage(0, 1 / 8)
-            target.recover(0, 1 / 8)
+
+        if self.ability == 'Dry Skin' and env.weather is 'sunnyday':
+            self.log.add(self, '-dryskin')
+            self.damage(0, 1 / 8)
+
+        if self.ability == 'Dry Skin' and env.weather is 'Raindance':
+            self.log.add(self, '+dryskin')
+            self.heal(0, 1 / 8)
+
+        if env.weather == 'Raindance' and self.ability == 'Rain Dish':
+            self.log.add(self, 'raindish')
+            self.heal(0, 1 / 16)
+
+        if env.weather == 'hail' and self.ability == 'Ice Body':
+            self.log.add(self, 'icebody')
+            self.heal(0, 1 / 16)
+
+        if env.weather == 'Raindance' and self.ability == 'Hydration':
+            if self.status:
+                self.log.add(self, 'hydration', self.status)
+                self.status = ''
 
         if self.vstatus['leechseed']:
             self.log.add(self, '+leechseed')
-            self.damage(val=0, prec=1 / 8)
+            dmg = self.damage(val=0, prec=1 / 8)
+            target.recover(dmg)
 
         if self.charge:
             self.charge_round += 1
@@ -431,6 +457,21 @@ class Pokemon:
             self.move_mask = np.zeros(4)
             for move_id, move in enumerate(self.moves):
                 if move == self.lock_move:
+                    self.move_mask[move_id] = 1
+                    break
+
+        if self.choice_move and self.item in ['Choice Band', 'Choice Specs', 'Choice Scarf'] and not env.pseudo_weather[
+            'magicroom']:
+            self.move_mask = np.zeros(4)
+            for move_id, move in enumerate(self.moves):
+                if move == self.choice_move:
+                    self.move_mask[move_id] = 1
+                    break
+
+        if self.charge:
+            self.move_mask = np.zeros(4)
+            for move_id, move in enumerate(self.moves):
+                if move == self.charge:
                     self.move_mask[move_id] = 1
                     break
 
@@ -520,6 +561,8 @@ class Pokemon:
         self.attr = self.base_attr
         self.used_item = None
         self.unburden = False
+        self.lock_move = None
+        self.set_lock()
 
     def switch(self, env, old_pivot=None, boton=False):
         if old_pivot:

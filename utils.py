@@ -163,7 +163,7 @@ class Utils:
                     user.boost('spd', 1)
 
                 if user.item is 'Air Balloon':
-                    self.log.add(user, 'balloon')
+                    self.log.add(吗user, 'balloon')
 
                 if user.ability == 'Download':
                     self.log.add(user, 'download')
@@ -234,6 +234,9 @@ class Utils:
             user.loss_pp(move, 2)
         else:
             user.loss_pp(move, 1)
+
+        if not user.choice_move:
+            user.choice_move = move['name']
 
         if user.ability == 'Protean':
             self.log.add(user, 'protean')
@@ -445,6 +448,18 @@ class Utils:
                 env.clear_field(target.player, type='spike', log=self.log)
                 env.clear_field(target.player, type='wall', log=self.log)
 
+            if move['name'] == 'Trick':
+                self.log.add(user, 'trick', target)
+                item = user.lose(target.item)
+                if item:
+                    target.lose_item(item)
+
+            if move['name'] == 'Pain Split':
+                self.log.add(user, 'painsplit', target)
+                avg_hp = (user.HP + target.HP) / 2
+                user.HP = avg_hp
+                target.HP = avg_hp
+
             if 'self' in move:
                 side_effect = move['self']
                 if 'volatileStatus' in side_effect:
@@ -507,6 +522,7 @@ class Utils:
                 return NoEffect
         if target.ability == 'Dry Skin':
             target.heal(1 / 4, perc=Hit)
+            self.log.add(user, '+dryskin')
             return NoEffect
         if target.ability == 'Storm Drain':
             target.Satk_lv += 1
@@ -651,6 +667,24 @@ class Utils:
         if sk_name == 'Gyro Ball':
             power = min(150, int(25 * target.Spe / user.Spe))
 
+        # 相克补正
+        type_buff = 1
+        for attr in target.attr:
+            type_buff *= get_attr_fac(sk_type, attr)
+
+        if sk_name == 'Flying Press':
+            for attr in target.attr:
+                type_buff *= get_attr_fac('Flying', attr)
+
+        if sk_name == 'Freeze Dry' and target.attr:
+            # should be effective
+            type_buff *= 4
+
+        if type_buff > 1:
+            self.log.add(event='effect')
+        if type_buff < 1:
+            self.log.add(event='neffect')
+
         # ct
         ct_lv = 0
         if sk_name in ct_move:
@@ -664,7 +698,7 @@ class Utils:
         ct_rate = get_ct(ct_lv)
         if user.ability == 'Merciless' and (target.poison or target.toxic):
             ct_rate = 1
-        if user.ability == 'sniper':
+        if user.ability == 'Sniper':
             ct = 9 / 4
         else:
             ct = 1.5
@@ -700,24 +734,6 @@ class Utils:
                 stab_buff = 2
             else:
                 stab_buff = 1.5
-
-        # 相克补正
-        type_buff = 1
-        for attr in target.attr:
-            type_buff *= get_attr_fac(sk_type, attr)
-
-        if sk_name == 'Flying Press':
-            for attr in target.attr:
-                type_buff *= get_attr_fac('Flying', attr)
-
-        if sk_name == 'Freeze Dry' and target.attr:
-            # should be effective
-            type_buff *= 4
-
-        if type_buff > 1:
-            self.log.add(event='effect')
-        if type_buff < 1:
-            self.log.add(event='neffect')
 
         # other
         other_buff = 1
@@ -788,28 +804,28 @@ class Utils:
             other_buff = 1.2
 
         # ability buff
-        if user.ability == 'Aerilate' and attr == 'Normal':
-            attr = 'Flying'
+        if user.ability == 'Aerilate' and sk_type == 'Normal':
+            sk_type = 'Flying'
             other_buff *= 1.3
 
-        if user.ability == 'Galvanize' and attr == 'Normal':
-            attr = 'Electric'
+        if user.ability == 'Galvanize' and sk_type == 'Normal':
+            sk_type = 'Electric'
             other_buff *= 1.3
 
-        if user.ability == 'Refrigerate' and attr == 'Normal':
-            attr = 'Ice'
+        if user.ability == 'Refrigerate' and sk_type == 'Normal':
+            sk_type = 'Ice'
             other_buff *= 1.3
 
-        if user.ability == 'Pixilate' and attr == 'Normal':
-            attr = 'Fairy'
+        if user.ability == 'Pixilate' and sk_type == 'Normal':
+            sk_type = 'Fairy'
             other_buff *= 1.3
 
         if user.ability == 'Liquid Voice':
             if sk_name in sound_move:
-                attr = 'Water'
+                sk_type = 'Water'
 
         if user.ability == 'Normalize':
-            attr = 'Normal'
+            sk_type = 'Normal'
             other_buff *= 1.2
 
         if user.ability == 'Flare Boost' and user.status is 'brn' and ctg == 'Special':
@@ -837,10 +853,10 @@ class Utils:
         if user.ability == 'Swarm' and user.HP <= user.maxHP / 3 and sk_type == 'Bug':
             other_buff *= 1.5
 
-        if 'Dark Aura' in [user.ability, target.ability] and attr == 'Dark':
+        if 'Dark Aura' in [user.ability, target.ability] and sk_type == 'Dark':
             other_buff *= 1.3
 
-        if 'Fairy Aura' in [user.ability, target.ability] and attr == 'Fairy':
+        if 'Fairy Aura' in [user.ability, target.ability] and sk_type == 'Fairy':
             other_buff *= 1.3
 
         if user.ability == 'Iron Fist' and 'Punch' in sk_name and sk_name != 'Sucker Punch':
@@ -876,6 +892,24 @@ class Utils:
 
         if user.ability == 'Water Bubble' and sk_type == 'Water':
             other_buff *= 2
+
+        if not imm_ground(user) and env.terrain == 'psychicterrain' and sk_type == 'Psychic':
+            other_buff *= 1.3
+
+        if not imm_ground(user) and env.terrain == 'electricterrain' and sk_type == 'Electric':
+            other_buff *= 1.3
+
+        if not imm_ground(user) and env.terrain == 'grassyterrain' and sk_type == 'Grass':
+            other_buff *= 1.3
+
+        if not imm_ground(target) and env.terrain == 'mistyterrain' and sk_type == 'Dragon':
+            other_buff *= 0.5
+
+        if env.weather == 'sunnyday' and sk_type == 'Fire':
+            other_buff *= 1.5
+
+        if env.weather == 'Raindance' and sk_type == 'Water':
+            other_buff *= 1.5
 
         # Defence Buff
         if target.ability == 'Fluffy':

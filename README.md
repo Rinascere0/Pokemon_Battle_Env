@@ -22,8 +22,8 @@ mirror coat\
 2020.5.1
 
 【Add】\
-weather ability & stop\
-terrain ability & stop\
+weather, ability & stop\
+terrain, ability & stop\    
 terrain seeds\
 pressure\
 pp\
@@ -59,10 +59,16 @@ Fake Out\
 First Impression
 
 【Todo】\
-Trick\
+✔Trick\
 Sucker Punch\
-Pain Split\
-Choice Items
+✔Pain Split\
+✔Choice Items
 
 【ToFix】\
 反复去世！
+
+2020.5.3
+
+【Todo】
+Own Tempo
+Vital Spirit
