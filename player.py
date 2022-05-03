@@ -93,7 +93,7 @@ class RandomPlayer(Player):
 
     def gen_switch(self):
         p = self.alive
-        if self.pivot!=-1:
+        if self.pivot != -1:
             p[self.pivot] = 0
         if not p.any():
             return self.pivot
@@ -101,10 +101,10 @@ class RandomPlayer(Player):
             return int(np.random.choice(np.arange(0, 6), p=p / p.sum()))
 
     def switch(self, env, pivot, withdraw=False):
-        if withdraw:
-            self.log.add(self, 'withdraw', self.get_pivot().name)
-        self.log.add(self, 'switch', self.pkms[pivot].name)
-        if self.pivot==-1:
+        if withdraw and pivot == self.pivot:
+            self.log.add(actor=self,event= 'withdraw', target=self.get_pivot().name)
+        self.log.add(actor=self, event='switch', target=self.pkms[pivot].name)
+        if self.pivot == -1:
             self.pkms[pivot].switch(env, None)
         else:
             self.pkms[pivot].switch(env, self.get_pivot())

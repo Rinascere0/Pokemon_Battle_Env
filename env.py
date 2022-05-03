@@ -31,7 +31,7 @@ class Env:
         self.terrain_turn = 0
         # {'electricterrain': 0, 'grassyterrain': 0, 'mistyterrain': 0, 'psychicterrain': 0}
 
-    def set_weather(self, weather, item):
+    def set_weather(self, weather, item, log):
         if weather == 'hail' and item == 'Icy Rock' or weather == 'sunnyday' and item == 'Heat Rock' or weather == 'Sandstorm' and item == 'Smooth Rock' or weather == 'RainDance' and item == 'Damp Rock':
             turn = 8
         else:
@@ -41,8 +41,9 @@ class Env:
         else:
             self.weather = weather
             self.weather_turn = turn
+            log.add(event=weather)
 
-    def set_terrain(self, terrain, item):
+    def set_terrain(self, terrain, item, log):
         if item == 'Terrain Extender':
             turn = 8
         else:
@@ -52,6 +53,7 @@ class Env:
         else:
             self.terrain = terrain
             self.terrain_turn = turn
+            log.add(event=terrain)
 
     def step_field(self, fields):
         for field in self.fields:
@@ -68,16 +70,16 @@ class Env:
                 if sidecond[cond] > 0:
                     sidecond[cond] -= 1
                     if sidecond[cond] == 0:
-                        self.log.add(player, '-' + cond)
+                        self.log.add(actor=player, event='-' + cond)
 
         self.step_field(self.weather)
         self.step_field(self.terrain)
         self.step_field(self.pseudo_weather)
 
-    def set_pseudo_weather(self, pseudo_weather):
+    def set_pseudo_weather(self, pseudo_weather, log):
         self.pseudo_weather[pseudo_weather] = 5
 
-    def clear_field(self, player, type,log):
+    def clear_field(self, player, type, log):
         pid = player.pid
         if type == 'spike':
             sideconds = ['stealthrock', 'toxicspikes', 'spikes', 'stickyweb']
@@ -85,4 +87,4 @@ class Env:
             sideconds = ['reflect', 'lightscreen', 'auroraveil', 'safeguard', 'mist']
         for sidecond in sideconds:
             if self.side_condition[pid][sidecond] > 0:
-                log.add(player, 'clear', sidecond)
+                log.add(actor=player, event='clear', val=sidecond)

@@ -94,7 +94,7 @@ class Utils:
             if check:
                 if not player.get_pivot().alive:
                     if player.lose():
-                        self.log.add(player, 'lose')
+                        self.log.add(actor=player, event='lose')
                         done = True
                     else:
                         to_switch.append(player)
@@ -112,72 +112,74 @@ class Utils:
                 if user.ability == 'Anticipation':
                     for move in target.move_infos:
                         if calc_type_buff(move, user) > 1 or 'ohko' in move:
-                            self.log.add(user, 'anticipate')
+                            self.log.add(actor=user, event='anticipate', type=logType.ability)
                             break
 
                 if user.ability == 'Frisk':
                     if target.item:
-                        self.log.add(user, 'frisk', target.item)
+                        self.log.add(actor=user, event='frisk', type=logType.ability)
+                        self.log.add(actor=user, event='identify', val=target.item)
 
                 if user.ability == 'Moldbreaker':
-                    self.log.add(user, 'mold')
+                    self.log.add(actor=user, event='moldbreaker', type=logType.ability)
 
                 if user.ability == 'Pressure':
-                    self.log.add(user, 'pressure')
+                    self.log.add(actor=user, event='pressure', type=logType.ability)
 
                 if user.ability == 'Unnerve':
-                    self.log.add(user, 'unnerve')
+                    self.log.add(actor=user, event='unnerve', type=logType.ability)
 
                 if user.ability == 'Drizzy':
-                    env.set_weather(weather='Raindance', item=user.item)
+                    env.set_weather(weather='Raindance', item=user.item, log=log)
 
                 if user.ability == 'Drought':
-                    env.set_weather(weather='sunnyday', item=user.item)
+                    env.set_weather(weather='sunnyday', item=user.item, log=log)
 
                 if user.ability == 'Snow Warning':
-                    env.set_weather(weather='hail', item=user.item)
+                    env.set_weather(weather='hail', item=user.item, log=log)
 
                 if user.ability == 'Sand Stream':
-                    env.set_weather(weather='Sandstorm', item=user.item)
+                    env.set_weather(weather='Sandstorm', item=user.item, log=log)
 
                 if user.ability == 'Electric Surge':
-                    env.set_terrain(terrain='electricterrain', item=user.item)
+                    env.set_terrain(terrain='electricterrain', item=user.item, log=log)
 
                 if user.ability == 'Grassy Surge':
-                    env.set_terrain(terrain='grassyterrain', item=user.item)
+                    env.set_terrain(terrain='grassyterrain', item=user.item, log=log)
 
                 if user.ability == 'Misty Surge':
-                    env.set_terrain(terrain='mistyterrain', item=user.item)
+                    env.set_terrain(terrain='mistyterrain', item=user.item, log=log)
 
                 if user.ability == 'Psychic Surge':
-                    env.set_terrain(terrain='psychicterrain', item=user.item)
+                    env.set_terrain(terrain='psychicterrain', item=user.item, log=log)
 
                 if user.item in ['Electric Seed', 'Grassy Seed']:
-                    self.log.add(user, 'use item')
+                    self.log.add(actor=user, event='use item')
                     user.use_item()
                     user.boost('def', 1)
 
                 if user.item in ['Psychic Seed', 'Misty Seed']:
-                    self.log.add(user, 'use item')
+                    self.log.add(actor=user, event='use item')
                     user.use_item()
                     user.boost('spd', 1)
 
                 if user.item is 'Air Balloon':
-                    self.log.add(吗user, 'balloon')
+                    self.log.add(actor=user, event='balloon')
 
                 if user.ability == 'Download':
-                    self.log.add(user, 'download')
+                    self.log.add(actor=user, event='download', type=logType.ability)
                     if target.Def > target.SpD:
                         user.boost('spa', 1)
                     else:
                         user.boost('atk', 1)
 
                 if user.ability == 'Trace':
-                    self.log.add(user, 'trace', target.ability)
+                    self.log.add(actor=user, event='trace', type=logType.ability)
+                    self.log.add(actor=user, event='+trace', val=target.ability)
                     user.current_ability = target.ability
 
                 if user.ability == 'Intimidate':
-                    self.log.add(user, 'intimidate', target.name)
+                    self.log.add(actor=user, event='intimidate', type=logType.ability)
                     target.boost('atk', -1, user)
 
     def step_turn_pkm(self, env, pkms, moves):
@@ -210,26 +212,26 @@ class Utils:
 
     def use_move(self, user: Pokemon, target: Pokemon, move, env, game, last):
         if user.vstatus['flinch']:
-            self.log.add(user, '+flinch')
+            self.log.add(actor=user, event='+flinch')
             if user.ability == 'Steadfast':
-                self.log.add(user, 'steadfast')
+                self.log.add(actor=user, event='steadfast', type=logType.ability)
                 user.boost('spe', 1)
             return
         if user.status is 'slp':
             if user.status_turn == 0:
-                self.log.add(user, 'sleep')
+                self.log.add(actor=user, event='sleep')
                 user.status_turn -= 1
                 return
             else:
-                self.log.add(user, 'wake')
+                self.log.add(actor=user, event='wake')
         if user.status is 'frz':
             if random.uniform(0, 1) <= 0.2:
-                self.log.add(user, 'unfrz')
+                self.log.add(actor=user, event='unfrz')
             else:
-                self.log.add(user, 'frz')
+                self.log.add(actor=user, event='frz')
                 return
 
-        self.log.add(user, 'use', move['name'])
+        self.log.add(actor=user, event='use', val=move['name'])
         if target.ability == 'Pressure':
             user.loss_pp(move, 2)
         else:
@@ -239,8 +241,8 @@ class Utils:
             user.choice_move = move['name']
 
         if user.ability == 'Protean':
-            self.log.add(user, 'protean')
-            self.log.add(user, 'change_type', move['type'])
+            self.log.add(actor=user, event='protean', type=logType.ability)
+            self.log.add(actor=user, event='change type', val=move['type'])
             user.attr = [move['type']]
 
         if move['name'] == 'Splash':
@@ -251,14 +253,14 @@ class Utils:
             return
 
         if move['priority'] > 0 and env.terrain == 'psychicterrain':
-            self.log.add(target, 'psychicsurge')
+            self.log.add(actor=target, event='+psychicterrain')
             return
 
         if 'charge' in move['flags']:
             if user.charge is None:
                 user.charge = move['name']
                 if move['name'] in ['Solar Beam', 'Solar Blade']:
-                    self.log.add(user, 'solar')
+                    self.log.add(actor=user, event='solar')
                     if env.weather is 'sunnyday':
                         user.charge = None
                 if user.charge is not None:
@@ -292,7 +294,7 @@ class Utils:
                     game.call_switch(user.player)
 
             elif useful == Miss:
-                self.log.add(target, 'avoid')
+                self.log.add(actor=target, event='avoid')
                 user.multi_count = 0
             else:
                 self.log.add(actor=target, event='0effect')
@@ -314,7 +316,7 @@ class Utils:
 
             for _ in range(count):
                 dmg = self.calc_dmg(user, target, move, env, last)
-                target.damage(val=dmg, perc=False, attr=move['type'], user=user)
+                target.damage(val=dmg, perc=False, attr='NoAttr', user=user)
 
             sec_target = target
             if 'secondary' in move:
@@ -435,12 +437,12 @@ class Utils:
             if move['name'] == 'Belly Drum':
                 if user.HP > user.maxHP / 2:
                     if user.stat_lv['atk'] == 6:
-                        self.log.add(user, 'belly_fail_atk')
+                        self.log.add(actor=user, event='belly_fail_atk')
                     else:
                         user.damage(0, perc=1 / 2)
                         user.boost('atk', 6)
                 else:
-                    self.log.add(user, 'belly_fail_hp')
+                    self.log.add(actor=user, event='belly_fail_hp')
 
             if move['name'] == 'Defog':
                 target.boost('eva', -1)
@@ -449,13 +451,13 @@ class Utils:
                 env.clear_field(target.player, type='wall', log=self.log)
 
             if move['name'] == 'Trick':
-                self.log.add(user, 'trick', target)
+                self.log.add(actor=user, event='trick', target=target)
                 item = user.lose(target.item)
                 if item:
                     target.lose_item(item)
 
             if move['name'] == 'Pain Split':
-                self.log.add(user, 'painsplit', target)
+                self.log.add(actor=user, event='painsplit', target=target)
                 avg_hp = (user.HP + target.HP) / 2
                 user.HP = avg_hp
                 target.HP = avg_hp
@@ -467,11 +469,11 @@ class Utils:
 
         if 'contact' in move['flags']:
             if target.ability in ['Iron Barbs', 'Rough Skin']:
-                self.log.add(user, target.ability)
+                self.log.add(actor=user, event=target.ability, type=logType.ability)
                 user.damage(0, perc=1 / 8)
 
             if target.item == 'Rocky Helmet':
-                self.log.add(user, 'Rocky Helmet')
+                self.log.add(actor=user, event='Rocky Helmet')
                 user.damage(0, perc=1 / 6)
 
     def check_useful(self, env, user, target, move):
@@ -485,10 +487,10 @@ class Utils:
 
         if target.protect == True:
             if sk_name == 'Feint':
-                self.log.add(user, 'feint', target.name)
+                self.log.add(actor=user, event='feint', target=target.name)
                 target.protect = 2
             else:
-                self.log.add(target, 'protect_from')
+                self.log.add(actor=target, event='protect_from')
                 return NoEffect
 
         if user.ability in ['Moldbreaker', 'Teravolt', 'Turboblaze']:
@@ -522,7 +524,7 @@ class Utils:
                 return NoEffect
         if target.ability == 'Dry Skin':
             target.heal(1 / 4, perc=Hit)
-            self.log.add(user, '+dryskin')
+            self.log.add(actor=user, event='+dryskin')
             return NoEffect
         if target.ability == 'Storm Drain':
             target.Satk_lv += 1
@@ -613,7 +615,7 @@ class Utils:
                     target.name == 'Arceus' and target.item in plates) and not (
                     target.name == 'Silvally' and target.item in memories) and 'ium Z' not in target.item:
                 power *= 1.5
-                self.log.add(user, 'knockoff', target)
+                self.log.add(actor=user, event='knockoff', target=target)
                 target.lose_item()
 
         if sk_name == 'Stored Power':

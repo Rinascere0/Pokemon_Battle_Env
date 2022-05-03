@@ -1,4 +1,5 @@
 from pokemon import Pokemon
+from const import *
 
 
 class BattleLog:
@@ -37,30 +38,37 @@ class BattleLog:
         print()
         self.log = []
 
-    def add(self, actor=None, event=None, val=0):
-        log = None
-        if event == 'confusion':
-            log = 'is confused!'
+    def translate(self, raw_log):
+        actor = raw_log['actor']
+        event = raw_log['event']
+        target = raw_log['target']
+        val = raw_log['val']
+        logtype = raw_log['logType']
 
-        elif event == '+flinch':
-            log = 'flinched and could not move!'
+        if type(actor) is Pokemon:
+            actor = actor.player.name + '\'s', actor.name
+        else:
+            actor = actor.name
 
-        elif event == 'wake':
-            log = actor, 'woke up!'
+        if type(actor) is Pokemon:
+            target = target.player.name + '\'s', target.name
+        else:
+            target = target.name
 
-        elif event == 'ct':
-            log = 'A critical hit!'
+        # ability
+        if logtype == logType.ability:
+            log = '[' + actor + '\'s ' + event + ']'
 
-        elif event == 'helmet':
-            log = 'was hurt by the rocky helmet!'
+        # common
+        elif event == 'use':
+            if 'Hidden Power' in val:
+                val = 'Hidden Power'
+            log = 'used ' + str(val) + '!'
 
-        elif event == 'rough':
-            log = 'was hurt by rough skin!'
+        elif event == 'use_item':
+            log = 'used ' + val + '!'
 
-        elif event == 'heal':
-            log = 'was healed ' + str(val) + '% of it\'s health!'
-
-        elif event == 'lost':
+        if event == 'lost':
             log = 'lost ' + str(val) + '% of it\'s health!'
 
         elif event == 'sub_make':
@@ -69,60 +77,11 @@ class BattleLog:
         elif event == 'sub_dmg':
             log = 'the substitute took damage instead!'
 
+        elif event == 'heal':
+            log = 'was healed ' + str(val) + '% of it\'s health!'
+
         elif event == 'sub_fade':
             log = 'substitute faded...'
-
-        elif event == 'effect':
-            log = 'It\'s super effective!'
-
-        elif event == 'neffect':
-            log = 'It\'s not very effective...'
-
-        elif event == '0effect':
-            log = 'It didn\'t effect ' + actor.name + '...'
-            actor = None
-
-        elif event == 'mold':
-            log = 'is breaking the mold!'
-
-        elif event == 'pressure':
-            log = 'is exerting pressure!'
-
-        elif event == 'intimidate':
-            log = 'intimidated ' + val + '!'
-
-        elif event == 'download':
-            log = '\'s download activated!'
-
-        elif event == 'soulheart':
-            log = '\'s Soul-Heart activated!'
-
-        elif event == 'beastboost':
-            log = '\'s Beast Boost activated!'
-
-        elif event == 'anticipate':
-            log = 'anticipated danger!'
-
-        elif event == 'frisk':
-            log = 'discovered the opponent\'s ' + val
-
-        elif event == 'trace':
-            log = 'copied the opponent\'s' + val
-
-        elif event == 'splash':
-            log = 'But nothing happened...'
-
-        elif event == 'knockoff':
-            log = 'knocked off ' + val.name + '\'s ' + val.item + '!'
-
-        elif event == 'obtain':
-            log = 'obtained ' + val + '!'
-
-        elif event == 'taunt':
-            log = 'was taunted!'
-
-        elif event == '-taunt':
-            log = '\'s taunt ended!'
 
         elif event == 'protect':
             log = 'protected itself!'
@@ -130,6 +89,156 @@ class BattleLog:
         elif event == 'protect_from':
             log = 'protected itself from attack!'
 
+        elif event == 'change_type':
+            log = '\'s type changed to ' + val + '!'
+
+        elif event == 'lose':
+            log = 'lost!'
+
+        elif event == 'withdraw':
+            log = 'withdrew ' + str(val) + '!'
+
+        elif event == 'switch':
+            log = 'sent out ' + str(val) + '!'
+
+        elif event == 'faint':
+            log = 'fainted!'
+
+        elif event == 'avoid':
+            log = 'avoided the attack!'
+
+        # stat_lv
+        elif event == '+1':
+            log = '\'s ' + str(val) + ' increased!'
+        elif event == '+2':
+            log = '\'s ' + str(val) + ' harshly increased!'
+        elif event == '+3':
+            log = '\'s ' + str(val) + ' dramatically increased!'
+        elif event == '+6':
+            log = '\'s ' + str(val) + ' is increased to maximum!'
+        elif event == '+7':
+            log = '\'s ' + str(val) + ' couldn\'t be higher!'
+
+        elif event == '-0':
+            log = '\'s ' + str(val) + ' couldn\'t be lowered!'
+        elif event == '-1':
+            log = '\'s ' + str(val) + ' decreased!'
+        elif event == '-2':
+            log = '\'s ' + str(val) + ' harshly decreased!'
+        elif event == '-3':
+            log = '\'s ' + str(val) + ' dramatically decreased!'
+        elif event == '-7':
+            log = '\'s ' + str(val) + ' couldn\'t be lower!'
+
+        # item event
+        elif event == 'rockyhelmet':
+            log = 'was hurt by the Rocky Helmet!'
+
+        elif event == 'balloon':
+            log = 'is floating with Air Balloon!'
+
+        elif event == '-balloon':
+            log = '\'s Air Balloon popped!'
+
+        elif event == 'leftovers':
+            log = 'restored HP with leftovers.'
+
+        # status event
+        elif event == '+poison':
+            log = 'was hurt by it\'s posion!'
+
+        elif event == '+burn':
+            log = 'was hurt by it\'s burn!'
+
+        if event == 'confusion':
+            output = actor + 'is confused!'
+
+        elif event == '+flinch':
+            log = 'flinched and could not move!'
+
+        elif event == '+frz':
+            log = 'is frozen solid!'
+
+        elif event == '-frz':
+            log = 'is out of frozen!'
+
+        elif event == 'wake':
+            log = actor, 'woke up!'
+
+        elif event == 'taunt':
+            log = 'was taunted!'
+
+        elif event == '-taunt':
+            log = '\'s taunt ended!'
+
+        elif event == 'status':
+            log = 'is ' + str(val) + '!'
+
+        elif event == 'istatus':
+            log = 'is already ' + str(val) + '!'
+
+        # weather event
+        elif event == '+mistyterrain':
+            log = 'was protected by Misty Terrain!'
+
+        elif event == '+grassyterrain':
+            log = 'was healed by Grassy Terrain!'
+
+        elif event == '+electricterrain':
+            log = 'was protected by Electric Terrain!'
+
+        elif event == '+psychicterrain':
+            log = 'was protected by Psychic Terrain!'
+
+        elif event == 'mistyterrain':
+            log = 'Mist swirled around the battlefield!'
+
+        elif event == 'grassyterrain':
+            log = 'Grass grew to cover the battlefield!'
+
+        elif event == 'electricterrain':
+            log = 'An electric current ran across the battlefield!'
+
+        elif event == 'psychicterrain':
+            log = 'The battlefield got weird!'
+
+        elif event == '-mistyterrain':
+            log = 'The mist disappeared from the battlefield.'
+
+        elif event == '-grassyterrain':
+            log = 'The grass disappeared from the battlefield.'
+
+        elif event == '-electricterrain':
+            log = 'The electric disappeared from the battlefield.'
+
+        elif event == '-psychicterrain':
+            log = 'The weirdness disappeared from the battlefield.!'
+
+        elif event == 'sunnyday':
+            log = "The sunlight turned harsh!"
+
+        elif event == 'Raindance':
+            log = "It started to rain!"
+
+        elif event == 'hail':
+            log = "It started to hail!"
+
+        elif event == 'Sandstorm':
+            log = "A sandstorm kicked up!"
+
+        elif event == '-sunnyday':
+            log = "The sunlight faded."
+
+        elif event == '-Raindance':
+            log = "The rain stopped."
+
+        elif event == '-hail':
+            log = "The hail stopped."
+
+        elif event == '-Sandstorm':
+            log = "The sandstorm subsided."
+
+        # field event
         elif event == '+stealthrock':
             log = 'Pointed stone stuck into ' + actor.name + '\'s body.'
             actor = None
@@ -155,25 +264,80 @@ class BattleLog:
         elif event == '+spikes':
             log = 'was hurt by spikes!'
 
-        elif event == '+poison':
-            log = 'was hurt by it\'s posion!'
+        elif event == 'clear':
+            log = val + ' on ' + actor.name + '\'s field was cleared.'
+            actor = None
 
-        elif event == '+burn':
-            log = 'was hurt by it\'s burn!'
+        elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
+                       '-quickguard',
+                       '-reflect', '-safeguard', '-tailwind', '-wideguard']:
+            log = event + ' on ' + actor.name + '\'s field ended.'
+            actor = None
 
-        elif event == 'mistyterrain':
-            log = 'was protected by Misty Terrain!'
+        # no actor
+        elif event == 'ct':
+            log = 'A critical hit!'
 
-        elif event == 'grassyterrain':
-            log = 'was healed by Grassy Terrain!'
+        elif event == 'effect':
+            log = 'It\'s super effective!'
 
-        elif event == 'electricterrain':
-            log = 'was protected by Electric Terrain!'
+        elif event == 'neffect':
+            log = 'It\'s not very effective...'
 
-        elif event == 'psychicterrain':
-            log = 'was protected by Psychic Terrain!'
+        elif event == '0effect':
+            log = 'It didn\'t effect ' + actor.name + '...'
 
-        elif event == 'raindish':
+        elif event == 'splash':
+            log = 'But nothing happened...'
+
+        elif event == 'fail':
+            log = 'But it failed!'
+
+        # skill
+        elif event == 'knockoff':
+            log = 'knocked off ' + val.name + '\'s ' + val.item + '!'
+
+        elif event == 'trick':
+            log = 'switched its item with ' + val.name + '!'
+
+        elif event == 'obtain':
+            log = 'obtained ' + val + '!'
+
+        elif event == 'painsplit':
+            log = 'splited the pain with ' + val.name + '!'
+
+        elif event == '+leechseed':
+            log = '\'s health was snapped by leech seed!'
+
+        elif event == 'pred':
+            log = 'predicted an attack!'
+
+        elif event == 'solar':
+            log = 'absorbed the light!'
+
+        elif event == 'belly_fail_hp':
+            log = 'does not have enough HP!'
+
+        elif event == 'belly_fail_atk':
+            log = '\'s Attack is already maximum!'
+
+        # +ability
+        elif event == '+moldbreak':
+            log = 'is breaking the mold!'
+
+        elif event == '+pressure':
+            log = 'is exerting pressure!'
+
+        elif event == '+anticipate':
+            log = 'anticipated danger!'
+
+        elif event == '+frisk':
+            log = 'discovered the opponent\'s ' + val
+
+        elif event == '+trace':
+            log = 'traced the opponent\'s' + val
+
+        elif event == '+raindish':
             log = 'was healed by Rain Dish!'
 
         elif event == '+dryskin':
@@ -182,146 +346,17 @@ class BattleLog:
         elif event == '-dryskin':
             log = 'was hurt by Dry Skin!'
 
-        elif event == 'icebody':
+        elif event == '+icebody':
             log = 'was healed by Ice Body!'
 
-        elif event == 'hydration':
+        elif event == '+hydration':
             log = val + ' was healed by Hydration!'
 
-        elif event == 'clear':
-            log = val + ' on ' + actor.name + '\'s field was cleared.'
-            actor = None
-
-        elif event == 'trick':
-            log = 'switched its item with ' + val + '!'
-
-        elif event == 'painsplit':
-            log = 'splited the pain with ' + val + '!'
-
-
-        elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
-                       '-quickguard',
-                       '-reflect', '-safeguard', '-tailwind', '-wideguard']:
-            log = event + ' on ' + actor.name + '\'s field ended.'
-            actor = None
-
-        elif event == 'use':
-            if 'Hidden Power' in val:
-                val = 'Hidden Power'
-            log = 'used ' + str(val) + '!'
-
-        elif event == 'use_item':
-            log = 'used ' + val + '!'
-
-        elif event == 'fail':
-            log = 'But it failed!'
-
-        elif event == 'faint':
-            log = 'fainted!'
-
-        elif event == 'status':
-            log = 'is ' + str(val) + '!'
-
-        elif event == 'istatus':
-            log = 'is already ' + str(val) + '!'
-
-        elif event == 'avoid':
-            log = 'avoided the attack!'
-
-        elif event == 'belly_fail_hp':
-            log = 'does not have enough HP!'
-
-        elif event == 'belly_fail_atk':
-            log = '\'s Attack is already maximum!'
-
-        elif event == 'frz':
-            log = 'is frozen solid!'
-
-        elif event == 'unfrz':
-            log = 'is out of frozen!'
-
-        elif event == 'solar':
-            log = 'absorbed the light!'
-
-        elif event == 'withdraw':
-            log = 'withdrew ' + str(val) + '!'
-
-        elif event == 'switch':
-            log = 'sent out ' + str(val) + '!'
-
-        elif event == 'pred':
-            log = 'predicted an attack!'
-
-        elif event == 'speedboost':
-            log = '\'s Speed Boost activated!'
-
-        elif event == 'moody':
-            log = '\'s Moody activated!'
-
-        elif event == 'solarpower':
-            log = 'lost it\'s health due to Solar Power!'
-
-        elif event == '+leechseed':
-            log = '\'s health was snapped by leech seed!'
-
-        elif event == 'ooze':
-            log = 'was hurt by liquid ooze!'
-
-        elif event == 'balloon':
-            log = 'is floating with Air Balloon!'
-
-        elif event == '-balloon':
-            log = '\'s Air Balloon popped!'
-
-        elif event == 'Rocky Helmet':
-            log = 'was hurt by Rocky Helmet!'
-
-        elif event in ['Iron Barbs', 'Rough Skin']:
+        elif event == '+ironbarbs':
             log = 'was hurt by ' + event + '!'
 
-        elif event == 'steadfast':
-            log = '\'s Steadfast activated!'
+        elif event == '+roughskin':
+            log = 'was hurt by ' + event + '!'
 
-        elif event == 'justified':
-            log = '\'s Justified activated!'
-
-        elif event == 'protean':
-            log = '\'s Protean activated!'
-
-        elif event == 'change_type':
-            log = '\'s type changed to ' + val + '!' \
-                                                 ''
-        # elif event=='lockedmove':
-        #     log='locked'
-
-        elif event == '+1':
-            log = '\'s ' + str(val) + ' increased!'
-        elif event == '+2':
-            log = '\'s ' + str(val) + ' harshly increased!'
-        elif event == '+3':
-            log = '\'s ' + str(val) + ' dramatically increased!'
-        elif event == '+6':
-            log = '\'s ' + str(val) + ' is increased to maximum!'
-        elif event == '+7':
-            log = '\'s ' + str(val) + ' couldn\'t be higher!'
-
-        elif event == '-0':
-            log = '\'s ' + str(val) + ' couldn\'t be lowered!'
-        elif event == '-1':
-            log = '\'s ' + str(val) + ' decreased!'
-        elif event == '-2':
-            log = '\'s ' + str(val) + ' harshly decreased!'
-        elif event == '-3':
-            log = '\'s ' + str(val) + ' dramatically decreased!'
-        elif event == '-7':
-            log = '\'s ' + str(val) + ' couldn\'t be lower!'
-
-        elif event == 'leftovers':
-            log = 'restored HP with leftovers.'
-
-        elif event == 'lose':
-            log = 'lost!'
-
-        #  print(event)
-        if log:
-            self.log.append([actor, log])
+    def add(self, actor=None, event=None, target=None, val=0, type=logType.ability):
+        self.log.append({'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type})

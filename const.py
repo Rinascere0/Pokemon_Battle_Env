@@ -84,6 +84,10 @@ class Stat:
     HP, Atk, Def, SAtk, SDef, Spe = range(6)
 
 
+class logType:
+    common, env, ability = range(3)
+
+
 Nature = {'Adamant': ('Atk', 'SpA'),
           'Bold': ('Def', 'Atk'),
           'Brave': ('Atk', 'Spe'),
