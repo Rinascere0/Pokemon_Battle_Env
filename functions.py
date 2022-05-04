@@ -13,6 +13,10 @@ def minus(x, y):
         return x - y
 
 
+def move_to_key(move):
+    return move.replace(' ', '').replace('-', '').replace('[', '').replace(']', '').replace('\'', '').lower()
+
+
 def calc_type_buff(move, target):
     sk_name, sk_type = move['name'], move['type']
     type_buff = 1

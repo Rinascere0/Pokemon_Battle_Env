@@ -1,3 +1,6 @@
+from data.moves import Moves
+
+
 class Env:
     def __init__(self):
         self.reset()
@@ -55,14 +58,14 @@ class Env:
             self.terrain_turn = turn
             log.add(event=terrain)
 
-    def step_field(self, fields):
-        for field in self.fields:
-            if self.field[field] > 0:
-                self.field[field] -= 1
-                if self.field[field] == 0:
-                    self.log.add(event='-' + field)
+    def step_pseudo_weather(self,log):
+        for pd in self.pseudo_weather:
+            if self.pseudo_weather[pd] > 0:
+                self.pseudo_weather[pd] -= 1
+                if self.pseudo_weather[pd] == 0:
+                    log.add(event='-' + pd)
 
-    def step(self, players):
+    def step(self, players, log):
         for player in players:
             sidecond = self.side_condition[player.pid]
             for cond in ['auroraveil', 'craftyshield', 'lightscreen', 'luckychant', 'matblock', 'mist', 'quickguard',
@@ -70,11 +73,21 @@ class Env:
                 if sidecond[cond] > 0:
                     sidecond[cond] -= 1
                     if sidecond[cond] == 0:
-                        self.log.add(actor=player, event='-' + cond)
+                        log.add(actor=player, event='-' + cond)
 
-        self.step_field(self.weather)
-        self.step_field(self.terrain)
-        self.step_field(self.pseudo_weather)
+        if self.weather_turn > 0:
+            self.weather_turn -= 1
+            if self.weather_turn == 0:
+                log.add(event='-' + self.weather)
+                self.weather = None
+
+        if self.terrain_turn > 0:
+            self.terrain_turn -= 1
+            if self.terrain_turn == 0:
+                log.add(event='-' + self.terrain)
+                self.terrain = None
+
+        self.step_pseudo_weather(log)
 
     def set_pseudo_weather(self, pseudo_weather, log):
         self.pseudo_weather[pseudo_weather] = 5
@@ -87,4 +100,5 @@ class Env:
             sideconds = ['reflect', 'lightscreen', 'auroraveil', 'safeguard', 'mist']
         for sidecond in sideconds:
             if self.side_condition[pid][sidecond] > 0:
-                log.add(actor=player, event='clear', val=sidecond)
+                log.add(actor=player, event='clear', val=Moves[sidecond]['name'])
+                self.side_condition[pid][sidecond] = 0

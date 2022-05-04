@@ -6,36 +6,36 @@ class BattleLog:
     def __init__(self):
         self.total_logs = []
         self.log = []
+        self.total_log_texts = []
+        self.log_text = []
 
     def step(self):
         self.total_logs.append(self.log)
         self.log = []
 
     def reset(self, players):
+        self.total_log_texts = []
+        self.log_text = []
         self.total_logs = []
         self.log = []
-        self.open_log = []
-        self.open_log.append('The game between ' + players[0].name + ' and ' + players[1].name + ' started!')
+
+        self.log_text.append('The game between ' + players[0].name + ' and ' + players[1].name + ' started!')
         for player in players:
             pkm_str = ""
             for pkm in player.pkms:
                 pkm_str += pkm.name + '/'
-            self.open_log.append(player.name + '\'s pokemons: ' + pkm_str[:-1])
-        for log in self.open_log:
-            print(log)
-        print()
+            self.log_text.append(player.name + '\'s pokemons: ' + pkm_str[:-1])
 
-    def match_up(self):
-        self.total_logs.append(self.log)
         self.step_print()
 
     def step_print(self):
         self.total_logs.append(self.log)
-        for log in self.log:
-            if log:
-                print(self.translate(log))
+        self.total_log_texts.append(self.log_text)
+        for log in self.log_text:
+            print(log)
         print()
         self.log = []
+        self.log_text = []
 
     def translate(self, raw_log):
         actor = raw_log['actor']
@@ -50,8 +50,6 @@ class BattleLog:
             if type(actor) is Pokemon:
                 actor = actor.player.name + ' \'s ' + actor.name + ' '
             else:
-                if type(actor) is str:
-                    print(actor)
                 actor = actor.name + ' '
 
         if target:
@@ -68,6 +66,9 @@ class BattleLog:
             return log
 
         # common
+        if event == 'mega':
+            log = 'evolved into ' + val + '!'
+
         if event == 'use':
             if 'Hidden Power' in val:
                 val = 'Hidden Power'
@@ -79,22 +80,25 @@ class BattleLog:
         elif event == 'lost':
             log = 'lost ' + str(val) + '% of it\'s health!'
 
-        elif event == 'sub_make':
+        elif event == 'transform':
+            log = 'transformed into ' + val + '!'
+
+        elif event == 'substitute':
             log = 'made a substitute!'
 
-        elif event == 'sub_dmg':
-            log = 'the substitute took damage instead!'
+        elif event == '+substitute':
+            log = '\'s substitute took damage instead!'
 
         elif event == 'heal':
             log = 'was healed ' + str(val) + '% of it\'s health!'
 
-        elif event == 'sub_fade':
-            log = 'substitute faded...'
+        elif event == '-substitute':
+            log = '\'s substitute faded...'
 
         elif event == 'protect':
             log = 'protected itself!'
 
-        elif event == 'protect_from':
+        elif event == '+protect':
             log = 'protected itself from attack!'
 
         elif event == 'change_type':
@@ -117,30 +121,30 @@ class BattleLog:
 
         # stat_lv
         elif event == '+1':
-            log = '\'s ' + str(val) + ' increased!'
+            log = '\'s ' + str(val) + ' rose!'
         elif event == '+2':
-            log = '\'s ' + str(val) + ' harshly increased!'
+            log = '\'s ' + str(val) + ' rose rapidly!'
         elif event == '+3':
-            log = '\'s ' + str(val) + ' dramatically increased!'
+            log = '\'s ' + str(val) + ' rose drastically!'
         elif event == '+6':
-            log = '\'s ' + str(val) + ' is increased to maximum!'
+            log = '\'s ' + str(val) + ' rose to maximum!'
         elif event == '+7':
-            log = '\'s ' + str(val) + ' couldn\'t be higher!'
+            log = '\'s ' + str(val) + ' won\'t go any higher!'
 
         elif event == '-0':
             log = '\'s ' + str(val) + ' couldn\'t be lowered!'
         elif event == '-1':
-            log = '\'s ' + str(val) + ' decreased!'
+            log = '\'s ' + str(val) + ' fell!'
         elif event == '-2':
-            log = '\'s ' + str(val) + ' harshly decreased!'
+            log = '\'s ' + str(val) + ' fell harshly'
         elif event == '-3':
-            log = '\'s ' + str(val) + ' dramatically decreased!'
+            log = '\'s ' + str(val) + ' fell drastically!'
         elif event == '-7':
-            log = '\'s ' + str(val) + ' couldn\'t be lower!'
+            log = '\'s ' + str(val) + ' won\'t go any lower!'
 
         # item event
         elif event == 'rockyhelmet':
-            log = 'was hurt by the Rocky Helmet!'
+            log = 'was hurt by Rocky Helmet!'
 
         elif event == 'balloon':
             log = 'is floating with Air Balloon!'
@@ -152,11 +156,14 @@ class BattleLog:
             log = 'restored HP with leftovers.'
 
         # status event
-        elif event == '+poison':
+        elif event == '+psn':
             log = 'was hurt by it\'s posion!'
 
-        elif event == '+burn':
+        elif event == '+brn':
             log = 'was hurt by it\'s burn!'
+
+        elif event == '+slp':
+            log = 'is fast asleep.'
 
         elif event == 'confusion':
             log = 'is confused!'
@@ -170,7 +177,7 @@ class BattleLog:
         elif event == '-frz':
             log = 'is out of frozen!'
 
-        elif event == 'wake':
+        elif event == '-slp':
             log = 'woke up!'
 
         elif event == 'taunt':
@@ -179,14 +186,23 @@ class BattleLog:
         elif event == '-taunt':
             log = '\'s taunt ended!'
 
+        elif event == '++taunt':
+            log = 'is already taunted!'
+
         elif event == 'status':
             log = 'is ' + str(val) + '!'
 
-        elif event == 'istatus':
+        elif event == '++status':
             log = 'is already ' + str(val) + '!'
 
         elif event == '-status':
             log = val + ' was healed!'
+
+        elif event == '++substitute':
+            log = 'already has a substitute!'
+
+        elif event == '--substitute':
+            log = 'doesn\'t have enough HP to make a substitute...'
 
         # weather event
         elif event == '+mistyterrain':
@@ -200,6 +216,12 @@ class BattleLog:
 
         elif event == '+psychicterrain':
             log = 'was protected by Psychic Terrain!'
+
+        elif event == '+hail':
+            log = "was buffeted by hail!"
+
+        elif event == '+Sandstorm':
+            log = "was buffeted by sandstorm!"
 
         if log:
             return actor + log
@@ -226,7 +248,7 @@ class BattleLog:
             log = 'The electric disappeared from the battlefield.'
 
         elif event == '-psychicterrain':
-            log = 'The weirdness disappeared from the battlefield.!'
+            log = 'The weirdness disappeared from the battlefield.'
 
         elif event == 'sunnyday':
             log = "The sunlight turned harsh!"
@@ -359,10 +381,10 @@ class BattleLog:
             log = 'anticipated danger!'
 
         elif event == '+frisk':
-            log = 'discovered the opponent\'s ' + val
+            log = 'discovered the opponent\'s ' + val + '!'
 
         elif event == '+trace':
-            log = 'traced the opponent\'s' + val
+            log = 'traced the opponent\'s ' + val + '!'
 
         elif event == '+raindish':
             log = 'was healed by Rain Dish!'
@@ -386,4 +408,6 @@ class BattleLog:
             return actor + log
 
     def add(self, actor=None, event=None, target=None, val=0, type=logType.common):
-        self.log.append({'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type})
+        log = {'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type}
+        self.log.append(log)
+        self.log_text.append(self.translate(log))

@@ -10,18 +10,22 @@ from read_team import read_team
 
 import numpy
 
+Common, Mega, Z_Move = range(3)
+
 
 class Player:
     def __init__(self):
         self.pkms = []
         self.pivot = -1
-        self.alive = self.alive = np.ones(6)
+        self.alive = np.ones(6)
         self.status = Signal.Wait
-        self.name = ""
+        self.name = None
         self.game = None
         self.pid = -1
         self.log = None
         self.env = None
+        self.mega = np.zeros(6)
+        self.zmove = np.zeros((6, 4))
 
     def load_team(self, team):
         self.pkms = team
@@ -29,6 +33,13 @@ class Player:
         self.pivot = -1
         for pkm_id, pkm in enumerate(self.pkms):
             pkm.setup(pkm_id, self, self.env, self.log)
+            if pkm.item in mega_stones and pkm.name == mega_stones[pkm.item]:
+                self.mega[pkm_id] = 1
+            if pkm.item in z_crystals:
+                attr = z_crystals[pkm.item]
+                for move_id, move in enumerate(pkm.move_infos):
+                    if move['type'] == attr:
+                        self.zmove[pkm_id][move_id] = 1
 
     def set_game(self, game, pid, env, log):
         self.game = game
@@ -55,6 +66,9 @@ class Player:
 
     def faint(self, pkm_id):
         self.alive[pkm_id] = False
+
+    def use_mega(self):
+        self.mega = np.zeros(6)
 
     def mainloop(self):
         self.load_team(read_team())
@@ -89,16 +103,20 @@ class RandomPlayer(Player):
 
     def gen_move(self):
         pivot = self.pkms[self.pivot]
-        return np.random.choice(pivot.move_infos, p=pivot.move_mask / pivot.move_mask.sum())
+        move = np.random.choice(pivot.move_infos, p=pivot.move_mask / pivot.move_mask.sum())
+        if self.mega[self.pivot]:
+            return {'type': ActionType.Mega, 'item': move}
+        else:
+            return {'type': ActionType.Common, 'item': move}
 
     def gen_switch(self):
         p = self.alive
         if self.pivot != -1:
             p[self.pivot] = 0
         if not p.any():
-            return self.pivot
+            return {'type': ActionType.Switch, 'item': self.pivot}
         else:
-            return int(np.random.choice(np.arange(0, 6), p=p / p.sum()))
+            return {'type': ActionType.Switch, 'item': int(np.random.choice(np.arange(0, 6), p=p / p.sum()))}
 
     def switch(self, env, pivot, withdraw=False):
         if withdraw and pivot == self.pivot:

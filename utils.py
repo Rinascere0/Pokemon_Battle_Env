@@ -20,6 +20,8 @@ class Utils:
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
         pkms[0].prep(env)
         pkms[1].prep(env)
+        megas = [None, None]
+        z_moves = [False, False]
         prior = np.zeros(2)
         if pkms[0].Spe > pkms[1].Spe:
             prior[0] += 0.1
@@ -29,46 +31,67 @@ class Utils:
             prior[random.randint(0, 1)] += 0.1
 
         if env.pseudo_weather['trickroom'] > 0:
-            prior = 1 - prior
+            prior = - prior
 
-        if type(moves[0]) is int:
-            prior[0] += 10
+        if moves[0]['type'] == ActionType.Switch:
+            prior[0] += 50
         else:
-            prior[0] += moves[0]['priority']
+            prior[0] += moves[0]['item']['priority']
+            if moves[0]['type'] == ActionType.Mega:
+                megas[0] = True
+            if moves[0]['type'] == ActionType.Z_Move:
+                z_moves[0] = True
 
-        if type(moves[1]) is int:
-            prior[1] += 10
+        if type(moves[1]) == ActionType.Switch:
+            prior[1] += 50
         else:
-            prior[1] += moves[1]['priority']
+            prior[1] += moves[1]['item']['priority']
+            if moves[1]['type'] == ActionType.Mega:
+                megas[1] = True
+            if moves[1]['type'] == ActionType.Z_Move:
+                z_moves[1] = True
 
         if prior[0] > prior[1]:
             first = 0
         else:
             first = 1
+        last = 1 - first
+        # mega
+
+        if megas[first]:
+            pkms[first].mega_evolve()
+            players[first].use_mega()
+            self.switch_on(players, env)
+
+        if megas[last]:
+            pkms[last].mega_evolve()
+            players[last].use_mega()
+            self.switch_on(players, env)
 
         # switch
 
         if type(moves[first]) is int:
-            if moves[1 - first]['name'] != 'Pursuit':
-                players[first].switch(moves[first])
+            if moves[last]['name'] != 'Pursuit' or z_moves[last]:
+                players[first].switch(moves[first]['item'])
             else:
                 # pursuit
-                self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, game=game,
-                              last=True)
+                self.use_move(user=pkms[last], target=pkms[first], move=moves[last]['item'], env=env, game=game,
+                              z_move=z_moves[last], last=True)
                 if pkms[first].turn:
-                    players[first].switch(moves[first], withdraw=True)
-                    pkms[1 - first].turn = False
+                    players[first].switch(moves[first]['item'], withdraw=True)
+                    pkms[last].turn = False
                 return
         else:
-            self.use_move(user=pkms[first], target=pkms[1 - first], move=moves[first], env=env, game=game, last=False)
+            self.use_move(user=pkms[first], target=pkms[last], move=moves[first]['item'], env=env, game=game,
+                          z_move=z_moves[first], last=False)
 
         # move last
-        if pkms[1 - first].turn:
-            if type(moves[1 - first]) is int:
-                players[1 - first].switch(moves[1 - first])
+        if pkms[last].turn:
+            if type(moves[last]) is int:
+                players[last].switch(moves[last]['item'])
             else:
-                self.use_move(user=players[1 - first].get_pivot(), target=players[first].get_pivot(),
-                              move=moves[1 - first], env=env, game=game,
+                self.use_move(user=players[last].get_pivot(), target=players[first].get_pivot(),
+                              move=moves[last]['item'], env=env, game=game, z_move=z_moves[last],
                               last=True)
 
         # end turn
@@ -79,17 +102,20 @@ class Utils:
 
         return done, to_switch
 
-    def match_up(self, env, players, pivots):
-        for pid, (player, pivot) in enumerate(zip(players, pivots)):
-            player.switch(env, pivot)
+    def match_up(self, env, players, moves):
+        for pid, (player, move) in enumerate(zip(players, moves)):
+            player.switch(env, move['item'])
         self.switch_on(players, env)
-        self.log.match_up()
+        self.log.step_print()
 
-    def check_switch(self, env, players, pivots=[None, None], check=True):
+    def check_switch(self, env, players, moves=[None, None], check=True):
         done = False
         to_switch = []
-        for pid, (player, pivot) in enumerate(zip(players, pivots)):
-            if pivot is not None:
+        for pid, (player, move) in enumerate(zip(players, moves)):
+            if move is not None:
+                pivot = move['item']
+                if pivot == player.pivot:
+                    continue
                 player.switch(env, pivot, not check)
 
             if check:
@@ -109,7 +135,13 @@ class Utils:
         for pid, player in enumerate(players):
             user = player.get_pivot()
             target = players[1 - pid].get_pivot()
-            if user.switch_on:
+            if user.activate:
+                if user.ability == 'Trace':
+                    self.log.add(actor=user, event='trace', type=logType.ability)
+                    self.log.add(actor=user, event='+trace', val=target.ability)
+                    user.current_ability = target.ability
+                    user.ability = target.ability
+
                 if user.ability == 'Anticipation':
                     for move in target.move_infos:
                         if calc_type_buff(move, user) > 1 or 'ohko' in move:
@@ -130,7 +162,7 @@ class Utils:
                 if user.ability == 'Unnerve':
                     self.log.add(actor=user, event='unnerve', type=logType.ability)
 
-                if user.ability == 'Drizzy':
+                if user.ability == 'Drizzle':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
                     env.set_weather(weather='Raindance', item=user.item, log=self.log)
 
@@ -162,6 +194,21 @@ class Utils:
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
                     env.set_terrain(terrain='psychicterrain', item=user.item, log=self.log)
 
+                if user.ability == 'Download':
+                    self.log.add(actor=user, event='download', type=logType.ability)
+                    if target.Def > target.SpD:
+                        user.boost('spa', 1)
+                    else:
+                        user.boost('atk', 1)
+
+                if user.ability == 'Intimidate':
+                    self.log.add(actor=user, event='intimidate', type=logType.ability)
+                    target.boost('atk', -1, user)
+
+            if user.switch_on:
+                if user.item is 'Air Balloon':
+                    self.log.add(actor=user, event='balloon')
+
                 if user.item in ['Electric Seed', 'Grassy Seed']:
                     self.log.add(actor=user, event='use item')
                     user.use_item()
@@ -172,24 +219,7 @@ class Utils:
                     user.use_item()
                     user.boost('spd', 1)
 
-                if user.item is 'Air Balloon':
-                    self.log.add(actor=user, event='balloon')
-
-                if user.ability == 'Download':
-                    self.log.add(actor=user, event='download', type=logType.ability)
-                    if target.Def > target.SpD:
-                        user.boost('spa', 1)
-                    else:
-                        user.boost('atk', 1)
-
-                if user.ability == 'Trace':
-                    self.log.add(actor=user, event='trace', type=logType.ability)
-                    self.log.add(actor=user, event='+trace', val=target.ability)
-                    user.current_ability = target.ability
-
-                if user.ability == 'Intimidate':
-                    self.log.add(actor=user, event='intimidate', type=logType.ability)
-                    target.boost('atk', -1, user)
+            user.activate = False
 
     def step_turn_pkm(self, env, pkms, moves):
         pkms[0].prep(env)
@@ -214,12 +244,14 @@ class Utils:
         else:
             first = 1
 
-        self.use_move(user=pkms[first], target=pkms[1 - first], move=moves[first], env=env, game=None, last=False)
-        self.use_move(user=pkms[1 - first], target=pkms[first], move=moves[1 - first], env=env, game=None, last=True)
+        last = 1 - first
+
+        self.use_move(user=pkms[first], target=pkms[last], move=moves[first], env=env, game=None, last=False)
+        self.use_move(user=pkms[last], target=pkms[first], move=moves[last], env=env, game=None, last=True)
 
         self.log.step_print()
 
-    def use_move(self, user: Pokemon, target: Pokemon, move, env, game, last):
+    def use_move(self, user: Pokemon, target: Pokemon, move, env, game, z_move, last):
         if user.vstatus['flinch']:
             self.log.add(actor=user, event='+flinch')
             if user.ability == 'Steadfast':
@@ -227,17 +259,18 @@ class Utils:
                 user.boost('spe', 1)
             return
         if user.status is 'slp':
-            if user.status_turn == 0:
-                self.log.add(actor=user, event='sleep')
+            if user.status_turn > 0:
+                self.log.add(actor=user, event='+slp')
                 user.status_turn -= 1
                 return
             else:
-                self.log.add(actor=user, event='wake')
+                self.log.add(actor=user, event='-slp')
+                user.status = None
         if user.status is 'frz':
             if random.uniform(0, 1) <= 0.2:
-                self.log.add(actor=user, event='unfrz')
+                self.log.add(actor=user, event='-frz')
             else:
-                self.log.add(actor=user, event='frz')
+                self.log.add(actor=user, event='+frz')
                 return
 
         self.log.add(actor=user, event='use', val=move['name'])
@@ -251,7 +284,7 @@ class Utils:
 
         if user.ability == 'Protean':
             self.log.add(actor=user, event='protean', type=logType.ability)
-            self.log.add(actor=user, event='change type', val=move['type'])
+            self.log.add(actor=user, event='change_type', val=move['type'])
             user.attr = [move['type']]
 
         if move['name'] == 'Splash':
@@ -283,7 +316,7 @@ class Utils:
         for i in range(count):
             if not target.alive:
                 if i == 0:
-                    self.log.add('fail')
+                    self.log.add(event='fail')
                 break
             useful = self.check_useful(env, user, target, move)
             if useful == Hit:
@@ -440,7 +473,7 @@ class Utils:
             # TODO: Multiple types of heal
             if 'heal' in move:
                 if target.maxHP == target.HP:
-                    self.log.add('fail')
+                    self.log.add(event='fail')
                 else:
                     target.heal(0, move['heal'][0] / move['heal'][1])
             if move['name'] == 'Belly Drum':
@@ -485,7 +518,7 @@ class Utils:
                 self.log.add(actor=user, event='rockyhelmet')
                 user.damage(0, perc=1 / 6)
 
-        if move['name'] == 'Knock Off' and target.item:
+        if move['name'] == 'Knock Off' and target.item and target.alive:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
             target.lose_item()
 
@@ -500,7 +533,7 @@ class Utils:
 
         if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig']:
             if user.off_field:
-                user.off_field = ""
+                user.off_field = None
         else:
             user.off_field = sk_name
 
@@ -516,12 +549,12 @@ class Utils:
             else:
                 user.charge = None
 
-        if target.protect == True:
+        if target.vstatus['protect'] == True:
             if sk_name == 'Feint':
                 self.log.add(actor=user, event='feint', target=target)
-                target.protect = 2
+                target.unprotect = True
             else:
-                self.log.add(actor=target, event='protect_from')
+                self.log.add(actor=target, event='+protect')
                 return NoEffect
 
         if user.ability in ['Moldbreaker', 'Teravolt', 'Turboblaze']:
@@ -558,7 +591,7 @@ class Utils:
             self.log.add(actor=user, event='+dryskin')
             return NoEffect
         if target.ability == 'Storm Drain':
-            target.Satk_lv += 1
+            target.stat_lv['spa'] += 1
             return NoEffect
 
         if sk_type == 'Fire':
@@ -568,10 +601,10 @@ class Utils:
 
         if sk_type == 'Electric':
             if target.ability == 'Lightning Rod':
-                target.Satk_lv += 1
+                target.stat_lv['spa'] += 1
                 return NoEffect
             if target.ability == 'Motor Drive':
-                target.Spe_lv += 1
+                target.stat_lv['spe'] += 1
                 return NoEffect
             if target.ability == 'Volt Absorb':
                 target.heal(1 / 4, perc=Hit)
@@ -579,7 +612,7 @@ class Utils:
 
         if sk_type == 'Grass':
             if target.ability == 'Sap Sipper':
-                target.Atk_lv += 1
+                target.stat_lv['atk'] += 1
                 return NoEffect
 
         if sk_type == 'Ground':
@@ -638,6 +671,9 @@ class Utils:
         if sk_name == 'Endeavor':
             return target.HP - user.HP
 
+        if sk_name == 'Nature\'s Madness':
+            return max(target.HP // 2, 1)
+
         if 'ohko' in move:
             return target.HP
 
@@ -651,6 +687,9 @@ class Utils:
             for key, boost in user.stat_lv.items():
                 if boost > 0:
                     power += boost * 20
+
+        if sk_name == 'Return':
+            power = 102
 
         if sk_name == 'Acrobatics' and user.item is None:
             power *= 2
@@ -932,6 +971,9 @@ class Utils:
 
         if not imm_ground(user) and env.terrain == 'grassyterrain' and sk_type == 'Grass':
             other_buff *= 1.3
+
+        if not imm_ground(user) and env.terrain == 'grassyterrain' and sk_type == 'Ground':
+            other_buff *= 0.5
 
         if not imm_ground(target) and env.terrain == 'mistyterrain' and sk_type == 'Dragon':
             other_buff *= 0.5

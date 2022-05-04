@@ -7,9 +7,32 @@ class Signal:
     Wait, Move, Switch, End, Switch_in_turn = range(5)
 
 
-vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost']
+class ActionType:
+    Common, Mega, Z_Move, Switch = range(4)
 
-mega_stones = {}
+
+vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost','protect']
+
+z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
+              'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',
+              'Ghostium Z': 'Ghost', 'Grassium Z': 'Grass', 'Groundium Z': 'Ground', 'Icium Z': 'Ice',
+              'Normalium Z': 'Normal', 'Poisonium Z': 'Poison', 'Psychium Z': 'Psychic', 'Rockium Z': 'Rock',
+              'Steelium Z': 'Steel', 'Waterium Z': 'Water'}
+
+mega_stones = {'Abomasite': 'Abomasnow', 'Absolite': 'Absol', 'Aerodactylite': 'Aerodactyl', 'Aggronite': 'Aggron',
+               'Alakazite': 'Alakazam', 'Altarianite': 'Altaria', 'Ampharosite': 'Ampharos', 'Audinite': 'Audino',
+               'Banettite': 'Banette', 'Beedrillite': 'Beedrill', 'Blastoisinite': 'Blastoise',
+               'Blazikenite': 'Blaziken', 'Cameruptite': 'Camerupt', 'Charizardite X': 'Charizard',
+               'Charizardite Y': 'Charizard', 'Diancite': 'Diancie',
+               'Galladite': 'Gallade', 'Garchompite': 'Garchomp', 'Gardevoirite': 'Gardevoir', 'Gengarite': 'Gengar',
+               'Glalitite': 'Glalie', 'Gyaradosite': 'Gyarados', 'Heracronite': 'Heracross',
+               'Houndoominite': 'Houndoom', 'Kangaskhanite': 'Kangaskhan', 'Latiasite': 'Latias', 'Latiosite': 'Latios',
+               'Lopunnite': 'Lopunny', 'Lucarionite': 'Lucario', 'Manectite': 'Manectric', 'Mawilite': 'Mawile',
+               'Medichamite': 'Medicham', 'Metagrossite': 'Metagross', 'Mewtwonite X': 'Mewtwo',
+               'Mewtwonite Y': 'Mewtwo', 'Pidgeotite': 'Pidgeot', 'Pinsirite': 'Pinsir', 'Sablenite': 'Sableye',
+               'Salamencite': 'Salamence', 'Sceptilite': 'Sceptile',
+               'Scizorite': 'Scizor', 'Sharpedonite': 'Sharpedo', 'Slowbronite': 'Slowbro', 'Steelixite': 'Steelix',
+               'Swampertite': 'Swampert', 'Tyranitarite': 'Tyranitar', 'Venusaurite': 'Venusaur'}
 
 memories = {'Bug Memory': 'Bug', 'Dark Memory': 'Dark', 'Dragon Memory': 'Dragon', 'Electric Memory': 'Electric',
             'Fairy Memory': 'Fairy', 'Fighting Memory': 'Fighting', 'Fire Memory': 'Fire', 'Flying Memory': 'Flying',
@@ -49,11 +72,11 @@ full_status = {
 }
 
 full_stat = {
-    'atk': 'Attack',
-    'def': 'Defence',
-    'spa': 'Special Attack',
-    'spd': 'Special Defence',
-    'spe': 'Speed',
+    'atk': 'Atk',
+    'def': 'Def',
+    'spa': 'Sp. Atk',
+    'spd': 'Sp. Def',
+    'spe': 'Spe',
     'eva': 'Evasion',
     'acc': 'Accuracy'
 }

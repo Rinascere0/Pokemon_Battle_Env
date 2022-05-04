@@ -26,7 +26,7 @@ class Game:
 
     def send(self, pid, move, in_turn=False):
         # check_valid
-        if type(move) is int:
+        if move['type'] == ActionType.Switch:
             # in turn switch
             if in_turn:
                 if move == self.players[pid].pivot and self.players[pid].alive.sum() > 1:
@@ -96,8 +96,9 @@ class Game:
                 done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
                 self.reset_round()
 
-            Round += 1
+            self.env.step(self.players,self.log)
             self.log.step_print()
+            Round += 1
 
         for player in self.players:
             player.signal(Signal.End)

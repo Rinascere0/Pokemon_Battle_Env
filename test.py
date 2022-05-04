@@ -30,4 +30,10 @@ def get_key(key):
 def get_move(name):
     print(Moves[name])
 
-print(get_move('woodhammer'))
+
+def f():
+    return 1,2
+
+a=None
+
+print(a=='1')

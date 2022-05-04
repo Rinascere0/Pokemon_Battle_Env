@@ -44,7 +44,7 @@ def read_set():
 
 def read_team(tid=0):
     if tid == 0:
-        tid = random.choice(list(range(1,20)))
+        tid = random.choice(list(range(1, 20)))
     with open('team/' + str(tid), 'r') as f:
         s = f.read()
 
@@ -54,10 +54,10 @@ def read_team(tid=0):
     evs = '(\nEVs:\s((?P<HP>[0-9]+)\sHP)?(\s\/\s)?((?P<Atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<Def>[0-9]+)\sDef)?(\s\/\s)?((?P<SpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<SpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<Spe>[0-9]+)\sSpe)?)?'
     ivs = '(\nIVs:\s((?P<iHP>[0-9]+)\sHP)?(\s\/\s)?((?P<iAtk>[0-9]+)\sAtk)?(\s\/\s)?((?P<iDef>[0-9]+)\sDef)?(\s\/\s)?((?P<iSpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<iSpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<iSpe>[0-9]+)\sSpe)?)?'
     nature = '(\n(?P<Nature>[a-zA-Z]+)\sNature)?'
-    move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-\[\]]+))'
-    move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-\[\]]+))?'
-    move3 = '(\n\-\s(?P<Move3>[a-zA-Z0-9 \-\[\]]+))?'
-    move4 = '(\n\-\s(?P<Move4>[a-zA-Z0-9 \-\[\]]+))?'
+    move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-\[\]\']+))'
+    move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-\[\]\']+))?'
+    move3 = '(\n\-\s(?P<Move3>[a-zA-Z0-9 \-\[\]\']+))?'
+    move4 = '(\n\-\s(?P<Move4>[a-zA-Z0-9 \-\[\]\']+))?'
     total = info + ability + shiny + evs + nature + ivs + move1 + move2 + move3 + move4
     pms = s.split('\n\n')
     pkms = []
@@ -66,18 +66,21 @@ def read_team(tid=0):
         res = re.search(total, pm).groupdict()
         if 'Lv' not in res:
             res['Lv'] = 100
-        if '-Mega-X' in res['Name']:
-            res['Name'] = res['Name'].replace('-Mega-X', '')
-        if '-Mega-X' in res['Name']:
-            res['Name'] = res['Name'].replace('-Mega-Y', '')
-        if '-Ash' in res['Name']:
-            res['Name'] = res['Name'].replace('-Ash', '')
-        if '-Mega' in res['Name']:
-            res['Name'] = res['Name'].replace('-Mega', '')
+     #   res['Name'] = (res['Name'].split('-Mega')[0]).split('-Ash')[0]
+     #   if '-Mega-X' in res['Name']:
+     #       res['Name'] = res['Name'].replace('-Mega-X', '')
+     #   if '-Mega-X' in res['Name']:
+     #       res['Name'] = res['Name'].replace('-Mega-Y', '')
+     #   if '-Ash' in res['Name']:
+     #       res['Name'] = res['Name'].replace('-Ash', '')
+     #   if '-Mega' in res['Name']:
+     #       res['Name'] = res['Name'].replace('-Mega', '')
         pkms.append(Pokemon(res))
 
     return pkms
 
 
 if __name__ == '__main__':
-    read_team()
+    for i in range(1, 20):
+        print(i)
+        read_team(i)
