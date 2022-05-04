@@ -69,7 +69,7 @@ Sucker Punch\
 
 2020.5.3
 
-【Todo】
+【Todo】\
 Own Tempo\
 Vital Spirit\
 Healing Wish\
@@ -82,6 +82,7 @@ Skill Link
 【Add】\
 Mega
 
-【Todo】
+【Todo】\
 Roost
 Z-move
+Ability log in utils
