@@ -1,5 +1,16 @@
 # Pokemon_Battle_Env
 
+【Example】
+https://paste.ubuntu.com/p/PZW2XrVdnW/
+
+【How to use】\
+Put your team in '/team',\
+Edit the parameter in player.py(or read_team.py) in order to load your team,\
+(Of course you can just use default teams)\
+Run game.py.
+
+【Update Log】
+
 2022.4.30
 
 【Add】\
