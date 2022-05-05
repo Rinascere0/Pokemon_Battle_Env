@@ -136,8 +136,16 @@ class Utils:
             user = player.get_pivot()
             target = players[1 - pid].get_pivot()
             if user.activate:
+                target.can_switch = True
+                if user.ability == 'Magnet Pull' and 'Steel' in target.attr:
+                    target.can_switch = False
+                if user.ability == 'Arena Trap' and not imm_ground(target):
+                    target.can_switch = False
+                if user.ability == 'Shadow Tag' and not target.ability == 'Shadow Tag':
+                    target.can_switch = False
+
                 if user.ability == 'Trace':
-                    self.log.add(actor=user, event='trace', type=logType.ability)
+                    self.log.add(actor=user, event='Trace', type=logType.ability)
                     self.log.add(actor=user, event='+trace', val=target.ability)
                     user.current_ability = target.ability
                     user.ability = target.ability
@@ -150,17 +158,17 @@ class Utils:
 
                 if user.ability == 'Frisk':
                     if target.item:
-                        self.log.add(actor=user, event='frisk', type=logType.ability)
+                        self.log.add(actor=user, event='Frisk', type=logType.ability)
                         self.log.add(actor=user, event='identify', val=target.item)
 
                 if user.ability == 'Moldbreaker':
-                    self.log.add(actor=user, event='moldbreaker', type=logType.ability)
+                    self.log.add(actor=user, event='Moldbreaker', type=logType.ability)
 
                 if user.ability == 'Pressure':
-                    self.log.add(actor=user, event='pressure', type=logType.ability)
+                    self.log.add(actor=user, event='Pressure', type=logType.ability)
 
                 if user.ability == 'Unnerve':
-                    self.log.add(actor=user, event='unnerve', type=logType.ability)
+                    self.log.add(actor=user, event='Unnerve', type=logType.ability)
 
                 if user.ability == 'Drizzle':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
@@ -255,7 +263,7 @@ class Utils:
         if user.vstatus['flinch']:
             self.log.add(actor=user, event='+flinch')
             if user.ability == 'Steadfast':
-                self.log.add(actor=user, event='steadfast', type=logType.ability)
+                self.log.add(actor=user, event='Steadfast', type=logType.ability)
                 user.boost('spe', 1)
             return
         if user.status is 'slp':
@@ -266,6 +274,7 @@ class Utils:
             else:
                 self.log.add(actor=user, event='-slp')
                 user.status = None
+                user.vstatus['nightmare'] = 0
         if user.status is 'frz':
             if random.uniform(0, 1) <= 0.2:
                 self.log.add(actor=user, event='-frz')
@@ -283,7 +292,7 @@ class Utils:
             user.choice_move = move['name']
 
         if user.ability == 'Protean':
-            self.log.add(actor=user, event='protean', type=logType.ability)
+            self.log.add(actor=user, event='Protean', type=logType.ability)
             self.log.add(actor=user, event='change_type', val=move['type'])
             user.attr = [move['type']]
 
@@ -504,6 +513,17 @@ class Utils:
                 user.HP = avg_hp
                 target.HP = avg_hp
 
+            if move['name'] == 'Healing Wish':
+                user.healing_wish = True
+
+            if move['name'] == 'Heal Bell':
+                self.log.add(event='healbell')
+                user.player.cure_all()
+
+            if move['name'] == 'Aromatherapy':
+                self.log.add(event='aromatherapy')
+                user.player.cure_all()
+
             if 'self' in move:
                 side_effect = move['self']
                 if 'volatileStatus' in side_effect:
@@ -584,34 +604,41 @@ class Utils:
 
         if sk_type == 'Water':
             if target.ability == 'Water Absorb':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 target.heal(1 / 4, perc=Hit)
                 return NoEffect
         if target.ability == 'Dry Skin':
             target.heal(1 / 4, perc=Hit)
-            self.log.add(actor=user, event='+dryskin')
+            self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
         if target.ability == 'Storm Drain':
+            self.log.add(actor=target, event=target.ability, type=logType.ability)
             target.stat_lv['spa'] += 1
             return NoEffect
 
         if sk_type == 'Fire':
             if target.ability == 'Flash Fire':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 target.flash_fire = Hit
                 return NoEffect
 
         if sk_type == 'Electric':
             if target.ability == 'Lightning Rod':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 target.stat_lv['spa'] += 1
                 return NoEffect
             if target.ability == 'Motor Drive':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 target.stat_lv['spe'] += 1
                 return NoEffect
             if target.ability == 'Volt Absorb':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 target.heal(1 / 4, perc=Hit)
                 return NoEffect
 
         if sk_type == 'Grass':
             if target.ability == 'Sap Sipper':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 target.stat_lv['atk'] += 1
                 return NoEffect
 
@@ -620,18 +647,23 @@ class Utils:
                 return NoEffect
 
         if target.ability == 'Bulletproof' and 'bullet' in sk_flag:
+            self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
 
         if target.ability == 'Soundproof' and 'sound' in sk_flag:
+            self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
 
         type_buff = 1
         for attr in target.attr:
+            if sk_type == 'Ground' and attr == 'Flying' and not imm_ground(target):
+                continue
             type_buff *= get_attr_fac(sk_type, attr)
         if type_buff == 0:
             if not (user.ability == 'Scrappy' and sk_type == 'Normal' and 'Ghost' in target.attr):
                 return NoEffect
         if target.ability == 'Wonder Guard' and type_buff <= 1:
+            self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
 
         if target.ability == 'Wonder Skin' and sk_ctg == 'Status':
@@ -983,6 +1015,12 @@ class Utils:
 
         if env.weather == 'Raindance' and sk_type == 'Water':
             other_buff *= 1.5
+
+        if env.pseudo_weather['mudsport'] and sk_type == 'Electric':
+            other_buff *= 0.5
+
+        if env.pseudo_weather['watersport'] and sk_type == 'Fire':
+            other_buff *= 0.5
 
         # Defence Buff
         if target.ability == 'Fluffy':

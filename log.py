@@ -189,6 +189,12 @@ class BattleLog:
         elif event == '++taunt':
             log = 'is already taunted!'
 
+        elif event == 'partiallytrapped':
+            log = 'is trapped and can not switch!'
+
+        elif event == '-partiallytrapped':
+            log = 'is out of trap!'
+
         elif event == 'status':
             log = 'is ' + str(val) + '!'
 
@@ -225,6 +231,13 @@ class BattleLog:
 
         if log:
             return actor + log
+
+        if event == 'healbell':
+            log = 'A bell chimed.'
+
+        if event == 'aromatherapy':
+            log = 'None'
+            #TODO
 
         if event == 'mistyterrain':
             log = 'Mist swirled around the battlefield!'
@@ -273,6 +286,39 @@ class BattleLog:
 
         elif event == '-Sandstorm':
             log = "The sandstorm subsided."
+
+        elif event == 'trickroom':
+            log = 'It twisted the dimensions!'
+
+        elif event == '-trickroom':
+            log = 'The twisted dimensions returned to normal!'
+
+        elif event == 'magicroom':
+            log = 'It created a bizarre area in which Pokémon\'s held items lose their effects!'
+
+        elif event == '-magicroom':
+            log = 'Magic Room wore off, and held items\' effects returned to normal!'
+
+        elif event == 'wonderroom':
+            log = 'It created a bizarre area in which Defense and Sp. Def stats are swapped!'
+
+        elif event == '-wonderroom':
+            log = 'Wonder Room wore off, and Defense and Sp. Def stats returned to normal!'
+
+        elif event == 'fairylock':
+            log = 'No one will be able to run away during the next turn!'
+
+        elif event == 'iondeluge':
+            log = 'A deluge of ions showers the battlefield!'
+
+        elif event == 'gravity':
+            log = 'Gravity intensified!'
+
+        elif event == 'mudsport':
+            log = 'Electricity\'s power was weakened!'
+
+        elif event == 'watersport':
+            log = 'Fire\'s power was weakened!'
 
         # field event
         elif event == '+stealthrock':
@@ -339,6 +385,9 @@ class BattleLog:
         # skill
         elif event == 'knockoff':
             log = 'knocked off ' + target + '\'s ' + val + '!'
+
+        elif event == 'healingwish':
+            log = 'was cured by the healing wish!'
 
         elif event == 'trick':
             log = 'switched its item with ' + target + '!'

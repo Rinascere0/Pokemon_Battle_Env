@@ -111,6 +111,8 @@ class Pokemon:
         self.activate = True
         self.off_field = None
 
+        self.healing_wish = False
+
         self.player = None
         self.log = None
 
@@ -212,10 +214,17 @@ class Pokemon:
 
     def add_status(self, status, env):
         if not self.alive:
-            return
+            return False
         if imm_ground(self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
             self.log.add(actor=self, event='+' + env.terrain)
-            return
+            return False
+
+        if status == 'slp' and self.ability == 'Vital Spirit':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            return False
+        if status == 'brn' and self.ability == 'Water Bubble':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            return False
 
         if not self.status:
             self.status = status
@@ -229,45 +238,53 @@ class Pokemon:
 
     def add_vstate(self, vstatus, cond=None):
         if not self.alive:
-            return
+            return False
             # 已有相同状态
         if self.vstatus[vstatus] != 0:
             self.log.add(actor=self, event='++' + vstatus)
-            return
+            return False
         if vstatus == 'lockedmove':
             pass
         # 持续时间特殊
         turn = 1
         if cond is None:
             if vstatus == 'confusion':
+                if self.ability == 'Own Tempo':
+                    self.log.add(actor=self, event=self.ability, type=logType.ability)
                 turn = random.randint(1, 3)
-            elif vstatus in ['smackdown', 'partiallytrapped', 'foresight']:
-                turn = -1
+            elif vstatus in ['smackdown', 'foresight']:
+                turn = 10000
             elif vstatus == 'protect':
                 if random.uniform(0, 1) <= math.pow(1 / 2, self.vstatus['protect'] - 1):
                     turn = self.vstatus['protect'] + 1
                 else:
                     turn = 0
                     self.log.add(event='fail')
-        # 持续时间给出
+            elif vstatus == 'partiallytrapped':
+                turn = random.randint(4, 5)
+            elif vstatus == 'roost':
+                pass
+
+                # 持续时间给出
         elif 'duration' in cond:
             turn = cond['duration']
-        else:
-            if vstatus == 'substitute':
-                if self.HP > self.maxHP / 4:
-                    turn = self.maxHP / 4
-                else:
-                    self.log.add(actor=self, event='--substitute')
-                    return
-            if vstatus in ['destinybond']:
-                turn = 1
-            elif vstatus == 'nightmare':
-                if self.status['slp'] > 0:
-                    turn = -1
-                else:
-                    pass
+
+        if vstatus == 'substitute':
+            if self.HP > self.maxHP / 4:
+                turn = self.maxHP / 4
             else:
-                turn = -1
+                self.log.add(actor=self, event='--substitute')
+                return False
+        if vstatus in ['destinybond']:
+            turn = 1
+        elif vstatus == 'nightmare':
+            if self.status['slp'] > 0:
+                turn = 10000
+            else:
+                return False
+        else:
+            turn = -1
+
         self.log.add(actor=self, event=vstatus)
         self.vstatus[vstatus] = turn
 
@@ -460,6 +477,10 @@ class Pokemon:
             self.log.add(actor=self, event='+brn')
             self.damage(val=0, perc=1 / 16)
 
+        if self.status == 'slp' and self.vstatus['nightmare']:
+            self.log.add(actor=self, event='+nightmare')
+            self.damage(0, 1 / 8)
+
         if self.ability == 'Solar Power' and env.weather is 'sunnyday':
             self.log.add(actor=self, event='solarpower')
             self.damage(0, 1 / 8)
@@ -595,6 +616,8 @@ class Pokemon:
         # Item Buff
         if env.pseudo_weather['magicroom']:
             self.item = None
+        else:
+            self.item = self.base_item
 
         if self.item == 'Choice Band':
             self.Atk *= 1.5
@@ -618,6 +641,14 @@ class Pokemon:
         if self.status == Paralyse and self.ability != 'Quick Feet':
             self.Spe *= 0.5
 
+        if env.pseudo_weather['wonderroom']:
+            self.Def, self.Sdef = self.Sdef, self.Def
+
+        if self.vstatus['roost']:
+            self.attr.remove('Flying')
+            if not self.attr:
+                self.attr=['Normal']
+
         self.weight = self.base_weight
         self.ability = self.current_ability
 
@@ -640,7 +671,13 @@ class Pokemon:
                 self.vstatus['substitute'] = copy.deepcopy(old_pivot['substitute'])
                 self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
             old_pivot.reset()
+        if old_pivot.healing_wish:
+            self.log.add(actor=self, event='healingwish')
+            self.heal(self.maxHP)
+            self.cure_status()
+
         self.switch_on = True
+        self.can_switch = False
         self.activate = True
 
         if not imm_ground(self):

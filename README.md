@@ -70,11 +70,11 @@ Sucker Punch\
 2020.5.3
 
 【Todo】\
-Own Tempo\
-Vital Spirit\
-Healing Wish\
+✔Own Tempo\
+✔Vital Spirit\
+✔Healing Wish\
 Synthesis\
-Water Bubble\
+✔Water Bubble\
 Skill Link
 
 2020.5.4
@@ -83,6 +83,18 @@ Skill Link
 Mega
 
 【Todo】\
-Roost
-Z-move
-Ability log in utils
+Roost\
+Z-move\
+✔Ability log in utils\
+Berry\
+struggle\
+Ditto
+
+2020.5.5
+
+【Add】\
+heal bell
+vstatus
+
+【Todo】\
+Gravity

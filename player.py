@@ -70,6 +70,11 @@ class Player:
     def use_mega(self):
         self.mega = np.zeros(6)
 
+    def cure_all(self):
+        for pkm in self.pkms:
+            if pkm.alive:
+                pkm.cure_status()
+
     def mainloop(self):
         self.load_team(read_team())
         while True:

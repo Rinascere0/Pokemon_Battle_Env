@@ -58,7 +58,7 @@ class Env:
             self.terrain_turn = turn
             log.add(event=terrain)
 
-    def step_pseudo_weather(self,log):
+    def step_pseudo_weather(self, log):
         for pd in self.pseudo_weather:
             if self.pseudo_weather[pd] > 0:
                 self.pseudo_weather[pd] -= 1
@@ -90,7 +90,18 @@ class Env:
         self.step_pseudo_weather(log)
 
     def set_pseudo_weather(self, pseudo_weather, log):
-        self.pseudo_weather[pseudo_weather] = 5
+        if self.pseudo_weather[pseudo_weather]:
+            if 'room' in pseudo_weather:
+                log.add(event='-' + pseudo_weather)
+                self.pseudo_weather[pseudo_weather] = 0
+            else:
+                log.add(event='fail')
+                return
+        log.add(event=pseudo_weather)
+        if pseudo_weather in ['fairylock', 'iondeluge']:
+            self.pseudo_weather[pseudo_weather] = 1
+        else:
+            self.pseudo_weather[pseudo_weather] = 5
 
     def clear_field(self, player, type, log):
         pid = player.pid

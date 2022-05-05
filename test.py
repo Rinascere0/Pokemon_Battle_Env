@@ -36,4 +36,5 @@ def f():
 
 a=None
 
-print(a=='1')
+get_move('telekinesis')
+get_move('healbell')
