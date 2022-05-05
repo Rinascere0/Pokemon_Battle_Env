@@ -1,3 +1,5 @@
+import random
+
 from pokemon import Pokemon
 from functions import *
 from data.moves import Moves
@@ -161,8 +163,8 @@ class Utils:
                         self.log.add(actor=user, event='Frisk', type=logType.ability)
                         self.log.add(actor=user, event='identify', val=target.item)
 
-                if user.ability == 'Moldbreaker':
-                    self.log.add(actor=user, event='Moldbreaker', type=logType.ability)
+                if user.ability == 'Mold Breaker':
+                    self.log.add(actor=user, event='Mold Breaker', type=logType.ability)
 
                 if user.ability == 'Pressure':
                     self.log.add(actor=user, event='Pressure', type=logType.ability)
@@ -281,8 +283,17 @@ class Utils:
             else:
                 self.log.add(actor=user, event='+frz')
                 return
-
+        if user.vstatus['confusion']:
+            if random.uniform(0, 1) >= 0.3:
+                self.log.add(actor=user, event='-confusion')
+            else:
+                self.log.add(actor=user, event='+confusion')
+                dmg = self.calc_dmg(user, user, move='ConfusionHit', env=env, last=False)
         self.log.add(actor=user, event='use', val=move['name'])
+        if user.vstatus['taunt']:
+            if move['category'] == 'Status':
+                self.log.add(actor=user, event='+taunt', val=move['name'])
+                return
         if target.ability == 'Pressure':
             user.loss_pp(move, 2)
         else:
@@ -357,8 +368,16 @@ class Utils:
             count = 1
             if 'multihit' in move and 'multiaccuracy' not in move:
                 count = move['multihit']
-                if type(count) is list:
+                if user.ability == 'Skill Link':
+                    count = 5
+                elif type(count) is list:
                     count = np.random.choice([2, 3, 4, 5], p=[1 / 3, 1 / 3, 1 / 6, 1 / 6])
+
+            if move['name'] in ['Psychic Fangs', 'Brick Break']:
+                for wall in ['lightscreen', 'reflect', 'auroraveil']:
+                    if target.get_sidecond()[wall]:
+                        self.log.add(actor=target.player, event='--' + wall)
+                    target.get_sidecond()[wall] = 0
 
             for _ in range(count):
                 dmg = self.calc_dmg(user, target, move, env, last)
@@ -524,6 +543,13 @@ class Utils:
                 self.log.add(event='aromatherapy')
                 user.player.cure_all()
 
+            if move['name'] == 'Synthesis':
+                if env.weather == 'sunnyday':
+                    user.heal(0, 3 / 4)
+                elif env.weather:
+                    user.heal(0, 1 / 4)
+                else:
+                    user.heal(0, 1 / 2)
             if 'self' in move:
                 side_effect = move['self']
                 if 'volatileStatus' in side_effect:
@@ -538,7 +564,7 @@ class Utils:
                 self.log.add(actor=user, event='rockyhelmet')
                 user.damage(0, perc=1 / 6)
 
-        if move['name'] == 'Knock Off' and target.item and target.alive:
+        if move['name'] == 'Knock Off' and target.can_lose_item() and target.alive:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
             target.lose_item()
 
@@ -577,7 +603,7 @@ class Utils:
                 self.log.add(actor=target, event='+protect')
                 return NoEffect
 
-        if user.ability in ['Moldbreaker', 'Teravolt', 'Turboblaze']:
+        if user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']:
             target.moldbreak()
 
         if sk_ctg == 'Status':
@@ -905,6 +931,15 @@ class Utils:
         if sk_type == 'Dragon' and user.item == 'Draco Plate':
             other_buff = 1.2
 
+        # berry buff
+        if target.item in attr_berry and sk_type == attr_berry[target.item] and type_buff > 1:
+            target.use_item()
+            self.log.add(actor=target, event=target.item)
+
+        if target.item == 'Chilan Berry' and sk_type == 'Normal':
+            target.use_item()
+            self.log.add(actor=target, event=target.item)
+
         # ability buff
         if user.ability == 'Aerilate' and sk_type == 'Normal':
             sk_type = 'Flying'
@@ -1045,6 +1080,14 @@ class Utils:
 
         if target.ability in ['Shadow Shield', 'Multiscale'] and target.maxHP == target.HP:
             other_buff *= 0.5
+
+        if user.ability != 'Infiltrator' and sk_name != 'ConfusionHit':
+            if target.get_sidecond()['lightscreen'] and ctg == 'Special':
+                other_buff *= 0.5
+            if target.get_sidecond()['reflect'] and ctg == 'Physical':
+                other_buff *= 0.5
+            if target.get_sidecond()['auroraveil']:
+                other_buff *= 0.5
 
         base_dmg = dmg * stab_buff * type_buff * ct_buff * other_buff
         rnd = random.uniform(0.85, 1)

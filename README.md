@@ -10,8 +10,7 @@ Spikes (add and effect)
 ✔defog \
 ✔rapid spin\
 ✔leech seed\
-✔knock off\
-magic room\
+✔knock off\ 
 status moves fail after taunt\
 ✔contrary\
 counter\
@@ -73,9 +72,9 @@ Sucker Punch\
 ✔Own Tempo\
 ✔Vital Spirit\
 ✔Healing Wish\
-Synthesis\
+✔Synthesis\
 ✔Water Bubble\
-Skill Link
+✔Skill Link
 
 2020.5.4
 
@@ -83,7 +82,7 @@ Skill Link
 Mega
 
 【Todo】\
-Roost\
+✔Roost\
 Z-move\
 ✔Ability log in utils\
 Berry\
@@ -93,8 +92,18 @@ Ditto
 2020.5.5
 
 【Add】\
-heal bell
-vstatus
+heal bell\
+vstatus\
+black sludge\
+magic guard\
+confusion hit self\
+Infiltrator\
+light screen reflect\
+confusion hit\
+brick break wall\
+nightmare
+
 
 【Todo】\
-Gravity
+Gravity [immue judge]\
+sleep talk

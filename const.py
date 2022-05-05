@@ -11,7 +11,7 @@ class ActionType:
     Common, Mega, Z_Move, Switch = range(4)
 
 
-vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost','protect']
+vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'roost']
 
 z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
               'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',
@@ -149,6 +149,40 @@ class Attr:
         19)
 
 
+hp_berry = {
+    'Figy Berry',
+    'Wiki Berry',
+    'Mago Berry',
+    'Aguav Berry',
+    'Iapapa Berry'
+}
+stat_berry = {
+    'Liechi Berry': 'atk',
+    'Ganlon Berry': 'def',
+    'Salac Berry': 'spe',
+    'Petaya Berry': 'spa',
+    'Apicot Berry': 'spd'
+}
+
+attr_berry = {
+    'Occa Berry': 'Fire',
+    'Passho Berry': 'Water',
+    'Wacan Berry': 'Electric',
+    'Rindo Berry': 'Grass',
+    'Yache Berry': 'Ice',
+    'Chople Berry': 'Fighting',
+    'Kebia Berry': 'Poison',
+    'Shuca Berry': 'Ground',
+    'Coba Berry': 'Fighting',
+    'Payapa Berry': 'Psychic',
+    'Tanga Berry': 'Bug',
+    'Charti Berry': 'Rock',
+    'Kasib Berry': 'Ghost',
+    'Haban Berry': 'Dragon',
+    'Colbur Berry': 'Dark',
+    'Babiri Berry': 'Steel',
+    'Chilan Berry': 'Normal'
+}
 Attr_dict = {'NoAttr': 0,
              "Water": 1, "Fire": 2, "Grass": 3, "Electric": 4, "Ice": 5, "Poison": 6, "Bug": 7, "Fighting": 8,
              "Steel": 9, "Rock": 10, "Ghost": 11, "Psychic": 12, "Dark": 13, "Ground": 14, "Flying": 15, "Dragon": 16,

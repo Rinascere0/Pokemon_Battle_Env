@@ -225,6 +225,9 @@ class Pokemon:
         if status == 'brn' and self.ability == 'Water Bubble':
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
+        if status in ['psn', 'tox'] and self.ability == 'Immunity':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            return False
 
         if not self.status:
             self.status = status
@@ -235,6 +238,10 @@ class Pokemon:
                 self.status_turn = 1
         else:
             self.log.add(actor=self, event='++status', val=full_status[self.status])
+
+        if self.item == 'Lum Berry':
+            self.use_item()
+            self.cure_status()
 
     def add_vstate(self, vstatus, cond=None):
         if not self.alive:
@@ -275,7 +282,7 @@ class Pokemon:
             else:
                 self.log.add(actor=self, event='--substitute')
                 return False
-        if vstatus in ['destinybond']:
+        elif vstatus in ['destinybond']:
             turn = 1
         elif vstatus == 'nightmare':
             if self.status['slp'] > 0:
@@ -304,7 +311,7 @@ class Pokemon:
             if sidecond in ['lightscreen', 'reflect', 'auroraveil'] and self.item == 'Light Clay':
                 turn = 8
         self.get_sidecond()[sidecond] += turn
-        self.log.add(actor=self, event=sidecond)
+        self.log.add(actor=self.player, event=sidecond)
 
     def add_future(self, user, sk_name):
         if sk_name not in self.future:
@@ -392,7 +399,9 @@ class Pokemon:
 
     def damage(self, val, perc=False, const=0, attr='NoAttr', user=None):
         if not self.alive:
-            return
+            return False
+        if self.ability == 'Magic Guard' and not user:
+            return False
         if val < 0:
             #    print('but it didn\'t work!')
             return False
@@ -402,7 +411,7 @@ class Pokemon:
             val = const
         for my_attr in self.attr:
             val *= get_attr_fac(attr, my_attr)
-        if self.vstatus['substitute'] > 0:  # 替身伤害
+        if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:  # 替身伤害
             self.vstatus['substitute'] = max(0, self.vstatus['substitute'] - val)
             self.log.add(actor=self, event='+substitute')
             if self.vstatus['substitute'] == 0:
@@ -441,6 +450,18 @@ class Pokemon:
             self.use_item()
             self.log.add(actor=self, event='-balloon')
 
+        if self.HP <= 1 / 2 * self.maxHP and self.item == 'Sitrus Berry':
+            self.use_item()
+            self.heal(perc=1 / 4)
+
+        if self.HP <= 1 / 4 * self.maxHP or self.HP <= 1 / 2 * self.maxHP and self.ability == 'Gluttony':
+            if self.item in hp_berry:
+                self.use_item()
+                self.heal(perc=1 / 3)
+            elif self.item in stat_berry:
+                self.use_item()
+                self.boost(stat_berry[self.item], 1)
+
         return val
 
     def prep(self, env):
@@ -459,6 +480,16 @@ class Pokemon:
             if self.HP < self.maxHP:
                 self.log.add(actor=self, event='leftovers')
                 self.heal(0, perc=1 / 16)
+
+        if self.item == 'Black Sludge':
+            if 'Poison' in self.attr:
+                self.heal(0, perc=1 / 16)
+            else:
+                self.damage(0, perc=1 / 8)
+
+        if self.vstatus['nightmare']:
+            self.log.add(actor=self,event='+nightmare')
+            self.damage(perc=1 / 4)
 
         if env.terrain == 'grassyterrain':
             if not imm_ground(self):
@@ -501,7 +532,7 @@ class Pokemon:
             self.log.add(actor=self, event='Ice Body')
             self.heal(0, 1 / 16)
 
-        if self.ability not in ['Overcoat', 'Magic Guard'] and self.item != 'Safety Goggles':
+        if self.ability not in ['Overcoat'] and self.item != 'Safety Goggles':
             if env.weather == 'hail' and 'Ice' not in self.attr:
                 self.log.add(actor=self, event='+hail')
                 self.damage(0, 1 / 16)
@@ -517,8 +548,8 @@ class Pokemon:
 
         if self.vstatus['leechseed']:
             self.log.add(actor=self, event='+leechseed')
-            dmg = self.damage(val=0, prec=1 / 8)
-            target.recover(dmg)
+            dmg = self.damage(val=0, perc=1 / 8)
+            target.heal(dmg)
 
         if self.charge:
             self.charge_round += 1
@@ -644,10 +675,10 @@ class Pokemon:
         if env.pseudo_weather['wonderroom']:
             self.Def, self.Sdef = self.Sdef, self.Def
 
-        if self.vstatus['roost']:
+        if self.vstatus['roost'] and 'Flying' in self.attr:
             self.attr.remove('Flying')
             if not self.attr:
-                self.attr=['Normal']
+                self.attr = ['Normal']
 
         self.weight = self.base_weight
         self.ability = self.current_ability
@@ -664,6 +695,11 @@ class Pokemon:
         self.lock_move = None
         self.set_lock()
 
+    def can_lose_item(self):
+        return self.item and self.item not in mega_stones and self.item not in z_crystals and not (
+                self.name == 'Silvally' and self.item in memories) and not (
+                self.name == 'Arceus' and self.item in plates) and self.ability != 'Sticky Hold'
+
     def switch(self, env, old_pivot=None, boton=False):
         if old_pivot:
             if boton:
@@ -671,10 +707,10 @@ class Pokemon:
                 self.vstatus['substitute'] = copy.deepcopy(old_pivot['substitute'])
                 self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
             old_pivot.reset()
-        if old_pivot.healing_wish:
-            self.log.add(actor=self, event='healingwish')
-            self.heal(self.maxHP)
-            self.cure_status()
+            if old_pivot.healing_wish:
+                self.log.add(actor=self, event='healingwish')
+                self.heal(self.maxHP)
+                self.cure_status()
 
         self.switch_on = True
         self.can_switch = False
@@ -691,14 +727,14 @@ class Pokemon:
                         self.add_status('psn', env)
                     else:
                         self.add_status('tox', env)
-            if self.get_sidecond()['spikes'] > 0 and self.ability != 'Magic Guard':
+            if self.get_sidecond()['spikes'] > 0:
                 self.log.add(actor=self, event='+spikes')
                 self.damage(0, perc=self.get_sidecond()['spikes'] / 8)
             if self.get_sidecond()['stickyweb'] > 0:
                 self.log.add(actor=self, event='+stickyweb')
                 self.boost('spe', -1)
 
-        if self.get_sidecond()['stealthrock'] > 0 and self.ability != 'Magic Guard':
+        if self.get_sidecond()['stealthrock'] > 0:
             self.log.add(actor=self, event='+stealthrock')
             self.damage(0, perc=1 / 8, attr='Rock')
 

@@ -81,6 +81,6 @@ def read_team(tid=0):
 
 
 if __name__ == '__main__':
-    for i in range(1, 20):
+    for i in range(28,35):
         print(i)
         read_team(i)

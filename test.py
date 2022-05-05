@@ -36,5 +36,5 @@ def f():
 
 a=None
 
-get_move('telekinesis')
-get_move('healbell')
+get_move('recover')
+get_move('brickbreak')
