@@ -36,6 +36,6 @@ def f():
 
 
 a = None
-print(Moves['snarl'])
-print(Moves['overheat'])
+print(Moves['taunt'])
+
 

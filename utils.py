@@ -18,12 +18,7 @@ class Utils:
     def __init__(self, log):
         self.log = log
 
-    def step_turn(self, game, env, players, moves):
-        pkms = [players[0].get_pivot(), players[1].get_pivot()]
-        pkms[0].prep(env,pkms[1])
-        pkms[1].prep(env,pkms[0])
-        megas = [None, None]
-        z_moves = [False, False]
+    def check_prior(self, env, pkms, moves=None):
         prior = np.zeros(2)
         if pkms[0].Spe > pkms[1].Spe:
             prior[0] += 0.1
@@ -35,30 +30,52 @@ class Utils:
         if env.pseudo_weather['trickroom'] > 0:
             prior = - prior
 
-        if moves[0]['type'] == ActionType.Switch:
-            prior[0] += 50
-        else:
+        if moves:
             prior[0] += moves[0]['item']['priority']
-            if moves[0]['type'] == ActionType.Mega:
-                megas[0] = True
-            if moves[0]['type'] == ActionType.Z_Move:
-                z_moves[0] = True
-
-        if type(moves[1]) == ActionType.Switch:
-            prior[1] += 50
-        else:
             prior[1] += moves[1]['item']['priority']
-            if moves[1]['type'] == ActionType.Mega:
-                megas[1] = True
-            if moves[1]['type'] == ActionType.Z_Move:
-                z_moves[1] = True
 
-        if prior[0] > prior[1]:
-            first = 0
-        else:
-            first = 1
+        return int(prior[0] < prior[1])
+
+    def switch(self, game, players, pkms, moves, z_moves, first):
         last = 1 - first
-        # mega
+        if moves[last]['name'] != 'Pursuit' or z_moves[last]:
+            players[first].switch(moves[first]['item'])
+        else:
+            # pursuit
+            self.use_move(user=pkms[last], target=pkms[first], move=moves[last]['item'], env=env, game=game,
+                          z_move=z_moves[last], last=True)
+            if pkms[first].turn:
+                players[first].switch(moves[first]['item'], withdraw=True)
+                pkms[last].turn = False
+
+    def step_turn(self, game, env, players, moves):
+        pkms = [players[0].get_pivot(), players[1].get_pivot()]
+        pkms[0].prep(env, pkms[1])
+        pkms[1].prep(env, pkms[0])
+        megas = [None, None]
+        z_moves = [None, None]
+
+        # check mega and z
+        if moves[0]['type'] == ActionType.Mega:
+            megas[0] = True
+        if moves[1]['type'] == ActionType.Mega:
+            megas[1] = True
+
+        if moves[0]['type'] == ActionType.Z_Move:
+            z_moves[0] = True
+        if moves[1]['type'] == ActionType.Z_Move:
+            z_moves[1] = True
+
+        #  calc speed for switch and mega
+        first = self.check_prior(env, pkms)
+        last = 1 - first
+
+        # switch first
+        if moves[first]['type'] == ActionType.Switch:
+            self.switch(game, players, pkms, moves, z_moves, first)
+
+        if moves[last]['type'] == ActionType.Switch:
+            self.switch(game, players, pkms, moves, z_moves, first)
 
         if megas[first]:
             pkms[first].mega_evolve()
@@ -70,31 +87,21 @@ class Utils:
             players[last].use_mega()
             self.switch_on(players, env)
 
-        # switch
+        # calc speed again for moves, with new stat (after mega)
+        pkms = [players[0].get_pivot(), players[1].get_pivot()]
+        pkms[0].prep(env, pkms[1])
+        pkms[1].prep(env, pkms[0])
+        first = self.check_prior(env, pkms, moves)
+        last = 1 - first
 
-        if type(moves[first]) is int:
-            if moves[last]['name'] != 'Pursuit' or z_moves[last]:
-                players[first].switch(moves[first]['item'])
-            else:
-                # pursuit
-                self.use_move(user=pkms[last], target=pkms[first], move=moves[last]['item'], env=env, game=game,
-                              z_move=z_moves[last], last=True)
-                if pkms[first].turn:
-                    players[first].switch(moves[first]['item'], withdraw=True)
-                    pkms[last].turn = False
-                return
-        else:
-            self.use_move(user=pkms[first], target=pkms[last], move=moves[first]['item'], env=env, game=game,
-                          z_move=z_moves[first], last=False)
+        if pkms[first].turn:
+            # if opponent stepped turn, it actually moves last
+            move_last = not pkms[last].turn
+            self.use_move(pkms[first], pkms[last], moves[first]['item'], env, game, z_moves[first], move_last)
 
-        # move last
         if pkms[last].turn:
-            if type(moves[last]) is int:
-                players[last].switch(moves[last]['item'])
-            else:
-                self.use_move(user=players[last].get_pivot(), target=players[first].get_pivot(),
-                              move=moves[last]['item'], env=env, game=game, z_move=z_moves[last],
-                              last=True)
+            # always move last
+            self.use_move(pkms[last], pkms[first], moves[last]['item'], env, game, z_moves[last], True)
 
         # end turn
         for pid, player in enumerate(players):
@@ -293,6 +300,10 @@ class Utils:
             else:
                 self.log.add(actor=user, event='+frz')
                 return
+        if user.status is 'par':
+            if random.uniform(0, 1) <= 0.25:
+                self.log.add(actor=user, event='+par')
+                return
         if user.vstatus['confusion']:
             if random.uniform(0, 1) >= 0.3:
                 self.log.add(actor=user, event='-confusion')
@@ -315,7 +326,7 @@ class Utils:
             user.metronome = 0
             user.last_move = move['name']
 
-        if not user.choice_move and  user.item in ['Choice Band','Choice Scarf','Choice Specs']:
+        if not user.choice_move and user.item in ['Choice Band', 'Choice Scarf', 'Choice Specs']:
             user.choice_move = move['name']
 
         if user.ability == 'Protean':
@@ -343,8 +354,8 @@ class Utils:
                 self.log.add(actor=target, event='+magiccoat', val=move['name'])
                 target = user
 
-        user.calc_stat(env,target)
-        target.calc_stat(env,user)
+        user.calc_stat(env, target)
+        target.calc_stat(env, user)
         if move['target'] == 'self':
             target = user
 
@@ -399,6 +410,8 @@ class Utils:
                 count = move['multihit']
                 if user.ability == 'Skill Link':
                     count = 5
+                if user.name == 'Greninja-Ash' and move['name'] == 'Water Shuriken':
+                    count = 3
                 elif type(count) is list:
                     count = np.random.choice([2, 3, 4, 5], p=[1 / 3, 1 / 3, 1 / 6, 1 / 6])
 
@@ -578,6 +591,11 @@ class Utils:
             if move['name'] == 'Healing Wish':
                 user.healing_wish = True
 
+            if move['name'] == 'Haze':
+                self.log.add(event='haze')
+                user.reset_stat_lv()
+                target.reset_stat_lv()
+
             if move['name'] == 'Heal Bell':
                 self.log.add(event='healbell')
                 user.player.cure_all()
@@ -593,6 +611,7 @@ class Utils:
                     user.heal(0, 1 / 4)
                 else:
                     user.heal(0, 1 / 2)
+
             if 'self' in move:
                 side_effect = move['self']
                 if 'volatileStatus' in side_effect:
@@ -670,10 +689,10 @@ class Utils:
             else:
                 user.charge = None
 
-        if target.vstatus['protect'] == True:
+        if target.vstatus['protect'] and target is not user and 'protect' in move['flags']:
             if sk_name == 'Feint':
                 self.log.add(actor=user, event='feint', target=target)
-                target.unprotect = True
+                target.vstatus['protect'] = 0
             else:
                 self.log.add(actor=target, event='+protect')
                 return NoEffect
@@ -841,6 +860,9 @@ class Utils:
 
         if sk_name == 'Return':
             power = 102
+
+        if sk_name == 'Water Shuriken' and user.name == 'Greninja-Ash':
+            power = 20
 
         if sk_name == 'Acrobatics' and user.item is None:
             power *= 2

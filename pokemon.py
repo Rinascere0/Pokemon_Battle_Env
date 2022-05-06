@@ -67,6 +67,7 @@ class Pokemon:
         self.status = None
         # {'brn': 0, 'slp': 0, 'tox': 0, 'psn': 0, 'par': 0, 'frz': 0}
         self.status_turn = 0
+        self.protect_turn = 0
         self.last_move = None
         self.metronome = 0
         self.unburden = False
@@ -106,7 +107,7 @@ class Pokemon:
         self.pkm_id = -1
         self.turn = False
         self.alive = True
-        self.unprotect = False
+
         # first turn switch on
         self.switch_on = True
         # ability activate
@@ -213,8 +214,9 @@ class Pokemon:
             self.lock_round += 1
 
     def cure_status(self):
-        self.log.add(actor=self, event='-status', val=self.status)
-        self.status = None
+        if self.status:
+            self.log.add(actor=self, event='-status', val=self.status)
+            self.status = None
 
     def cure_vstatus(self, vs):
         self.log.add(actor=self, event='-vstatus', val=vs)
@@ -282,12 +284,14 @@ class Pokemon:
                 turn = random.randint(1, 3)
             elif vstatus in ['smackdown', 'foresight']:
                 turn = 10000
+            # continuous protect count
             elif vstatus == 'protect':
-                if random.uniform(0, 1) <= math.pow(1 / 2, self.vstatus['protect'] - 1):
-                    turn = self.vstatus['protect'] + 1
+                if random.uniform(0, 1) <= math.pow(1 / 2, self.protect_turn):
+                    self.protect_turn += 1
                 else:
-                    turn = 0
+                    self.protect_turn = 0
                     self.log.add(event='fail')
+                    return False
             elif vstatus == 'partiallytrapped':
                 turn = random.randint(4, 5)
             elif vstatus == 'roost':
@@ -318,8 +322,6 @@ class Pokemon:
                 turn = 10000
             else:
                 return False
-        else:
-            turn = -1
 
         self.log.add(actor=self, event=vstatus)
         self.vstatus[vstatus] = turn
@@ -367,7 +369,7 @@ class Pokemon:
             if val == 0:
                 return
             self.HP += val
-            self.log.add(actor=self, event='heal', val=int(100 * val / self.maxHP))
+            self.log.add(actor=self, event='heal', val=round(100 * val / self.maxHP, 1))
 
     def boost(self, stat, lv, src=None):
         if not self.alive:
@@ -463,7 +465,7 @@ class Pokemon:
                 self.log.add(actor=self, event='-substitute')
             return False
         elif self.HP <= val:
-            self.log.add(actor=self, event='lost', val=int(self.HP / self.maxHP * 100))
+            self.log.add(actor=self, event='lost', val=round(self.HP / self.maxHP * 100, 1))
             val = self.HP
             self.HP = 0
             if self.to_faint():
@@ -492,7 +494,7 @@ class Pokemon:
                 self.HP = 1
                 val -= 1
         else:
-            self.log.add(actor=self, event='lost', val=int(val / self.maxHP * 100))
+            self.log.add(actor=self, event='lost', val=round(val / self.maxHP * 100, 1))
             self.HP = self.HP - val
 
         if self.item is 'Air Balloon':
@@ -525,7 +527,9 @@ class Pokemon:
             return
         self.switch_on = False
         self.activate = False
-        self.unprotect = False
+        # TODO: Other forms of protect
+        if self.last_move != 'Protect':
+            self.protect_turn = 0
 
         if self.item == 'Leftovers':
             if self.HP < self.maxHP:
@@ -641,38 +645,20 @@ class Pokemon:
                         self.log.add(actor=self, event='-taunt')
 
         self.move_mask = np.ones(4)
-        if self.lock_move is not None:
-            self.move_mask = np.zeros(4)
-            for move_id, move in enumerate(self.moves):
-                if move == self.lock_move:
-                    self.move_mask[move_id] = 1
-                    break
-
-        if self.choice_move and self.item in ['Choice Band', 'Choice Specs', 'Choice Scarf'] and not env.pseudo_weather[
-            'magicroom']:
-            self.move_mask = np.zeros(4)
-            for move_id, move in enumerate(self.moves):
-                if move == self.choice_move:
-                    self.move_mask[move_id] = 1
-                    break
-
-        if self.charge:
-            self.move_mask = np.zeros(4)
-            for move_id, move in enumerate(self.moves):
-                if move == self.charge:
-                    self.move_mask[move_id] = 1
-                    break
-
-        if self.disable_move:
-            for move_id, move in enumerate(self.moves):
-                if move == self.disable_move:
-                    self.move_mask[move_id] = 0
-                    break
-
-        if self.vstatus['taunt'] > 0:
-            for move_id, move in enumerate(self.move_infos):
-                if move['category'] == 'Status':
-                    self.move_mask[move_id] = 0
+        for move_id, move in enumerate(self.moves):
+            if self.lock_move and move != self.lock_move:
+                self.move_mask[move_id] = 0
+            elif self.choice_move and self.item in ['Choice Band', 'Choice Specs',
+                                                    'Choice Scarf'] and move != self.choice_move:
+                self.move_mask[move_id] = 0
+            elif self.charge and move != self.charge:
+                self.move_mask[move_id] = 0
+            elif move == self.disable_move:
+                self.move_mask[move_id] = 0
+            elif self.vstatus['taunt'] > 0 and self.move_infos[move_id]['category'] == 'Status':
+                self.move_mask[move_id] = 0
+            elif self.pp[move_id] == 0:
+                self.move_mask[move_id] = 0
 
         # TODO: ADD bide
         self.round_dmg = {'Physical': 0, 'Special': 0}
@@ -726,7 +712,7 @@ class Pokemon:
         else:
             self.item = self.base_item
 
-        if 'Berry' in self.item and (self.ability == 'Unnerve' or target.ability == 'Unnerve'):
+        if self.item and 'Berry' in self.item and (self.ability == 'Unnerve' or target.ability == 'Unnerve'):
             self.item = None
 
         if self.item == 'Choice Band':
@@ -748,7 +734,7 @@ class Pokemon:
         # Status Buff
         if self.get_sidecond()['stickyweb']:
             self.Spe *= 0.5
-        if self.status == Paralyse and self.ability != 'Quick Feet':
+        if self.status == 'par' and self.ability != 'Quick Feet':
             self.Spe *= 0.5
 
         if env.pseudo_weather['wonderroom']:
@@ -762,28 +748,32 @@ class Pokemon:
         self.weight = self.base_weight
         self.ability = self.current_ability
 
-    def reset(self):
+    def reset_stat_lv(self):
         for stat in self.stat_lv:
             self.stat_lv[stat] = 0
-        for vstatus in self.vstatus:
-            self.vstatus[vstatus] = 0
-        self.current_ability = self.base_ability
-        self.attr = self.base_attr
-        self.used_item = None
-        self.unburden = False
-        self.lock_move = None
-        self.flash_fire = False
-        self.set_lock()
 
-        if self.ability == 'Nature Cure':
-            if self.status:
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.cure_status()
+    def reset(self):
+        if self.alive:
+            self.reset_stat_lv()
+            for vstatus in self.vstatus:
+                self.vstatus[vstatus] = 0
+            self.current_ability = self.base_ability
+            self.attr = self.base_attr
+            self.used_item = None
+            self.unburden = False
+            self.lock_move = None
+            self.flash_fire = False
+            self.set_lock()
 
-        if self.ability == 'Regenerator':
-            if self.HP < self.maxHP:
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.heal(perc=1 / 3)
+            if self.ability == 'Nature Cure':
+                if self.status:
+                    self.log.add(actor=self, event=self.ability, type=logType.ability)
+                    self.cure_status()
+
+            if self.ability == 'Regenerator':
+                if self.HP < self.maxHP:
+                    self.log.add(actor=self, event=self.ability, type=logType.ability)
+                    self.heal(perc=1 / 3)
 
     def can_lose_item(self):
         return self.item and self.item not in mega_stones and self.item not in z_crystals and not (

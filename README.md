@@ -123,6 +123,8 @@ sleep talk\
 
 【Add】\
 all gen7 ou abilities
+water shuriken ash
+mega seq
 
 【Todo】\
 破格时机

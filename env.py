@@ -80,6 +80,8 @@ class Env:
             if self.weather_turn == 0:
                 log.add(event='-' + self.weather)
                 self.weather = None
+            else:
+                log.add(event='=' + self.weather)
 
         if self.terrain_turn > 0:
             self.terrain_turn -= 1

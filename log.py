@@ -154,7 +154,10 @@ class BattleLog:
                 log = '\'s Air Balloon popped!'
 
             elif event == 'leftovers':
-                log = 'restored HP with leftovers.'
+                log = 'restored HP with Leftovers.'
+
+            elif event == 'blacksludge':
+                log = 'restored HP with Black Sludge.'
 
             elif event == 'ejectbutton':
                 log = 'switched out using its Eject Button!'
@@ -177,6 +180,9 @@ class BattleLog:
 
             elif event == '+slp':
                 log = 'is fast asleep.'
+
+            elif event == '+par':
+                log = 'is paralysed and could not move!'
 
             elif event == 'confusion':
                 log = 'is confused!'
@@ -264,8 +270,10 @@ class BattleLog:
                 log = 'A bell chimed.'
 
             if event == 'aromatherapy':
-                log = 'None'
-                # TODO
+                log = 'A soothing aroma wafted through the area!'
+
+            if event == 'haze':
+                log = 'All the stat changes on field were removed.'
 
             if event == 'mistyterrain':
                 log = 'Mist swirled around the battlefield!'
@@ -302,6 +310,18 @@ class BattleLog:
 
             elif event == 'Sandstorm':
                 log = "A sandstorm kicked up!"
+
+            elif event == '=Raindance':
+                log = 'Rain continues to fall.'
+
+            elif event == '=Sandstorm':
+                log = 'The sandstorm is raging.'
+
+            elif event == '=sunnyday':
+                log = 'The sunlight is strong.'
+
+            elif event == '=hail':
+                log = 'The hail is crashing down.'
 
             elif event == '-sunnyday':
                 log = "The sunlight faded."
@@ -371,22 +391,49 @@ class BattleLog:
             elif event in ['-auroraveil', '-craftyshield', '-lightscreen', '-luckychant', '-matblock', '-mist',
                            '-quickguard',
                            '-reflect', '-safeguard', '-tailwind', '-wideguard']:
-                log = event + ' on ' + actor + '\'s field ended.'
+                log = event + ' on ' + actor + '\'s team ended.'
 
-            elif event in ['--auroraveil', '--craftyshield', '--lightscreen']:
+            elif event == 'tailwind':
+                log = 'The Tailwind blew from behind ' + actor + '\'s team!'
+
+            elif event == 'auroraveil':
+                log = 'Aurora Veil made ' + actor + '\'s team stronger against physical and special moves!'
+
+            elif event == 'safeguard':
+                log = actor + '\'s steam cloaked itself in a mystical veil!'
+
+            elif event == 'wideguard':
+                log = 'Wide Guard protected ' + actor + '\'s team!'
+
+            elif event == 'mist':
+                log = actor + '\'s team became shrouded in mist!'
+
+            elif event == 'lightscreen':
+                log = 'Light Screen made' + actor + '\'s team stronger against special moves!'
+
+            elif event == 'reflect':
+                log = 'Reflect made' + actor + '\'s team stronger against physical moves!'
+
+            elif event == 'luckychant':
+                log = 'Lucky Chant shielded ' + actor + '\'s team from critical hits!'
+
+            elif event in ['quickguard', 'matblock', 'craftyshield']:
+                log = actor + '\'s team was protected by ' + event + '!'
+
+            elif event in ['--auroraveil', '--craftyshield', '--lightscreen', '--reflect']:
                 log = event + ' on ' + actor + '\'s field was destoryed!'
 
             if log:
                 return log
 
             elif event == '+toxicspikes':
-                log = 'was influenced by toxic spikes!'
+                log = 'was influenced by Toxic Spikes!'
 
             elif event == '-toxicspikes':
-                log = 'absorbed the toxic spikes!'
+                log = 'absorbed the Toxic Spikes!'
 
             elif event == '+spikes':
-                log = 'was hurt by spikes!'
+                log = 'was hurt by Spikes!'
 
             if log:
                 return actor + log
@@ -412,7 +459,10 @@ class BattleLog:
 
             # attr berry
             elif event in attr_berry:
-                log = 'The ' + event + 'weakened the damage to' + actor
+                log = 'The ' + event + 'weakened the damage to' + actor + '!'
+
+            elif event == 'healingwish':
+                log = 'The healing wish came true for ' + actor + '!'
 
             if log:
                 return log
@@ -420,9 +470,6 @@ class BattleLog:
             # skill
             elif event == 'knockoff':
                 log = 'knocked off ' + target + '\'s ' + val + '!'
-
-            elif event == 'healingwish':
-                log = 'was cured by the healing wish!'
 
             elif event == 'trick':
                 log = 'switched its item with ' + target + '!'
@@ -433,8 +480,11 @@ class BattleLog:
             elif event == 'painsplit':
                 log = 'split the pain with ' + target + '!'
 
+            elif event == 'leechseed':
+                log = 'was seeded!'
+
             elif event == '+leechseed':
-                log = '\'s health was snapped by leech seed!'
+                log = '\'s health was sapped by leech seed!'
 
             elif event == 'predict':
                 log = 'predicted an attack!'
