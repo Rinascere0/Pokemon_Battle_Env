@@ -122,7 +122,7 @@ sleep talk\
 2020.5.6
 
 【Add】\
-magic coat
+all gen7 ou abilities
 
 【Todo】\
 破格时机

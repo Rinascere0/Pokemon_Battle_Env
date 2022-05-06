@@ -20,8 +20,8 @@ class Utils:
 
     def step_turn(self, game, env, players, moves):
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
-        pkms[0].prep(env)
-        pkms[1].prep(env)
+        pkms[0].prep(env,pkms[1])
+        pkms[1].prep(env,pkms[0])
         megas = [None, None]
         z_moves = [False, False]
         prior = np.zeros(2)
@@ -315,7 +315,7 @@ class Utils:
             user.metronome = 0
             user.last_move = move['name']
 
-        if not user.choice_move and 'Choice' in user.item:
+        if not user.choice_move and  user.item in ['Choice Band','Choice Scarf','Choice Specs']:
             user.choice_move = move['name']
 
         if user.ability == 'Protean':
@@ -343,8 +343,8 @@ class Utils:
                 self.log.add(actor=target, event='+magiccoat', val=move['name'])
                 target = user
 
-        user.calc_stat(env)
-        target.calc_stat(env)
+        user.calc_stat(env,target)
+        target.calc_stat(env,user)
         if move['target'] == 'self':
             target = user
 
@@ -419,35 +419,43 @@ class Utils:
                 effects = [move['secondary']]
             else:
                 effects = move['secondaries']
+
+            if user.ability == 'Sheer Force':
+                effects = None
+
+            # TODO: Does it exist move that have side effects to both?
             if 'self' in move:
                 effects = move['self']
                 sec_target = user
                 if type(effects) is not list:
                     effects = [effects]
-            if len(effects) > 0:
+
+            if effects:
                 for effect in effects:
                     if effect is None:
                         continue
                     chance = effect['chance'] / 100 if 'chance' in effect else 1
+                    if user.ability == 'Serene Grace':
+                        chance = min(1, 2 * chance)
                     hit = np.random.choice([True, False], p=[chance, 1 - chance])
                     if hit:
                         if 'self' in effect:
                             effect = effect['self']
                         if 'status' in effect:
-                            sec_target.add_status(effect['status'], env)
+                            sec_target.add_status(effect['status'], env, user)
                         if 'volatileStatus' in effect:
-                            sec_target.add_vstate(effect['volatileStatus'])
+                            sec_target.add_vstate(effect['volatileStatus'], cond=None, user=user)
                         if 'boosts' in effect:
                             for stat, lv in effect['boosts'].items():
                                 sec_target.boost(stat, lv)
                         if move['name'] == 'Tri Attack':
                             status = random.randint(0, 2)
                             if status == 0:
-                                sec_target.add_status('par', env)
+                                sec_target.add_status('par', env, user)
                             elif status == 1:
-                                sec_target.add_status('brn', env)
+                                sec_target.add_status('brn', env, user)
                             else:
-                                sec_target.add_status('frz', env)
+                                sec_target.add_status('frz', env, user)
 
             # drain move
             if 'drain' in move:
@@ -499,14 +507,14 @@ class Utils:
 
             if 'status' in move:
                 status = move['status']
-                target.add_status(status, env)
+                target.add_status(status, env, user)
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
                 cond = None
                 if 'condition' in move:
                     cond = move['condition']
-                target.add_vstate(vstatus, cond)
+                target.add_vstate(vstatus, cond, user)
 
             #     if 'sideCondition' in move:
             #        side_cond = move['sideCondition']
@@ -599,32 +607,37 @@ class Utils:
                 self.log.add(actor=user, event='rockyhelmet')
                 user.damage(0, perc=1 / 6)
 
+            if target.ability == 'Cute Charm':
+                if random.uniform(0, 1) < 0.3:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_vstate('attract', cond=None, user=user)
+
             if target.ability == 'Poison Point':
                 if random.uniform(0, 1) < 0.3:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('psn')
+                    user.add_status('psn', env, user)
 
             if target.ability == 'Flame Body':
                 if random.uniform(0, 1) < 0.3:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('brn')
+                    user.add_status('brn', env, user)
 
             if target.ability == 'Static':
                 if random.uniform(0, 1) < 0.3:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('par')
+                    user.add_status('par', env, user)
 
             if target.ability == 'Effect Spore':
                 rnd = random.uniform(0, 1)
                 if rnd < 0.1:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('psn')
+                    user.add_status('psn', env, user)
                 elif rnd < 0.2:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('par')
+                    user.add_status('par', env, user)
                 elif rnd < 0.3:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('slp')
+                    user.add_status('slp', env, user)
 
         if move['name'] == 'Knock Off' and target.can_lose_item() and target.alive:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
@@ -701,23 +714,23 @@ class Utils:
             return NoEffect
         if target.ability == 'Storm Drain':
             self.log.add(actor=target, event=target.ability, type=logType.ability)
-            target.stat_lv['spa'] += 1
+            target.boost('spa', 1)
             return NoEffect
 
         if sk_type == 'Fire':
             if target.ability == 'Flash Fire':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
-                target.flash_fire = Hit
+                target.flash_fire = True
                 return NoEffect
 
         if sk_type == 'Electric':
             if target.ability == 'Lightning Rod':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
-                target.stat_lv['spa'] += 1
+                target.boost('spa', 1)
                 return NoEffect
             if target.ability == 'Motor Drive':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
-                target.stat_lv['spe'] += 1
+                target.boost('spe', 1)
                 return NoEffect
             if target.ability == 'Volt Absorb':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
@@ -727,7 +740,7 @@ class Utils:
         if sk_type == 'Grass':
             if target.ability == 'Sap Sipper':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
-                target.stat_lv['atk'] += 1
+                target.boost('atk', 1)
                 return NoEffect
 
         if sk_type == 'Ground':
@@ -904,7 +917,7 @@ class Utils:
         if user.ability == 'Super Luck':
             ct_lv += 1
         ct_rate = get_ct(ct_lv)
-        if user.ability == 'Merciless' and (target.poison or target.toxic):
+        if user.ability == 'Merciless' and target.status in ['psn', 'tox']:
             ct_rate = 1
         if user.ability == 'Sniper':
             ct = 9 / 4
@@ -985,10 +998,22 @@ class Utils:
             sk_type = 'Normal'
             other_buff *= 1.2
 
+        if user.ability == 'Sheer Force':
+            effects = None
+            if 'secondary' in move:
+                effects = move['secondary']
+            elif 'secondaries' in move:
+                effects = move['secondaries']
+            if effects:
+                other_buff *= 1.3
+
         if user.ability == 'Flare Boost' and user.status is 'brn' and ctg == 'Special':
             other_buff *= 1.5
 
         if user.ability == 'Toxic Boost' and (user.poison or user.toxic) and ctg == 'Physical':
+            other_buff *= 1.5
+
+        if user.ability == 'Flash Fire' and user.flash_fire and sk_type == 'Fire':
             other_buff *= 1.5
 
         if user.ability == 'Mega Launcher':

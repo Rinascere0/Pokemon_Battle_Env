@@ -70,7 +70,7 @@ class Pokemon:
         self.last_move = None
         self.metronome = 0
         self.unburden = False
-        self.move_mask = np.ones(4)
+        self.flash_fire = False
 
         # lock skill e.g. outrage, iceball
         self.lock_move = None
@@ -116,6 +116,7 @@ class Pokemon:
         self.healing_wish = False
         self.round_dmg = {'Physical': 0, 'Special': 0}
 
+        self.move_mask = np.ones(4)
         self.player = None
         self.log = None
 
@@ -219,11 +220,15 @@ class Pokemon:
         self.log.add(actor=self, event='-vstatus', val=vs)
         self.vstatus[vs] = 0
 
-    def add_status(self, status, env):
+    def add_status(self, status, env, user=None):
         if not self.alive:
             return False
         if imm_ground(self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
             self.log.add(actor=self, event='+' + env.terrain)
+            return False
+
+        if self.ability == 'Leaf Guard' and env.weather == 'sunnyday':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
 
         if status == 'slp' and self.ability == 'Vital Spirit':
@@ -238,6 +243,9 @@ class Pokemon:
         if status == 'frz' and self.ability == 'Magma Armor':
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
+        if status == 'par' and self.ability == 'Limber':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            return False
 
         if not self.status:
             self.status = status
@@ -246,6 +254,9 @@ class Pokemon:
                 self.status_turn = random.randint(1, 3)
             else:
                 self.status_turn = 1
+            if user and user != self and self.ability == 'Synchronize' and status in ['brn', 'psn', 'tox', 'par']:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                user.add_status(status, env)
         else:
             self.log.add(actor=self, event='++status', val=full_status[self.status])
 
@@ -253,7 +264,7 @@ class Pokemon:
             self.use_item()
             self.cure_status()
 
-    def add_vstate(self, vstatus, cond=None):
+    def add_vstate(self, vstatus, cond=None, user=None):
         if not self.alive:
             return False
             # 已有相同状态
@@ -302,6 +313,11 @@ class Pokemon:
         elif vstatus == 'disable':
             self.disable_move = self.last_move
             turn = 5
+        elif vstatus == 'attract':
+            if self.gender and user.gender and self.gender != user.gender:
+                turn = 10000
+            else:
+                return False
         else:
             turn = -1
 
@@ -336,7 +352,7 @@ class Pokemon:
 
         self.log.add(actor=self, event='pred')
 
-    def heal(self, val, perc=False, target=None):
+    def heal(self, val=0, perc=False, target=None):
         if not self.alive:
             return
         if perc:  # 百分比治疗
@@ -384,6 +400,15 @@ class Pokemon:
                 self.log.add(actor=self, event='Mirror Armor', type=logType.ability)
                 src.boost(stat, lv)
                 return
+            if self.ability == 'Hyper Cutter' and stat == 'atk' and src is not None:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.log.add(actor=self, event='-0', val=full_stat[stat])
+                return
+            if self.ability == 'Keen Eye' and stat == 'acc' and src is not None:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.log.add(actor=self, event='-0', val=full_stat[stat])
+                return
+
             if self.stat_lv[stat] == -6:
                 self.log.add(actor=self, event='-7', val=full_stat[stat])
             else:
@@ -490,9 +515,9 @@ class Pokemon:
             self.round_dmg[category] += val
         return val
 
-    def prep(self, env):
+    def prep(self, env, target):
         self.ability = self.current_ability
-        self.calc_stat(env)
+        self.calc_stat(env, target)
         self.turn = True
 
     def end_turn(self, env, target):
@@ -652,7 +677,7 @@ class Pokemon:
         # TODO: ADD bide
         self.round_dmg = {'Physical': 0, 'Special': 0}
 
-    def calc_stat(self, target, env, raw=False):
+    def calc_stat(self, env, target, raw=False):
         _, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe = self.stats.values()
         Atk_lv, Def_lv, Satk_lv, Sdef_lv, Spe_lv, Eva_lv, Acc_lv = self.stat_lv.values()
 
@@ -747,7 +772,18 @@ class Pokemon:
         self.used_item = None
         self.unburden = False
         self.lock_move = None
+        self.flash_fire = False
         self.set_lock()
+
+        if self.ability == 'Nature Cure':
+            if self.status:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.cure_status()
+
+        if self.ability == 'Regenerator':
+            if self.HP < self.maxHP:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.heal(perc=1 / 3)
 
     def can_lose_item(self):
         return self.item and self.item not in mega_stones and self.item not in z_crystals and not (
@@ -761,6 +797,7 @@ class Pokemon:
                 self.vstatus['substitute'] = copy.deepcopy(old_pivot['substitute'])
                 self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
             old_pivot.reset()
+
             if old_pivot.healing_wish:
                 self.log.add(actor=self, event='healingwish')
                 self.heal(self.maxHP)

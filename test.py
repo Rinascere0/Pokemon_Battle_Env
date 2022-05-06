@@ -36,7 +36,6 @@ def f():
 
 
 a = None
-print(Moves['leechseed'])
-print(Moves['transform'])
-print(Moves['memento'])
-print(Moves['taunt'])
+print(Moves['snarl'])
+print(Moves['overheat'])
+
