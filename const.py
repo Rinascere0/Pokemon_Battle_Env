@@ -11,7 +11,7 @@ class ActionType:
     Common, Mega, Z_Move, Switch = range(4)
 
 
-vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'roost']
+vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat']
 
 z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
               'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',
@@ -98,9 +98,6 @@ biting_move = ['Bite', 'Crunch', 'Fire Fang', 'Thunder Fang', 'Ice Fang', 'Fishi
 ct_move = ['Slash', 'Cross Poison', 'Night Slash', 'Psycho Cut', 'Shadow Claw', 'Crabhammer', 'Cross Chop',
            'Stone Edge', 'Spacial Rend', 'Attack Order', 'Aeroblast', 'Blaze Kick', 'Drill Run', 'Sky Attack',
            'Razor Leaf', 'Poison Tail', 'Karate Chop', 'Razor Wind', 'Snipe Shot', 'Air Cutter']
-evolved = []
-
-no_gender = []
 
 
 class Stat:

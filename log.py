@@ -156,6 +156,18 @@ class BattleLog:
             elif event == 'leftovers':
                 log = 'restored HP with leftovers.'
 
+            elif event == 'ejectbutton':
+                log = 'switched out using its Eject Button!'
+
+            elif event == 'toxicorb':
+                log = '\'s Toxic Orb activated!'
+
+            elif event == 'flameorb':
+                log = '\'s Flame Orb activated!'
+
+            elif event == 'shellbell':
+                log = 'restored a little HP using its Shell Bell!'
+
             # status event
             elif event == '+psn':
                 log = 'was hurt by it\'s posion!'
@@ -174,6 +186,12 @@ class BattleLog:
 
             elif event == '+flinch':
                 log = 'flinched and could not move!'
+
+            elif event == 'magiccoat':
+                log = 'shrouded itself with Magic Coat!'
+
+            elif event == '+magiccoat':
+                log = 'bounced the ' + val + ' back!'
 
             elif event == '+frz':
                 log = 'is frozen solid!'
@@ -209,7 +227,10 @@ class BattleLog:
                 log = 'is already ' + str(val) + '!'
 
             elif event == '-status':
-                log = val + ' was healed!'
+                log = val + ' was cured!'
+
+            elif event == '-vstatus':
+                log = val + ' was cured!'
 
             elif event == '++substitute':
                 log = 'already has a substitute!'
@@ -440,6 +461,9 @@ class BattleLog:
             elif event == '+pressure':
                 log = 'is exerting pressure!'
 
+            elif event == '+unnerve':
+                log = 'makes the pokemons on field to nervous to eat berries!'
+
             elif event == '+anticipate':
                 log = 'anticipated danger!'
 
@@ -466,6 +490,9 @@ class BattleLog:
 
             elif event == '+roughskin':
                 log = 'was hurt by Rough Skin!'
+
+            elif event == '+whiteherb':
+                log = 'prevented the ability decrease!'
 
             if log:
                 return actor + log

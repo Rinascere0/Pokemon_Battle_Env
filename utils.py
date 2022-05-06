@@ -145,6 +145,8 @@ class Utils:
                     target.can_switch = False
                 if user.ability == 'Shadow Tag' and not target.ability == 'Shadow Tag':
                     target.can_switch = False
+                if target.item == 'Shed Shell':
+                    target.can_switch = True
 
                 if user.ability == 'Trace':
                     self.log.add(actor=user, event='Trace', type=logType.ability)
@@ -165,12 +167,15 @@ class Utils:
 
                 if user.ability == 'Mold Breaker':
                     self.log.add(actor=user, event='Mold Breaker', type=logType.ability)
+                    self.log.add(actor=user, event='+moldbreaker')
 
                 if user.ability == 'Pressure':
                     self.log.add(actor=user, event='Pressure', type=logType.ability)
+                    self.log.add(actor=user, event='+pressure')
 
                 if user.ability == 'Unnerve':
                     self.log.add(actor=user, event='Unnerve', type=logType.ability)
+                    self.log.add(actor=user, event='+unnerve')
 
                 if user.ability == 'Drizzle':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
@@ -214,6 +219,9 @@ class Utils:
                 if user.ability == 'Intimidate':
                     self.log.add(actor=user, event='intimidate', type=logType.ability)
                     target.boost('atk', -1, user)
+                    if target.item == 'Adrenaline Orb':
+                        target.use_item()
+                        target.boost('spe', 1)
 
             if user.switch_on:
                 if user.item is 'Air Balloon':
@@ -262,6 +270,8 @@ class Utils:
         self.log.step_print()
 
     def use_move(self, user: Pokemon, target: Pokemon, move, env, game, z_move, last):
+        if not user.turn:
+            return
         if user.vstatus['flinch']:
             self.log.add(actor=user, event='+flinch')
             if user.ability == 'Steadfast':
@@ -299,7 +309,13 @@ class Utils:
         else:
             user.loss_pp(move, 1)
 
-        if not user.choice_move:
+        if move['name'] == user.last_move:
+            user.metronome += 1
+        else:
+            user.metronome = 0
+            user.last_move = move['name']
+
+        if not user.choice_move and 'Choice' in user.item:
             user.choice_move = move['name']
 
         if user.ability == 'Protean':
@@ -317,6 +333,15 @@ class Utils:
         if move['priority'] > 0 and env.terrain == 'psychicterrain':
             self.log.add(actor=target, event='+psychicterrain')
             return
+
+        if 'reflectable' in move['flags']:
+            reflect = False
+            if target.ability == 'Magic Bounce':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
+                reflect = True
+            if reflect or target.vstatus['magiccoat']:
+                self.log.add(actor=target, event='+magiccoat', val=move['name'])
+                target = user
 
         user.calc_stat(env)
         target.calc_stat(env)
@@ -338,12 +363,16 @@ class Utils:
                 if i == 0:
                     self.log.add(event='fail')
                 break
-            useful = self.check_useful(env, user, target, move)
+            useful = self.check_useful(env, user, target, move, last)
             if useful == Hit:
                 if self_destruct == 'ifHit':
                     user.damage(0, 100)
                 self.effect_move(user, target, move, env, last)
-                if move['name'] in ['U-turn', 'Volt Switch', 'Boton Pass']:
+                # eject button
+                if target.item == 'Eject Button':
+                    game.call_switch(target.player)
+                # switch if not opponent eject button
+                elif move['name'] in ['U-turn', 'Volt Switch', 'Boton Pass']:
                     game.call_switch(user.player)
 
             elif useful == Miss:
@@ -379,9 +408,11 @@ class Utils:
                         self.log.add(actor=target.player, event='--' + wall)
                     target.get_sidecond()[wall] = 0
 
+            total_damage = 0
             for _ in range(count):
                 dmg = self.calc_dmg(user, target, move, env, last)
-                target.damage(val=dmg, perc=False, attr='NoAttr', user=user)
+                target.damage(val=dmg, perc=False, attr='NoAttr', user=user, category=ctg)
+                total_damage += dmg
 
             sec_target = target
             if 'secondary' in move:
@@ -448,6 +479,10 @@ class Utils:
             # same round move
             if move['name'] in ['Triple Axel', 'Triple Kick']:
                 user.multi_count += 1
+
+            if user.item == 'Shell Bell':
+                self.log.add(actor=user, event='shellbell')
+                user.heal(total_damage / 8)
 
         else:
             if move['target'] == 'self':
@@ -564,11 +599,38 @@ class Utils:
                 self.log.add(actor=user, event='rockyhelmet')
                 user.damage(0, perc=1 / 6)
 
+            if target.ability == 'Poison Point':
+                if random.uniform(0, 1) < 0.3:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_status('psn')
+
+            if target.ability == 'Flame Body':
+                if random.uniform(0, 1) < 0.3:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_status('brn')
+
+            if target.ability == 'Static':
+                if random.uniform(0, 1) < 0.3:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_status('par')
+
+            if target.ability == 'Effect Spore':
+                rnd = random.uniform(0, 1)
+                if rnd < 0.1:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_status('psn')
+                elif rnd < 0.2:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_status('par')
+                elif rnd < 0.3:
+                    self.log.add(actor=target, event=target.ability, type=logType.ability)
+                    user.add_status('slp')
+
         if move['name'] == 'Knock Off' and target.can_lose_item() and target.alive:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
             target.lose_item()
 
-    def check_useful(self, env, user, target, move):
+    def check_useful(self, env, user, target, move, last):
         sk_type = move['type']
         sk_name = move['name']
         sk_ctg = move['category']
@@ -692,6 +754,18 @@ class Utils:
             self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
 
+        if user.item == 'Wide Lens':
+            acc_buff *= 1.1
+
+        if user.item == 'Zoom Lens' and last:
+            acc_buff *= 1.2
+
+        if user.ability == 'Victory Star':
+            acc_buff *= 1.1
+
+        if user.ability == 'Compound Eyes':
+            acc_buff *= 1.3
+
         if target.ability == 'Wonder Skin' and sk_ctg == 'Status':
             acc_buff *= 0.5
 
@@ -721,6 +795,12 @@ class Utils:
         power = move['basePower']
 
         # specific power
+        if sk_name == 'Counter':
+            return user.round_dmg['Physical'] * 2
+
+        if sk_name == 'Mirror Coat':
+            return user.round_dmg['Special'] * 2
+
         if 'damage' in move:
             if move['damage'] == 'level':
                 return user.lv
@@ -880,66 +960,6 @@ class Utils:
         if sk_name == 'Facade' and (user.status is not None):
             other_buff *= 2
 
-        # item buff
-        if ctg == 'Physical' and user.item == 'Muscle Band':
-            other_buff = 1.1
-
-        if ctg == 'Special' and user.item == 'Wise Glasses':
-            other_buff = 1.1
-
-        if user.item == 'Expert Belt' and type_buff > 1:
-            other_buff = 1.2
-
-        if user.item == 'Life Orb':
-            other_buff = 1.3
-
-        if user.metronome > 0:
-            other_buff = 1 + 0.1 * user.metronome
-
-        if sk_type == 'Fire' and user.item == 'Flame Plate':
-            other_buff = 1.2
-        if sk_type == 'Grass' and user.item == 'Meadow Plate':
-            other_buff = 1.2
-        if sk_type == 'Water' and user.item == 'Splash Plate':
-            other_buff = 1.2
-        if sk_type == 'Ground' and user.item == 'Earth Plate':
-            other_buff = 1.2
-        if sk_type == 'Bug' and user.item == 'Insect Plate':
-            other_buff = 1.2
-        if sk_type == 'Ice' and user.item == 'Icicle Plate':
-            other_buff = 1.2
-        if sk_type == 'Steel' and user.item == 'Iron Plate':
-            other_buff = 1.2
-        if sk_type == 'Fighting' and user.item == 'Fist Plate':
-            other_buff = 1.2
-        if sk_type == 'Psychic' and user.item == 'Mind Plate':
-            other_buff = 1.2
-        if sk_type == 'Flying' and user.item == 'Sky Plate':
-            other_buff = 1.2
-        if sk_type == 'Dark' and user.item == 'Dread Plate':
-            other_buff = 1.2
-        if sk_type == 'Ghost' and user.item == 'Spooky Plate':
-            other_buff = 1.2
-        if sk_type == 'Rock' and user.item == 'Stone Plate':
-            other_buff = 1.2
-        if sk_type == 'Electric' and user.item == 'Zap Plate':
-            other_buff = 1.2
-        if sk_type == 'Poison' and user.item == 'Toxic Plate':
-            other_buff = 1.2
-        if sk_type == 'Fairy' and user.item == 'Pixie Plate':
-            other_buff = 1.2
-        if sk_type == 'Dragon' and user.item == 'Draco Plate':
-            other_buff = 1.2
-
-        # berry buff
-        if target.item in attr_berry and sk_type == attr_berry[target.item] and type_buff > 1:
-            target.use_item()
-            self.log.add(actor=target, event=target.item)
-
-        if target.item == 'Chilan Berry' and sk_type == 'Normal':
-            target.use_item()
-            self.log.add(actor=target, event=target.item)
-
         # ability buff
         if user.ability == 'Aerilate' and sk_type == 'Normal':
             sk_type = 'Flying'
@@ -1029,6 +1049,76 @@ class Utils:
 
         if user.ability == 'Water Bubble' and sk_type == 'Water':
             other_buff *= 2
+
+        # item buff
+        if ctg == 'Physical' and user.item == 'Muscle Band':
+            other_buff *= 1.1
+
+        if ctg == 'Special' and user.item == 'Wise Glasses':
+            other_buff *= 1.1
+
+        if user.item == 'Expert Belt' and type_buff > 1:
+            other_buff *= 1.2
+
+        if user.item == 'Life Orb':
+            other_buff *= 1.3
+
+        if user.item == 'Normal Gem' and sk_type == 'Normal':
+            user.use_item()
+            other_buff *= 1.3
+
+        if user.item == 'Metronome':
+            other_buff *= 1 + 0.1 * user.metronome
+
+        if sk_type == 'Fire' and user.item in ['Flame Plate', 'Charcoal']:
+            other_buff *= 1.2
+        if sk_type == 'Grass' and user.item in ['Meadow Plate', 'Miracle Seed', 'Rose Incense']:
+            other_buff *= 1.2
+        if sk_type == 'Water' and user.item in ['Splash Plate', 'Mystic Water', 'Sea Incense', 'Wave Incense']:
+            other_buff *= 1.2
+        if sk_type == 'Ground' and user.item in ['Earth Plate', 'Soft Sand']:
+            other_buff *= 1.2
+        if sk_type == 'Bug' and user.item in ['Insect Plate', 'Silver Powder']:
+            other_buff *= 1.2
+        if sk_type == 'Ice' and user.item in ['Icicle Plate', 'Never-Melt Ice']:
+            other_buff *= 1.2
+        if sk_type == 'Steel' and user.item in ['Iron Plate', 'Metal Coat']:
+            other_buff *= 1.2
+        if sk_type == 'Fighting' and user.item in ['Fist Plate', 'Black Belt']:
+            other_buff *= 1.2
+        if sk_type == 'Psychic' and user.item in ['Mind Plate', 'Twisted Spoon', 'Odd Incense']:
+            other_buff *= 1.2
+        if sk_type == 'Flying' and user.item in ['Sky Plate', 'Sharp Beak']:
+            other_buff *= 1.2
+        if sk_type == 'Dark' and user.item in ['Dread Plate', 'Black Glasses']:
+            other_buff *= 1.2
+        if sk_type == 'Ghost' and user.item in ['Spooky Plate', 'Spell Tag']:
+            other_buff *= 1.2
+        if sk_type == 'Rock' and user.item in ['Stone Plate', 'Hard Stone', 'Rock Incense']:
+            other_buff *= 1.2
+        if sk_type == 'Electric' and user.item in ['Zap Plate', 'Magnet']:
+            other_buff *= 1.2
+        if sk_type == 'Poison' and user.item in ['Toxic Plate', 'Poison Barb']:
+            other_buff *= 1.2
+        if sk_type == 'Fairy' and user.item == 'Pixie Plate':
+            other_buff *= 1.2
+        if sk_type == 'Dragon' and user.item in ['Draco Plate', 'Dragon Fang']:
+            other_buff *= 1.2
+        if sk_type == 'Normal' and user.item == 'Silk Scarf':
+            other_buff *= 1.2
+
+        # berry buff
+        if target.item in attr_berry and sk_type == attr_berry[target.item] and type_buff > 1:
+            target.use_item()
+            self.log.add(actor=target, event=target.item)
+            other_buff *= 0.5
+
+        if target.item == 'Chilan Berry' and sk_type == 'Normal':
+            target.use_item()
+            self.log.add(actor=target, event=target.item)
+            other_buff *= 0.5
+
+        # env buff
 
         if not imm_ground(user) and env.terrain == 'psychicterrain' and sk_type == 'Psychic':
             other_buff *= 1.3

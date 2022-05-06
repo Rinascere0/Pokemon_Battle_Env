@@ -32,9 +32,11 @@ def get_move(name):
 
 
 def f():
-    return 1,2
+    return 1, 2
 
-a=None
 
-get_move('recover')
-get_move('brickbreak')
+a = None
+print(Moves['leechseed'])
+print(Moves['transform'])
+print(Moves['memento'])
+print(Moves['taunt'])

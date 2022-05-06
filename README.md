@@ -51,7 +51,7 @@ focus sash
 【Todo】\
 ✔download \
 ✔anticipation\
-unnerve\
+✔unnerve\
 ✔intimidate\
 ✔frisk\
 ✔trace\
@@ -96,7 +96,7 @@ Mega
 ✔Roost\
 Z-move\
 ✔Ability log in utils\
-Berry\
+✔Berry\
 struggle\
 Ditto
 
@@ -114,7 +114,15 @@ confusion hit\
 brick break wall\
 nightmare
 
-
 【Todo】\
 Gravity [immue judge]\
-sleep talk
+sleep talk\
+
+
+2020.5.6
+
+【Add】\
+magic coat
+
+【Todo】\
+破格时机
