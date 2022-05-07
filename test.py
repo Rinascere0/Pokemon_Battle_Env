@@ -36,6 +36,6 @@ def f():
 
 
 a = None
-print(Moves['taunt'])
 
+print(Moves['struggle'])
 

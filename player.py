@@ -2,6 +2,7 @@ import random
 import time
 import numpy as np
 from abc import abstractmethod
+from data.moves import Moves
 
 from pokemon import Pokemon
 from const import *
@@ -81,7 +82,7 @@ class Player:
             time.sleep(0.1)
             if self.status == Signal.Move:
                 self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_move())
+                self.game.send(self.pid, self.gen_action())
             elif self.status == Signal.Switch:
                 self.status = Signal.Wait
                 self.game.send(self.pid, self.gen_switch())
@@ -91,40 +92,8 @@ class Player:
             elif self.status == Signal.End:
                 return
 
-    @abstractmethod
-    def gen_move(self):
-        # TODO
-        return
-
-    @abstractmethod
-    def gen_switch(self):
-        # TODO
-        return
-
-
-class RandomPlayer(Player):
-    def __init__(self):
-        super(RandomPlayer, self).__init__()
-
-    def gen_move(self):
-        pivot = self.pkms[self.pivot]
-        move = np.random.choice(pivot.move_infos, p=pivot.move_mask / pivot.move_mask.sum())
-        if self.mega[self.pivot]:
-            return {'type': ActionType.Mega, 'item': move}
-        else:
-            return {'type': ActionType.Common, 'item': move}
-
-    def gen_switch(self):
-        p = self.alive
-        if self.pivot != -1:
-            p[self.pivot] = 0
-        if not p.any():
-            return {'type': ActionType.Switch, 'item': self.pivot}
-        else:
-            return {'type': ActionType.Switch, 'item': int(np.random.choice(np.arange(0, 6), p=p / p.sum()))}
-
     def switch(self, env, pivot, withdraw=False):
-        if withdraw and pivot == self.pivot:
+        if withdraw:
             self.log.add(actor=self, event='withdraw', val=self.get_pivot().name)
         self.log.add(actor=self, event='switch', val=self.pkms[pivot].name)
         if self.pivot == -1:
@@ -138,3 +107,45 @@ class RandomPlayer(Player):
             self.switch(np.random.choice(np.arange(0, 6), self.alive / self.alive.sum()))
         else:
             self.switch(np.random.choice(np.arange(0, 6), self.alive / self.alive.sum()))
+
+    @abstractmethod
+    def gen_switch(self):
+        # TODO
+        return
+
+    @abstractmethod
+    def gen_action(self):
+        # TODO
+        return
+
+
+class RandomPlayer(Player):
+    def __init__(self):
+        super(RandomPlayer, self).__init__()
+
+    def gen_action(self):
+        rnd = random.uniform(0, 1)
+        if rnd >= 0.9:
+            return self.gen_switch()
+        else:
+            return self.gen_move()
+
+    def gen_switch(self):
+        p = self.alive
+        if self.pivot != -1:
+            p[self.pivot] = 0
+        if not p.any():
+            return {'type': ActionType.Switch, 'item': self.pivot}
+        else:
+            return {'type': ActionType.Switch, 'item': int(np.random.choice(np.arange(0, 6), p=p / p.sum()))}
+
+    def gen_move(self):
+        pivot = self.pkms[self.pivot]
+        if not pivot.move_mask.any():
+            move = Moves['struggle']
+        else:
+            move = np.random.choice(pivot.move_infos, p=pivot.move_mask / pivot.move_mask.sum())
+        if self.mega[self.pivot]:
+            return {'type': ActionType.Mega, 'item': move}
+        else:
+            return {'type': ActionType.Common, 'item': move}

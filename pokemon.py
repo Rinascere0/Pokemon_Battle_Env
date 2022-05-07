@@ -281,7 +281,7 @@ class Pokemon:
             if vstatus == 'confusion':
                 if self.ability == 'Own Tempo':
                     self.log.add(actor=self, event=self.ability, type=logType.ability)
-                turn = random.randint(1, 3)
+                turn = random.randint(1, 4)
             elif vstatus in ['smackdown', 'foresight']:
                 turn = 10000
             # continuous protect count
@@ -518,15 +518,16 @@ class Pokemon:
         return val
 
     def prep(self, env, target):
-        self.ability = self.current_ability
         self.calc_stat(env, target)
         self.turn = True
 
     def end_turn(self, env, target):
         if not self.alive:
             return
-        self.switch_on = False
-        self.activate = False
+        if self.activate:
+            self.activate = False
+        else:
+            self.switch_on = False
         # TODO: Other forms of protect
         if self.last_move != 'Protect':
             self.protect_turn = 0
@@ -538,8 +539,10 @@ class Pokemon:
 
         if self.item == 'Black Sludge':
             if 'Poison' in self.attr:
+                self.log.add(actor=self, event='+blacksludge')
                 self.heal(0, perc=1 / 16)
             else:
+                self.log.add(actor=self, event='-blacksludge')
                 self.damage(0, perc=1 / 8)
 
         if self.ability == 'Poison Heal' and self.status in ['tox', 'psn'] and self.HP < self.maxHP:
@@ -608,7 +611,7 @@ class Pokemon:
                 self.log.add(actor=self, event='+hail')
                 self.damage(0, 1 / 16)
 
-            if env.weather == 'Sandstorm' and not set(self.attr).intersection(set(['Ground', ''])):
+            if env.weather == 'Sandstorm' and not set(self.attr).intersection(set(['Ground', 'Rock', 'Steel'])):
                 self.log.add(actor=self, event='+Sandstorm')
                 self.damage(0, 1 / 16)
 
@@ -677,6 +680,7 @@ class Pokemon:
             self.Acc = calc_stat_lv(Acc_lv)
 
         # Ability Buff
+        self.ability = self.current_ability
 
         if self.ability == 'Defeatist' and self.HP / self.maxHP <= 1 / 2:
             self.Atk *= 0.5
@@ -765,7 +769,7 @@ class Pokemon:
             self.flash_fire = False
             self.set_lock()
 
-            if self.ability == 'Nature Cure':
+            if self.ability == 'Natural Cure':
                 if self.status:
                     self.log.add(actor=self, event=self.ability, type=logType.ability)
                     self.cure_status()
@@ -828,3 +832,4 @@ class Pokemon:
             self.log.add(actor=self, event='endure')
         else:
             return True
+        return False

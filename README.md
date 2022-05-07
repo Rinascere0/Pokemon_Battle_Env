@@ -116,15 +116,21 @@ nightmare
 
 【Todo】\
 Gravity [immue judge]\
-sleep talk\
+sleep talk
 
 
 2020.5.6
 
 【Add】\
-all gen7 ou abilities
-water shuriken ash
+all gen7 ou abilities\
+water shuriken ash\
 mega seq
 
 【Todo】\
 破格时机
+
+2020.5.7
+
+【Add】\
+Prankster\
+natural cure

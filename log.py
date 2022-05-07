@@ -33,6 +33,8 @@ class BattleLog:
         self.total_log_texts.append(self.log_text)
         for log in self.log_text:
             print(log)
+            if 'lost!' in log:
+                break
         print()
         self.log = []
         self.log_text = []
@@ -156,8 +158,11 @@ class BattleLog:
             elif event == 'leftovers':
                 log = 'restored HP with Leftovers.'
 
-            elif event == 'blacksludge':
+            elif event == '+blacksludge':
                 log = 'restored HP with Black Sludge.'
+
+            elif event == '-blacksludge':
+                log = 'lost HP with Black Sludge!'
 
             elif event == 'ejectbutton':
                 log = 'switched out using its Eject Button!'
@@ -378,7 +383,7 @@ class BattleLog:
                 actor = None
 
             elif event == 'toxicspikes':
-                log = 'Toxic spikes were scattered on ' + actor + '\'s field.'
+                log = 'Toxic Spikes were scattered on ' + actor + '\'s field.'
                 actor = None
 
             elif event == 'spikes':
@@ -485,6 +490,9 @@ class BattleLog:
 
             elif event == '+leechseed':
                 log = '\'s health was sapped by leech seed!'
+
+            elif event == '++leechseed':
+                log = 'is already seeded!'
 
             elif event == 'predict':
                 log = 'predicted an attack!'

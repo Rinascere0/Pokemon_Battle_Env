@@ -11,7 +11,7 @@ from const import *
 
 from log import BattleLog
 
-Hit, Miss, NoEffect, Onhold = 0, 1, 2, 3
+Hit, Miss, NoEffect, Onhold, NoLog = 0, 1, 2, 3, 4
 
 
 class Utils:
@@ -31,22 +31,35 @@ class Utils:
             prior = - prior
 
         if moves:
-            prior[0] += moves[0]['item']['priority']
-            prior[1] += moves[1]['item']['priority']
+            for pkm_id, (pkm, move_set) in enumerate(zip(pkms, moves)):
+                if move_set['type'] == ActionType.Switch:
+                    continue
+                move = move_set['item']
+                prior[pkm_id] += move['priority']
+                if pkm.ability == 'Prankster' and move['category'] == 'Status':
+                    prior[pkm_id] += 1
+                if pkm.ability == 'Triage' and 'heal' in move['flags']:
+                    prior[pkm_id] += 3
+                if pkm.ability == 'Gale Wings' and move['type'] == 'Flying' and pkm.HP == pkm.maxHP:
+                    prior[pkm_id] += 1
 
         return int(prior[0] < prior[1])
 
-    def switch(self, game, players, pkms, moves, z_moves, first):
+    def switch(self, game, env, players, pkms, moves, z_moves, first):
         last = 1 - first
-        if moves[last]['name'] != 'Pursuit' or z_moves[last]:
-            players[first].switch(moves[first]['item'])
+        if moves[last]['type'] == ActionType.Switch or moves[last]['item']['name'] != 'Pursuit' or z_moves[last]:
+            players[first].switch(env, moves[first]['item'], withdraw=True)
         else:
             # pursuit
             self.use_move(user=pkms[last], target=pkms[first], move=moves[last]['item'], env=env, game=game,
                           z_move=z_moves[last], last=True)
             if pkms[first].turn:
-                players[first].switch(moves[first]['item'], withdraw=True)
+                players[first].switch(env, moves[first]['item'], withdraw=True)
                 pkms[last].turn = False
+            else:
+                return
+
+        self.switch_on(players,env)
 
     def step_turn(self, game, env, players, moves):
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
@@ -70,12 +83,14 @@ class Utils:
         first = self.check_prior(env, pkms)
         last = 1 - first
 
+        #  print(moves[first]['type'])
+        #  print(moves[last]['type'])
         # switch first
         if moves[first]['type'] == ActionType.Switch:
-            self.switch(game, players, pkms, moves, z_moves, first)
+            self.switch(game, env, players, pkms, moves, z_moves, first)
 
         if moves[last]['type'] == ActionType.Switch:
-            self.switch(game, players, pkms, moves, z_moves, first)
+            self.switch(game, env, players, pkms, moves, z_moves, last)
 
         if megas[first]:
             pkms[first].mega_evolve()
@@ -89,17 +104,19 @@ class Utils:
 
         # calc speed again for moves, with new stat (after mega)
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
-        pkms[0].prep(env, pkms[1])
-        pkms[1].prep(env, pkms[0])
+        pkms[0].calc_stat(env, pkms[1])
+        pkms[1].calc_stat(env, pkms[0])
         first = self.check_prior(env, pkms, moves)
         last = 1 - first
 
         if pkms[first].turn:
             # if opponent stepped turn, it actually moves last
+            #  print('turn',pkms[first].name)
             move_last = not pkms[last].turn
             self.use_move(pkms[first], pkms[last], moves[first]['item'], env, game, z_moves[first], move_last)
 
         if pkms[last].turn:
+            # print('turn', pkms[last].name)
             # always move last
             self.use_move(pkms[last], pkms[first], moves[last]['item'], env, game, z_moves[last], True)
 
@@ -305,11 +322,12 @@ class Utils:
                 self.log.add(actor=user, event='+par')
                 return
         if user.vstatus['confusion']:
-            if random.uniform(0, 1) >= 0.3:
-                self.log.add(actor=user, event='-confusion')
-            else:
+            if random.uniform(0, 1) <= 0.3:
                 self.log.add(actor=user, event='+confusion')
-                dmg = self.calc_dmg(user, user, move='ConfusionHit', env=env, last=False)
+                dmg = self.calc_dmg(user, user, move=Moves['ConfusionHit'], env=env, last=False)
+                user.damage(dmg)
+                return
+
         self.log.add(actor=user, event='use', val=move['name'])
         if user.vstatus['taunt']:
             if move['category'] == 'Status':
@@ -394,6 +412,9 @@ class Utils:
                     user.damage(0, 1 / 2)
             elif useful == NoEffect:
                 self.log.add(actor=target, event='0effect')
+                user.set_lock()
+                break
+            elif useful == NoLog:
                 user.set_lock()
                 break
 
@@ -689,19 +710,36 @@ class Utils:
             else:
                 user.charge = None
 
+        if sk_type == 'Normal' and user.ability == 'Galvanize':
+            sk_type = 'Electric'
+        if user.ability == 'Normalize':
+            sk_type = 'Normal'
+
+        if sk_ctg == 'Status':
+            if move['target'] == 'normal' and 'Grass' in target.attr and move['type'] == 'Grass':
+                return NoEffect
+            if 'status' in move:
+                status = move['status']
+                if status == 'brn' and 'Fire' in target.attr:
+                    return NoEffect
+                if status == 'par' and 'Electric' in target.attr:
+                    return NoEffect
+                if status in ['psn', 'tox'] and ('Poison' in target.attr or 'Steel' in target.attr):
+                    return NoEffect
+            if sk_name == 'Thunder Wave':
+                if sk_type == 'Normal' and 'Ghost' in target.attr or sk_type == 'Electric' and 'Ground' in target.attr:
+                    return NoEffect
+
         if target.vstatus['protect'] and target is not user and 'protect' in move['flags']:
             if sk_name == 'Feint':
                 self.log.add(actor=user, event='feint', target=target)
                 target.vstatus['protect'] = 0
             else:
                 self.log.add(actor=target, event='+protect')
-                return NoEffect
+                return NoLog
 
         if user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']:
             target.moldbreak()
-
-        if sk_ctg == 'Status':
-            return Hit
 
         if move['name'] in ['Thunder', 'Hurricane']:
             if env.weather is 'sunnyday':
@@ -774,17 +812,18 @@ class Utils:
             self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
 
-        type_buff = 1
-        for attr in target.attr:
-            if sk_type == 'Ground' and attr == 'Flying' and not imm_ground(target):
-                continue
-            type_buff *= get_attr_fac(sk_type, attr)
-        if type_buff == 0:
-            if not (user.ability == 'Scrappy' and sk_type == 'Normal' and 'Ghost' in target.attr):
+        if sk_ctg != 'Status':
+            type_buff = 1
+            for attr in target.attr:
+                if sk_type == 'Ground' and attr == 'Flying' and not imm_ground(target):
+                    continue
+                type_buff *= get_attr_fac(sk_type, attr)
+            if type_buff == 0:
+                if not (user.ability == 'Scrappy' and sk_type == 'Normal' and 'Ghost' in target.attr):
+                    return NoEffect
+            if target.ability == 'Wonder Guard' and type_buff <= 1:
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
                 return NoEffect
-        if target.ability == 'Wonder Guard' and type_buff <= 1:
-            self.log.add(actor=target, event=target.ability, type=logType.ability)
-            return NoEffect
 
         if user.item == 'Wide Lens':
             acc_buff *= 1.1
@@ -998,19 +1037,19 @@ class Utils:
         # ability buff
         if user.ability == 'Aerilate' and sk_type == 'Normal':
             sk_type = 'Flying'
-            other_buff *= 1.3
+            other_buff *= 1.2
 
         if user.ability == 'Galvanize' and sk_type == 'Normal':
             sk_type = 'Electric'
-            other_buff *= 1.3
+            other_buff *= 1.2
 
         if user.ability == 'Refrigerate' and sk_type == 'Normal':
             sk_type = 'Ice'
-            other_buff *= 1.3
+            other_buff *= 1.2
 
         if user.ability == 'Pixilate' and sk_type == 'Normal':
             sk_type = 'Fairy'
-            other_buff *= 1.3
+            other_buff *= 1.2
 
         if user.ability == 'Liquid Voice':
             if sk_name in sound_move:
