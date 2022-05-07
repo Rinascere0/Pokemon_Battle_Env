@@ -22,10 +22,10 @@ Spikes (add and effect)
 ✔rapid spin\
 ✔leech seed\
 ✔knock off\ 
-status moves fail after taunt\
+✔status moves fail after taunt\
 ✔contrary\
-counter\
-mirror coat\
+✔counter\
+✔mirror coat\
 ✔U-turn\
 ✔volt switch
 
@@ -70,7 +70,7 @@ First Impression
 
 【Todo】\
 ✔Trick\
-Sucker Punch\
+✔Sucker Punch\
 ✔Pain Split\
 ✔Choice Items
 
@@ -97,7 +97,7 @@ Mega
 Z-move\
 ✔Ability log in utils\
 ✔Berry\
-struggle\
+✔struggle\
 Ditto
 
 2020.5.5
@@ -134,3 +134,12 @@ mega seq
 【Add】\
 Prankster\
 natural cure
+
+【Todo】\
+wish\
+roar\
+change move type before effecting\
+z move not effected by skin
+
+【ToFix】\
+Wrong struggle

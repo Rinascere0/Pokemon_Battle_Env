@@ -11,7 +11,28 @@ class ActionType:
     Common, Mega, Z_Move, Switch = range(4)
 
 
-vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat','confusion']
+Z_MOVES = {
+    'Normal': 'Breakneck Blitz',
+    'Fighting': 'All-Out Pummeling',
+    'Flying': 'Supersonic Skystrike',
+    'Poison': 'Acid Downpour',
+    'Rock': 'Continental Crush',
+    'Ground': 'Tectonic Rage',
+    'Bug': 'Savage Spin-Out',
+    'Ghost': 'Never-Ending Nightmare',
+    'Steel': 'Corkscrew Crash',
+    'Fire': 'Inferno Overdrive',
+    'Water': 'Hydro Vortex',
+    'Grass': 'Bloom Doom',
+    'Electric': 'Gigavolt Havoc',
+    'Ice': 'Subzero Slammer',
+    'Psychic': 'Shattered Psyche',
+    'Dragon': 'Devastating Drake',
+    'Dark': 'Black Hole Eclipse',
+    'Fairy': 'Twinkle Tackle'
+}
+
+vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion']
 
 z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
               'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',

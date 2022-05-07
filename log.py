@@ -33,7 +33,7 @@ class BattleLog:
         self.total_log_texts.append(self.log_text)
         for log in self.log_text:
             print(log)
-            if 'lost!' in log:
+            if log and 'lost!' in log:
                 break
         print()
         self.log = []
@@ -76,6 +76,9 @@ class BattleLog:
                 if 'Hidden Power' in val:
                     val = 'Hidden Power'
                 log = 'used ' + str(val) + '!'
+
+            elif event == 'zmove':
+                log = 'was surrounded by Z-Power!'
 
             elif event == 'use_item':
                 log = 'used ' + val + '!'
@@ -226,13 +229,18 @@ class BattleLog:
                 log = 'is already taunted!'
 
             elif event == 'partiallytrapped':
-                log = 'is trapped and can not switch!'
+                log = 'is trapped by ' + val + '!'
+
+            elif event == '+partiallytrapped':
+                log = 'was hurt by ' + val + '!'
 
             elif event == '-partiallytrapped':
-                log = 'is out of trap!'
+                log = 'is no longer trapped!'
 
             elif event == 'status':
                 log = 'is ' + str(val) + '!'
+                if val == 'paralysed':
+                    log += ' It may be unable to move!'
 
             elif event == '++status':
                 log = 'is already ' + str(val) + '!'

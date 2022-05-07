@@ -71,6 +71,10 @@ class Player:
     def use_mega(self):
         self.mega = np.zeros(6)
 
+    def use_z(self):
+        for pkm in self.pkms:
+            pkm.z_mask = np.zeros(4)
+
     def cure_all(self):
         for pkm in self.pkms:
             if pkm.alive:
@@ -125,13 +129,13 @@ class RandomPlayer(Player):
 
     def gen_action(self):
         rnd = random.uniform(0, 1)
-        if rnd >= 0.9:
+        if rnd >= 0.9 and self.alive.sum() > 1:
             return self.gen_switch()
         else:
             return self.gen_move()
 
     def gen_switch(self):
-        p = self.alive
+        p = np.copy(self.alive)
         if self.pivot != -1:
             p[self.pivot] = 0
         if not p.any():
@@ -141,11 +145,18 @@ class RandomPlayer(Player):
 
     def gen_move(self):
         pivot = self.pkms[self.pivot]
+        use_z = False
         if not pivot.move_mask.any():
             move = Moves['struggle']
         else:
-            move = np.random.choice(pivot.move_infos, p=pivot.move_mask / pivot.move_mask.sum())
+            move_id = np.random.choice(np.arange(4), p=pivot.move_mask / pivot.move_mask.sum())
+            move = pivot.move_infos[move_id]
+            if pivot.z_mask[move_id] and random.uniform(0, 1) < 0.5:
+                use_z = True
+
         if self.mega[self.pivot]:
             return {'type': ActionType.Mega, 'item': move}
+        elif use_z:
+            return {'type': ActionType.Z_Move, 'item': move}
         else:
             return {'type': ActionType.Common, 'item': move}

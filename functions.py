@@ -1,10 +1,64 @@
 import numpy
 import math
 import random
+import copy
 from const import *
 
 
 # from pokemon import Pokemon
+
+def gen_z_move(move):
+    sk_ctg = move['category']
+    if sk_ctg == 'Status':
+        z_move = copy.deepcopy(move)
+        z_move['is_z_move'] = True
+    else:
+        sk_type = move['type']
+        sk_name = Z_MOVES[sk_type]
+        power = move['basePower']
+        if power <= 55:
+            power = 100
+        elif power <= 65:
+            power = 120
+        elif power <= 75:
+            power = 140
+        elif power <= 85:
+            power = 160
+        elif power <= 95:
+            power = 175
+        elif power == 100:
+            power = 180
+        elif power == 110:
+            power = 185
+        elif power <= 125:
+            power = 190
+        elif power == 130:
+            power = 195
+        else:
+            power = 200
+
+        if move['name'] == 'Mega Drain':
+            power = 120
+        elif move['name'] == 'Weather Ball':
+            power = 160
+        elif move['name'] == 'Hex':
+            power = 160
+        elif move['name'] == 'Gear Grind':
+            power = 180
+        elif move['name'] == 'V-create':
+            power = 220
+        elif move['name'] == 'Flying Press':
+            power = 170
+        elif move['name'] == 'Core Enforcer':
+            power = 140
+        elif 'ohko' in move:
+            power = 180
+
+        z_move = {'name': sk_name, 'origin_name': move['name'], 'basePower': power, 'type': sk_type, 'accuracy': True,
+                  'category': sk_ctg, 'priority': 0,
+                  'flags': {}, 'target': 'common', 'is_z_move': True}
+    return z_move
+
 
 def minus(x, y):
     if x < y:

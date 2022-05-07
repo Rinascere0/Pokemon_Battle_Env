@@ -60,7 +60,8 @@ class Pokemon:
             'spd': 0,
             'spe': 0,
             'eva': 0,
-            'acc': 0
+            'acc': 0,
+            'ct': 0
         }
 
         # battle stat
@@ -69,6 +70,7 @@ class Pokemon:
         self.status_turn = 0
         self.protect_turn = 0
         self.last_move = None
+        self.next_move = None
         self.metronome = 0
         self.unburden = False
         self.flash_fire = False
@@ -86,9 +88,24 @@ class Pokemon:
         # multihit buff e.g. triple kick
         self.multi_count = 0
 
-        # damage calc e.g. focus punch, counter
-        self.dmg = 0
-        self.dmg_calc = None  # Physical, Special, Any
+        self.future = []
+        self.alive = True
+
+        # True if it's the first turn after pkm switches on
+        self.switch_on = True
+        # True if pkm can switch
+        self.can_switch = True
+        # True if pkm is about to switch (for pursuit)
+        self.to_switch = False
+        # True if pkm should activate its ability
+        self.activate = True
+        # True if pkm still can move this turn
+        self.turn = False
+        # first turn switch on
+
+        self.off_field = None
+        self.healing_wish = False
+        self.round_dmg = {'Physical': 0, 'Special': 0}
 
         self.vstatus = {'aquaring': 0, 'attract': 0, 'banefulbunker': 0, 'bide': 0, 'partiallytrapped': 0, 'charge': 0,
                         'confusion': 0, 'curse': 0, 'defensecurl': 0, 'destinybond': 0, 'protect': 0, 'disable': 0,
@@ -102,24 +119,17 @@ class Pokemon:
                         'snatch': 0, 'spikyshield': 0, 'spotlight': 0, 'stockpile': 0, 'substitute': 0, 'tarshot': 0,
                         'taunt': 0, 'telekinesis': 0, 'torment': 0, 'yawn': 0, 'roost': 0}
 
-        self.future = []
-
         self.pkm_id = -1
-        self.turn = False
-        self.alive = True
-
-        # first turn switch on
-        self.switch_on = True
-        # ability activate
-        self.activate = True
-        self.off_field = None
-
-        self.healing_wish = False
-        self.round_dmg = {'Physical': 0, 'Special': 0}
-
-        self.move_mask = np.ones(4)
         self.player = None
         self.log = None
+
+        self.move_mask = np.ones(4)
+        self.z_mask = np.zeros(4)
+        if self.item in z_crystals:
+            sk_type = z_crystals[self.item]
+            for move_id, move in enumerate(self.move_infos):
+                if move['type'] == sk_type:
+                    self.z_mask[move_id] = 1
 
     def bond_evolve(self):
         if self.name == 'Greninja':
@@ -159,8 +169,9 @@ class Pokemon:
         self.stats = copy.deepcopy(self.base_stats)
         self.activate = True
 
-    def use_item(self):
-        self.log.add(actor=self, event='use_item', val=self.item)
+    def use_item(self, add_log=True):
+        if add_log:
+            self.log.add(actor=self, event='use_item', val=self.item)
         self.used_item = self.item
         self.base_item = None
         self.item = None
@@ -168,6 +179,8 @@ class Pokemon:
             self.unburden = True
 
     def lose_item(self, sub=None):
+        if self.item in mega_stones or self.item in z_crystals:
+            return False
         if sub:
             temp = self.base_item
             self.base_item = sub
@@ -225,7 +238,8 @@ class Pokemon:
     def add_status(self, status, env, user=None):
         if not self.alive:
             return False
-        if imm_ground(self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
+        if not imm_ground(
+                self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
             self.log.add(actor=self, event='+' + env.terrain)
             return False
 
@@ -277,6 +291,7 @@ class Pokemon:
             pass
         # 持续时间特殊
         turn = 1
+        val = ''
         if cond is None:
             if vstatus == 'confusion':
                 if self.ability == 'Own Tempo':
@@ -294,6 +309,9 @@ class Pokemon:
                     return False
             elif vstatus == 'partiallytrapped':
                 turn = random.randint(4, 5)
+                trap_move = user.next_move['name']
+                self.trap_move = trap_move
+                val = trap_move
             elif vstatus == 'roost':
                 pass
 
@@ -323,7 +341,7 @@ class Pokemon:
             else:
                 return False
 
-        self.log.add(actor=self, event=vstatus)
+        self.log.add(actor=self, event=vstatus, val=val)
         self.vstatus[vstatus] = turn
 
         if self.item == 'Mental Herb' and vstatus in ['attract', 'disable', 'encore', 'healblock', 'taunt', 'torment']:
@@ -374,6 +392,10 @@ class Pokemon:
     def boost(self, stat, lv, src=None):
         if not self.alive:
             return
+        if stat == 'accuracy':
+            stat = 'acc'
+        if stat == 'evasion':
+            stat = 'eva'
         if self.item == 'White Herb':
             self.log.add(event='+whiteherb')
             return
@@ -444,7 +466,7 @@ class Pokemon:
                             'Ice Scales', 'Ice Face', 'Pastel Veil ']:
             self.ability = None
 
-    def damage(self, val, perc=False, const=0, attr='NoAttr', user=None, category=None):
+    def damage(self, val=0, perc=False, const=0, attr='NoAttr', user=None, category=None):
         if not self.alive:
             return False
         if self.ability == 'Magic Guard' and not user:
@@ -517,9 +539,13 @@ class Pokemon:
             self.round_dmg[category] += val
         return val
 
-    def prep(self, env, target):
+    def prep(self, env, target, next_move):
         self.calc_stat(env, target)
         self.turn = True
+        if next_move['type'] == ActionType.Switch:
+            self.next_move = None
+        else:
+            self.next_move = next_move['item']
 
     def end_turn(self, env, target):
         if not self.alive:
@@ -625,6 +651,10 @@ class Pokemon:
             dmg = self.damage(val=0, perc=1 / 8)
             target.heal(dmg)
 
+        if self.vstatus['partiallytrapped']:
+            self.log.add(actor=self, event='+partiallytrapped', val=self.trap_move)
+            self.damage(perc=1 / 8)
+
         if self.charge:
             self.charge_round += 1
             if self.charge_round == 2:
@@ -647,6 +677,10 @@ class Pokemon:
                     if vs == 'taunt':
                         self.log.add(actor=self, event='-taunt')
 
+                    if vs == 'partiallytrapped':
+                        self.log.add(actor=self, event='-partiallytrapped')
+                        self.trap_move = None
+
         self.move_mask = np.ones(4)
         for move_id, move in enumerate(self.moves):
             if self.lock_move and move != self.lock_move:
@@ -662,13 +696,14 @@ class Pokemon:
                 self.move_mask[move_id] = 0
             elif self.pp[move_id] == 0:
                 self.move_mask[move_id] = 0
+        #    print(self.move_mask)
 
         # TODO: ADD bide
         self.round_dmg = {'Physical': 0, 'Special': 0}
 
     def calc_stat(self, env, target, raw=False):
         _, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe = self.stats.values()
-        Atk_lv, Def_lv, Satk_lv, Sdef_lv, Spe_lv, Eva_lv, Acc_lv = self.stat_lv.values()
+        Atk_lv, Def_lv, Satk_lv, Sdef_lv, Spe_lv, Eva_lv, Acc_lv, _ = self.stat_lv.values()
 
         if not raw:
             self.Atk *= calc_stat_lv(Atk_lv)
@@ -752,9 +787,10 @@ class Pokemon:
         self.weight = self.base_weight
         self.ability = self.current_ability
 
-    def reset_stat_lv(self):
+    def reset_stat_lv(self, nega=False):
         for stat in self.stat_lv:
-            self.stat_lv[stat] = 0
+            if not (nega and self.stat_lv[stat] > 0):
+                self.stat_lv[stat] = 0
 
     def reset(self):
         if self.alive:
@@ -763,11 +799,39 @@ class Pokemon:
                 self.vstatus[vstatus] = 0
             self.current_ability = self.base_ability
             self.attr = self.base_attr
-            self.used_item = None
+
+            # battle stat
+            self.status_turn = 0
+            self.protect_turn = 0
+            self.last_move = None
+            self.next_move = None
+            self.metronome = 0
             self.unburden = False
-            self.lock_move = None
             self.flash_fire = False
-            self.set_lock()
+
+            # lock skill e.g. outrage, iceball
+            self.lock_move = None
+            self.lock_round = 0
+
+            self.choice_move = None
+            self.disable_move = None
+
+            self.charge = None
+            self.charge_round = 0
+
+            self.multi_count = 0
+
+            self.future = []
+
+            self.off_field = None
+            self.healing_wish = False
+            self.round_dmg = {'Physical': 0, 'Special': 0}
+
+            self.switch_on = False
+            self.can_switch = True
+            self.to_switch = False
+            self.activate = True
+            self.turn = False
 
             if self.ability == 'Natural Cure':
                 if self.status:
@@ -792,13 +856,16 @@ class Pokemon:
                 self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
             old_pivot.reset()
 
-            if old_pivot.healing_wish:
+            if old_pivot.healing_wish == 1:
                 self.log.add(actor=self, event='healingwish')
                 self.heal(self.maxHP)
                 self.cure_status()
+            if old_pivot.healing_wish == 2:
+                self.heal(self.maxHP)
+        self.can_switch = True
+        self.to_switch = False
 
         self.switch_on = True
-        self.can_switch = False
         self.activate = True
         self.turn = False
 

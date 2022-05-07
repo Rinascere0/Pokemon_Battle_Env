@@ -5,6 +5,7 @@ from player import RandomPlayer
 from log import BattleLog
 from utils import Utils
 from const import *
+from functions import *
 
 
 class Game:
@@ -43,6 +44,8 @@ class Game:
         else:
             # use move
             self.round_players.append(self.players[pid])
+            if move['type'] == ActionType.Z_Move:
+                move['item'] = gen_z_move(move['item'])
             self.moves.append(move)
 
     def reset_round(self):
@@ -96,7 +99,7 @@ class Game:
                 done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
                 self.reset_round()
 
-            self.env.step(self.players,self.log)
+            self.env.step(self.players, self.log)
             self.log.step_print()
             Round += 1
 

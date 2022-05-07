@@ -22,9 +22,11 @@ import math
 
 
 def get_key(key):
+    d={}
     for name, move in Moves.items():
-        if key in move:
-            print(name, move[key])
+        if  key in move:
+            print(move[key])
+    print(d)
 
 
 def get_move(name):
@@ -34,8 +36,4 @@ def get_move(name):
 def f():
     return 1, 2
 
-
-a = None
-
-print(Moves['struggle'])
 
