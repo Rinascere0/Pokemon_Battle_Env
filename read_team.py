@@ -42,7 +42,7 @@ def read_set():
         f.write('ou_sets=' + str(pkm_dicts))
 
 
-def read_team(tid=0):
+def read_team(tid=6):
     if tid == 0:
         tid = random.choice(list(range(1,28)))
     with open('team/' + str(tid), 'r') as f:

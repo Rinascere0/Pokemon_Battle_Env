@@ -290,11 +290,14 @@ class Utils:
             return
         user.turn = False
         if user.vstatus['flinch']:
-            self.log.add(actor=user, event='+flinch')
-            if user.ability == 'Steadfast':
-                self.log.add(actor=user, event='Steadfast', type=logType.ability)
-                user.boost('spe', 1)
-            return
+            if user.ability == 'Inner Focus':
+                self.log.add(actor=user, event=user.ability, type=logType.ability)
+            else:
+                self.log.add(actor=user, event='+flinch')
+                if user.ability == 'Steadfast':
+                    self.log.add(actor=user, event='Steadfast', type=logType.ability)
+                    user.boost('spe', 1)
+                return
         if user.status is 'slp':
             if user.status_turn > 0:
                 self.log.add(actor=user, event='+slp')
@@ -521,12 +524,13 @@ class Utils:
             # no side effects for non-status z-move
 
             sec_target = target
+            effects=[]
             if 'secondary' in move:
-                effects = [move['secondary']]
+                effects .append(move['secondary'])
             elif 'secondaries' in move:
-                effects = move['secondaries']
-            else:
-                effects = None
+                effects+=['secondaries']
+            elif 'volatileStatus' in move:
+                effects .append(move['volatileStatus'])
 
             if user.ability == 'Sheer Force':
                 effects = None
@@ -539,7 +543,9 @@ class Utils:
                 if type(effects) is not list:
                     effects = [effects]
 
-            if effects:
+            if sec_target == target and target.ability == 'Shield Dust':
+                self.log.add(actor=target, event=target.ability, log=logType.ability)
+            elif effects:
                 for effect in effects:
                     if effect is None:
                         continue
@@ -573,9 +579,12 @@ class Utils:
                 user.heal(heal, False, target)
 
             if 'recoil' in move:
-                recoil = int(move['recoil'][0] / move['recoil'][1] * dmg)
-                self.log.add(actor=user, event='recoil')
-                user.damage(recoil)
+                if user.ability == 'Rock Head':
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                else:
+                    recoil = int(move['recoil'][0] / move['recoil'][1] * dmg)
+                    self.log.add(actor=user, event='recoil')
+                    user.damage(recoil)
 
             # lock round move
             if move['name'] in ['Outrage', 'Petal Dance', 'Thrash']:
@@ -728,6 +737,10 @@ class Utils:
                 self.log.add(actor=user, event='rockyhelmet')
                 user.damage(0, perc=1 / 6)
 
+            if target.ability == 'Gooey':
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
+                user.boost('spe', -1)
+
             if target.ability == 'Cute Charm':
                 if random.uniform(0, 1) < 0.3:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
@@ -760,9 +773,18 @@ class Utils:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
                     user.add_status('slp', env, user)
 
-        if move['name'] == 'Knock Off' and target and target.alive:
+            if target.ability == 'Poison Touch':
+                if random.uniform(0, 1) < 0.3:
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
+                    target.add_status('psn', env, user)
+        if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
             target.lose_item()
+
+        if user.ability in ['Magician', 'Pickpocket'] and not user.base_item:
+            item = target.lose_item()
+            self.log.add(actor=target, event=target.ability, type=logType.ability)
+            user.lose_item(item)
 
     def check_useful(self, env, user, target, move, last):
         sk_type = move['type']
@@ -771,23 +793,9 @@ class Utils:
         sk_flag = move['flags']
         acc = move['accuracy']
         acc_buff = 1
+        always_hit = False
+
         # 特性修正
-
-        if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig', 'Bounce']:
-            if user.off_field:
-                user.off_field = None
-            else:
-                user.off_field = sk_name
-
-        if target.off_field:
-            if target.off_field == 'Dig':
-                if sk_name != 'Earthquake':
-                    return NoEffect
-            elif target.off_field in ['Bounce', 'Fly']:
-                if sk_name != 'Thunder':
-                    return NoEffect
-            else:
-                return NoEffect
 
         if 'charge' in move['flags']:
             if user.charge is None:
@@ -800,6 +808,35 @@ class Utils:
                     return Onhold
             else:
                 user.charge = None
+
+        if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig', 'Bounce']:
+            if user.off_field:
+                user.off_field = None
+            else:
+                user.off_field = sk_name
+
+        if target.vstatus['protect'] and target is not user and 'protect' in move['flags']:
+            if sk_name == 'Feint':
+                self.log.add(actor=user, event='feint', target=target)
+                target.vstatus['protect'] = 0
+            elif 'is_z_move' in move:
+                self.log.add(actor=user, event='zprotect')
+            else:
+                self.log.add(actor=target, event='+protect')
+                return NoLog
+
+        if 'No Guard' in [user.ability, target.ability]:
+            always_hit = True
+
+        if target.off_field and not always_hit:
+            if target.off_field == 'Dig':
+                if sk_name != 'Earthquake':
+                    return NoEffect
+            elif target.off_field in ['Bounce', 'Fly']:
+                if sk_name != 'Thunder':
+                    return NoEffect
+            else:
+                return NoEffect
 
         if sk_ctg == 'Status':
             if move['target'] == 'normal' and 'Grass' in target.attr and move['type'] == 'Grass':
@@ -815,16 +852,6 @@ class Utils:
             if sk_name == 'Thunder Wave':
                 if sk_type == 'Normal' and 'Ghost' in target.attr or sk_type == 'Electric' and 'Ground' in target.attr:
                     return NoEffect
-
-        if target.vstatus['protect'] and target is not user and 'protect' in move['flags']:
-            if sk_name == 'Feint':
-                self.log.add(actor=user, event='feint', target=target)
-                target.vstatus['protect'] = 0
-            elif 'is_z_move' in move:
-                self.log.add(actor=user, event='zprotect')
-            else:
-                self.log.add(actor=target, event='+protect')
-                return NoLog
 
         if user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']:
             target.moldbreak()
@@ -912,6 +939,9 @@ class Utils:
             if target.ability == 'Wonder Guard' and type_buff <= 1:
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
                 return NoEffect
+
+        if always_hit:
+            return True
 
         if user.item == 'Wide Lens':
             acc_buff *= 1.1
@@ -1163,7 +1193,7 @@ class Utils:
             other_buff *= 1.5
 
         if user.ability == 'Mega Launcher':
-            if 'pulse' in move['flags']:
+            if 'pulse' in flag:
                 other_buff *= 1.5
 
         if user.ability == 'Analytic' and last:
@@ -1193,10 +1223,10 @@ class Utils:
         if user.ability == 'Neuroforce' and type_buff > 1:
             other_buff *= 1.25
 
-        if user.ability == 'Reckless' and sk_name in recoil_move:
+        if user.ability == 'Reckless' and 'recoil' in flag:
             other_buff *= 1.2
 
-        if user.ability == 'Rivalry' and user.gender in ['Male', 'Female'] and target.gender in ['Male', 'Female']:
+        if user.ability == 'Rivalry' and user.gender in ['M', 'F'] and target.gender in ['M', 'F']:
             if user.gender == target.gender:
                 other_buff *= 1.25
             else:
@@ -1206,7 +1236,7 @@ class Utils:
             if sk_type in ['Rock', 'Steel', 'Ground']:
                 other_buff *= 1.3
 
-        if user.ability == 'Strong Jaw' and sk_name in biting_move:
+        if user.ability == 'Strong Jaw' and 'bite' in flag:
             other_buff *= 1.5
 
         if user.ability == 'Technician' and power <= 60:
@@ -1336,6 +1366,9 @@ class Utils:
             if sk_type == 'Fire':
                 other_buff *= 1.25
 
+        if target.ability == 'Heatproof':
+            if sk_type == 'Fire':
+                other_buff *= 0.5
         if target.ability in ['Prism Armor', 'Filter', 'Solid Rock'] and type_buff > 1:
             other_buff *= 0.75
 

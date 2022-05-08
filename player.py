@@ -49,6 +49,12 @@ class Player:
         self.env = env
         self.name = names[pid]
 
+    def get_last_alive(self):
+        for pkm in reversed(self.pkms):
+            if pkm.alive:
+                return pkm
+
+
     def start(self):
         thread = Thread(target=self.mainloop, args=())
         thread.start()

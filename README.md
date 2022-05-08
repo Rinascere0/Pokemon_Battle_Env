@@ -149,6 +149,22 @@ Wrong struggle
 
 【Add】\
 Arceus Z
+Inner Focus\
+moxie\
+magician, pickpocket\
+heatproof\
+gooey\
+insomnia\
+weak armor\
+rock head\
+heavy/light metal\
+Poison Touch\
+Shield dust\
+oblivious\
+Illusion\
+Emergency Exit
 
 【ToFix】\
-Partiallytrapped
+Partiallytrapped\
+mind blown\
+damp

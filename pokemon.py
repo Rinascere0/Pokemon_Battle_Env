@@ -14,6 +14,7 @@ class Pokemon:
     def __init__(self, info):
         # load team info
         self.name = (info['Name'].split('-Mega')[0]).split('-Ash')[0]
+        self.current_name = self.name
         #    self.nickname = info['nicknam]e']
         self.gender = info['Gender']
         self.evs = {key: None2Zero(value) for key, value in info.items() if
@@ -91,12 +92,15 @@ class Pokemon:
         self.future = []
         self.alive = True
 
-        # True if player can gen move next turn
+        # True if player can gen action next turn
+        self.can_gen_action = True
+        # True if player can gen action next turn
         self.can_gen_move = True
-        # True if it's the first turn after pkm switches on
-        self.switch_on = True
         # True if pkm can switch
         self.can_switch = True
+
+        # True if it's the first turn after pkm switches on
+        self.switch_on = True
         # True if pkm is about to switch (for pursuit)
         self.to_switch = False
         # True if pkm should activate its ability
@@ -119,7 +123,7 @@ class Pokemon:
                         'magnetrise': 0, 'maxguard': 0, 'minimize': 0, 'miracleeye': 0, 'nightmare': 0, 'noretreat': 0,
                         'obstruct': 0, 'octolock': 0, 'powder': 0, 'powertrick': 0, 'ragepowder': 0, 'smackdown': 0,
                         'snatch': 0, 'spikyshield': 0, 'spotlight': 0, 'stockpile': 0, 'substitute': 0, 'tarshot': 0,
-                        'taunt': 0, 'telekinesis': 0, 'torment': 0, 'yawn': 0, 'roost': 0,'mustrecharge':0}
+                        'taunt': 0, 'telekinesis': 0, 'torment': 0, 'yawn': 0, 'roost': 0, 'mustrecharge': 0}
 
         self.pkm_id = -1
         self.player = None
@@ -247,12 +251,13 @@ class Pokemon:
                 self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
             self.log.add(actor=self, event='+' + env.terrain)
             return False
-
+        if self.ability == 'Flower Veil' and 'Grass' in self.attr:
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            return False
         if self.ability == 'Leaf Guard' and env.weather == 'sunnyday':
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
-
-        if status == 'slp' and self.ability == 'Vital Spirit':
+        if status == 'slp' and self.ability in ['Insomnia', 'Vital Spirit']:
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
         if status == 'brn' and self.ability == 'Water Bubble':
@@ -294,13 +299,17 @@ class Pokemon:
             return False
         if vstatus in ['lockedmove', 'uproar']:
             pass
+        if self.ability == 'Oblivious' and vstatus in ['attract', 'taunt']:
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
         # 持续时间特殊
         turn = 1
         val = ''
+        print('vstate',vstatus)
         if cond is None:
             if vstatus == 'confusion':
                 if self.ability == 'Own Tempo':
                     self.log.add(actor=self, event=self.ability, type=logType.ability)
+                    return False
                 turn = random.randint(1, 4)
             elif vstatus in ['smackdown', 'foresight']:
                 turn = 10000
@@ -405,6 +414,9 @@ class Pokemon:
                 elif lv == 6:
                     self.log.add(actor=self, event='+6', val=full_stat[stat])
         else:
+            if self.ability == 'Flower Veil' and 'Grass' in self.attr:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.log.add(actor=self, event='-0', val=full_stat[stat])
             if self.ability in ['White Smoke', 'Full Metal Body', 'Clear Body'] and src is not None:
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 self.log.add(actor=self, event='-0', val=full_stat[stat])
@@ -414,6 +426,10 @@ class Pokemon:
                 src.boost(stat, lv)
                 return
             if self.ability == 'Hyper Cutter' and stat == 'atk' and src is not None:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.log.add(actor=self, event='-0', val=full_stat[stat])
+                return
+            if self.ability == 'Big Pecks' and stat == 'atk':
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 self.log.add(actor=self, event='-0', val=full_stat[stat])
                 return
@@ -467,8 +483,13 @@ class Pokemon:
             val = int(self.maxHP * perc)
         if const:
             val = const
-        for my_attr in self.attr:
-            val *= get_attr_fac(attr, my_attr)
+        # stealth rock
+        if attr == 'Rock':
+            for my_attr in self.attr:
+                val *= get_attr_fac(attr, my_attr)
+        # brn
+        if attr == 'Fire' and self.ability == 'Heatproof':
+            val *= 0.5
         if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:  # 替身伤害
             self.vstatus['substitute'] = max(0, self.vstatus['substitute'] - val)
             self.log.add(actor=self, event='+substitute')
@@ -493,6 +514,9 @@ class Pokemon:
                         user.faint()
                     if user.ability == 'Battle Bond':
                         user.bond_evolve()
+                    if user.ability == 'Moxie':
+                        self.log.add(actor=user, event='Moxie', type=logType.ability)
+                        user.boost('atk', 1)
                     if user.ability == 'Beast Boost':
                         max_stat = 'Atk'
                         max_val = 0
@@ -522,6 +546,11 @@ class Pokemon:
             self.use_item()
             self.heal(perc=1 / 4)
 
+        if self.ability == 'Emergency Exit' and self.HP < self.maxHP / 2 and self.HP + val >= self.maxHP / 2:
+            self.log.add(actor=foe_pivot, event=self.ability, type=logType.ability)
+            self.player.game.call_switch(self.player)
+            return
+
         if self.HP <= 1 / 4 * self.maxHP or self.HP <= 1 / 2 * self.maxHP and self.ability == 'Gluttony':
             if self.item in hp_berry:
                 self.use_item()
@@ -532,15 +561,23 @@ class Pokemon:
 
         if category:
             self.round_dmg[category] += val
+
+        if category == 'Physical' and self.ability == 'Weak Armor':
+            self.log.add(actor=user, event=self.ability, type=logType.ability)
+            self.boost('def', -1)
+            self.boost('spe', 2)
+
+        if self.ability == 'Illusion':
+            self.log.add(actor=user, event=self.ability, type=logType.ability)
+            self.current_name = self.name
+            self.log.add(actor=user, event = '+illusion')
         return val
 
     def prep(self, env, target, next_move):
         self.calc_stat(env, target)
         self.turn = True
-        self.can_switch = True
-        if next_move['type'] == ActionType.Switch:
-            self.next_move = None
-        else:
+        self.next_move = None
+        if next_move['type'] != ActionType.Switch:
             self.next_move = next_move['item']
 
     def end_turn(self, env, target):
@@ -592,7 +629,7 @@ class Pokemon:
                 self.damage(val=0, perc=1 / 8)
         if self.status == 'brn':
             self.log.add(actor=self, event='+brn')
-            self.damage(val=0, perc=1 / 16)
+            self.damage(val=0, perc=1 / 16, attr='Fire')
 
         if self.status == 'slp' and self.vstatus['nightmare'] and self.alive:
             self.log.add(actor=self, event='+nightmare')
@@ -637,7 +674,6 @@ class Pokemon:
             dmg = self.damage(val=0, perc=1 / 8)
             target.heal(dmg)
 
-        print(self.vstatus['partiallytrapped'])
         if self.vstatus['partiallytrapped'] and self.alive:
             self.log.add(actor=self, event='+partiallytrapped', val=self.trap_move)
             self.damage(perc=1 / 8)
@@ -657,12 +693,12 @@ class Pokemon:
             self.boost(inc, 2)
             self.boost(dec, -1)
 
-        if self.item == 'Toxic Orb'and self.alive:
+        if self.item == 'Toxic Orb' and self.alive:
             if not self.status:
                 self.log.add(actor=self, event='toxicorb')
                 self.add_status('tox', env)
 
-        if self.item == 'Flame Orb'and self.alive:
+        if self.item == 'Flame Orb' and self.alive:
             if not self.status:
                 self.log.add(actor=self, event='flameorb')
                 self.add_status('brn', env)
@@ -699,7 +735,8 @@ class Pokemon:
             elif self.pp[move_id] == 0:
                 self.move_mask[move_id] = 0
 
-        self.can_gen_move = not self.vstatus['mustrecharge']
+        self.can_gen_action = not self.vstatus['mustrecharge']
+        self.can_gen_move = not (self.next_move and self.ability == 'Truant')
 
         self.can_switch = True
         if target.ability == 'Magnet Pull' and 'Steel' in target.attr:
@@ -798,7 +835,10 @@ class Pokemon:
                 self.attr = ['Normal']
 
         self.weight = self.base_weight
-        self.ability = self.current_ability
+        if self.ability == 'Heavy Metal':
+            self.weight *= 2
+        if self.ability == 'Light Metal':
+            self.weight /= 2
 
     def reset_stat_lv(self, nega=False):
         for stat in self.stat_lv:
@@ -839,7 +879,7 @@ class Pokemon:
             self.off_field = None
             self.round_dmg = {'Physical': 0, 'Special': 0}
 
-            self.can_gen_move = True
+            self.can_gen_action = True
             self.switch_on = False
             self.can_switch = True
             self.to_switch = False
@@ -883,6 +923,10 @@ class Pokemon:
             elif slotcond['heal']:
                 self.heal(self.maxHP)
                 slotcond['heal'] = 0
+
+        self.current_name = self.name
+        if self.ability == 'Illusion':
+            self.current_name = self.player.get_last_alive().name
         self.can_switch = True
         self.to_switch = False
 
@@ -911,7 +955,7 @@ class Pokemon:
                 self.boost('spe', -1)
 
         if sidecond['stealthrock'] > 0:
-            if self.ability!='Magic Guard':
+            if self.ability != 'Magic Guard':
                 self.log.add(actor=self, event='+stealthrock')
                 self.damage(0, perc=1 / 8, attr='Rock')
 

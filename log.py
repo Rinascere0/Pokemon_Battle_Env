@@ -565,6 +565,9 @@ class BattleLog:
             elif event == '+roughskin':
                 log = 'was hurt by Rough Skin!'
 
+            elif event=='+illusion':
+                log='\'s illusion disappeard!'
+
             elif event == '+whiteherb':
                 log = 'prevented the ability decrease!'
 
