@@ -472,11 +472,16 @@ class BattleLog:
 
             # attr berry
             elif event in attr_berry:
-                log = 'The ' + event + 'weakened the damage to' + actor + '!'
+                log = 'The ' + event + ' weakened the damage to ' + actor + '!'
 
             elif event == 'healingwish':
-                log = 'The healing wish came true for ' + actor + '!'
+                log = 'A healing wish came true for ' + actor + '!'
 
+            elif event == 'wish':
+                log = 'A wish came true for ' + actor + '!'
+
+            elif event == 'lunardance':
+                log = actor + 'became cloaked in mystical moonlight!'
             if log:
                 return log
 
@@ -521,6 +526,9 @@ class BattleLog:
                 log = 'was hurt by the recoil!'
 
             # +ability
+            elif event == '-forceswitch':
+                log = 'cannot be forced to switch!'
+
             elif event == '+moldbreaker':
                 log = 'is breaking the mold!'
 

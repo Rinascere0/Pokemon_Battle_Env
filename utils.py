@@ -1,3 +1,4 @@
+import copy
 import random
 
 from pokemon import Pokemon
@@ -124,6 +125,10 @@ class Utils:
 
         return done, to_switch
 
+    def finish_turn(self, env, players):
+        for pid, player in enumerate(players):
+            player.get_pivot().finish_turn(env, players[1 - pid].get_pivot())
+
     def match_up(self, env, players, moves):
         for pid, (player, move) in enumerate(zip(players, moves)):
             player.switch(env, move['item'])
@@ -158,15 +163,6 @@ class Utils:
             user = player.get_pivot()
             target = players[1 - pid].get_pivot()
             if user.activate:
-                target.can_switch = True
-                if user.ability == 'Magnet Pull' and 'Steel' in target.attr:
-                    target.can_switch = False
-                if user.ability == 'Arena Trap' and not imm_ground(target):
-                    target.can_switch = False
-                if user.ability == 'Shadow Tag' and not target.ability == 'Shadow Tag':
-                    target.can_switch = False
-                if target.item == 'Shed Shell':
-                    target.can_switch = True
 
                 if user.ability == 'Trace':
                     self.log.add(actor=user, event='Trace', type=logType.ability)
@@ -338,18 +334,64 @@ class Utils:
         if z_move:
             self.log.add(actor=user, event='zmove')
             user.player.use_z()
+        elif 'basePower' in move:
+            sk_type = move['type']
+            power = move['basePower']
+            if user.ability == 'Aerilate' and sk_type == 'Normal':
+                sk_type = 'Flying'
+                power *= 1.2
+            if user.ability == 'Galvanize' and sk_type == 'Normal':
+                sk_type = 'Electric'
+                power *= 1.2
+            if user.ability == 'Refrigerate' and sk_type == 'Normal':
+                sk_type = 'Ice'
+                power *= 1.2
+            if user.ability == 'Pixilate' and sk_type == 'Normal':
+                sk_type = 'Fairy'
+                power *= 1.2
+            if user.ability == 'Normalize':
+                sk_type = 'Normal'
+                sk_type *= 1.2
+            if user.ability == 'Liquid Voice' and 'sound' in move['flags']:
+                sk_type = 'Water'
+            move = copy.deepcopy(move)
+            move['type'] = sk_type
+            move['basePower'] = power
 
         self.log.add(actor=user, event='use', val=move['name'])
-
-        if user.vstatus['taunt']:
-            if move['category'] == 'Status' and not z_move:
-                self.log.add(actor=user, event='+taunt', val=move['name'])
-                return
 
         if user.ability == 'Protean':
             self.log.add(actor=user, event='Protean', type=logType.ability)
             self.log.add(actor=user, event='change_type', val=move['type'])
             user.attr = [move['type']]
+
+        if z_move and 'zMove' in move:
+            if 'effect' in move['zMove']:
+                effect = move['zMove']['effect']
+                if effect == 'crit2':
+                    user.boost('ct', 2)
+                elif effect == 'clearnegativeboost':
+                    user.reset_stat_lv(nega=True)
+                elif effect == 'heal':
+                    user.heal(perc=100)
+                elif effect == 'healreplacement':
+                    user.slotCondition['heal'] = True
+                elif effect == 'redirect':
+                    user.add_vstate('followme')
+                elif effect == 'curse':
+                    if 'Ghost' in user.attr:
+                        user.heal(perc=100)
+                    else:
+                        user.boost('atk', 1)
+            elif 'boost' in move['zMove']:
+                boost = move['zMove']['boost']
+                for stat, lv in boost.items():
+                    user.boost(stat, lv)
+
+        if user.vstatus['taunt']:
+            if move['category'] == 'Status' and not z_move:
+                self.log.add(actor=user, event='+taunt', val=move['name'])
+                return
 
         if move['name'] == 'Sucker Punch':
             if last or target.next_move and target.next_move['category'] == 'Status':
@@ -408,7 +450,7 @@ class Utils:
             if useful == Hit:
                 if self_destruct == 'ifHit':
                     user.damage(0, 100)
-                self.effect_move(user, target, move, env, last)
+                self.effect_move(user, target, move, game, env, last)
                 # eject button
                 if target.item == 'Eject Button':
                     target.use_item()
@@ -416,12 +458,17 @@ class Utils:
                 # switch if not opponent eject button
                 elif target.item == 'Red Card':
                     target.use_item()
-                    game.call_switch(user.player)
+                    if user.can_force_switch():
+                        game.call_switch(user.player)
+
                 elif move['name'] in ['U-turn', 'Volt Switch', 'Boton Pass']:
                     if target.next_move and target.next_move['name'] == 'Pursuit' and target.turn:
                         self.use_move(target, user, target.next_move, env, game, True)
                     if user.alive:
                         game.call_switch(user.player)
+                elif move['name'] in ['Dragon Tail', 'Circle Throw']:
+                    if user.can_force_switch():
+                        game.call_switch(target.player)
 
             elif useful == Miss:
                 self.log.add(actor=target, event='avoid')
@@ -437,30 +484,7 @@ class Utils:
                 user.set_lock()
                 break
 
-        if 'zMove' in move:
-            if 'effect' in move['zMove']:
-                effect = move['zMove']['effect']
-                if effect == 'crit2':
-                    user.boost('ct', 2)
-                elif effect == 'clearnegativeboost':
-                    user.reset_stat_lv(nega=True)
-                elif effect == 'heal':
-                    user.heal(perc=100)
-                elif effect == 'healreplacement':
-                    user.healing_wish = 2
-                elif effect == 'redirect':
-                    user.add_vstate('followme')
-                elif effect == 'curse':
-                    if 'Ghost' in user.attr:
-                        user.heal(perc=100)
-                    else:
-                        user.boost('atk', 1)
-            elif 'boost' in move['zMove']:
-                boost = move['zMove']['boost']
-                for stat, lv in boost.items():
-                    user.boost(stat, lv)
-
-    def effect_move(self, user: Pokemon, target: Pokemon, move, env, last):
+    def effect_move(self, user: Pokemon, target: Pokemon, move, game, env, last):
         ctg = move['category']
         if ctg != 'Status':
 
@@ -479,11 +503,12 @@ class Utils:
                 elif type(count) is list:
                     count = np.random.choice([2, 3, 4, 5], p=[1 / 3, 1 / 3, 1 / 6, 1 / 6])
 
+            target_sidecond = env.get_sidecond(target)
             if move['name'] in ['Psychic Fangs', 'Brick Break']:
                 for wall in ['lightscreen', 'reflect', 'auroraveil']:
-                    if target.get_sidecond()[wall]:
+                    if target_sidecond[wall]:
                         self.log.add(actor=target.player, event='--' + wall)
-                    target.get_sidecond()[wall] = 0
+                    target_sidecond[wall] = 0
 
             total_damage = 0
             for _ in range(count):
@@ -501,8 +526,7 @@ class Utils:
             elif 'secondaries' in move:
                 effects = move['secondaries']
             else:
-                effects=None
-
+                effects = None
 
             if user.ability == 'Sheer Force':
                 effects = None
@@ -529,7 +553,8 @@ class Utils:
                         if 'status' in effect:
                             sec_target.add_status(effect['status'], env, user)
                         if 'volatileStatus' in effect:
-                            sec_target.add_vstate(effect['volatileStatus'], cond=None, user=user)
+                            # mustrecharge
+                            sec_target.add_vstate(effect['volatileStatus'])
                         if 'boosts' in effect:
                             for stat, lv in effect['boosts'].items():
                                 sec_target.boost(stat, lv)
@@ -560,12 +585,18 @@ class Utils:
                 else:
                     user.set_lock(move['name'])
 
-            if move['name'] in ['Rollout', 'Ice Ball']:
-                if user.lock_round == 5:
-                    user.set_lock()
             if move['name'] == 'Uproar':
                 if user.lock_round == 3:
                     user.set_lock()
+                    env.uproar = True
+                else:
+                    user.set_lock(move['name'])
+                    env.uproar = True
+
+            if move['name'] in ['Rollout', 'Ice Ball']:
+                if user.lock_round == 5:
+                    user.set_lock()
+
             if move['name'] == 'Rapid Spin':
                 env.clear_field(user.player, type='spike', log=self.log)
 
@@ -608,8 +639,6 @@ class Utils:
             else:
                 cond = None
 
-            target.add_cond(cond)
-
             if 'weather' in move:
                 weather = move['weather']
                 env.set_weather(weather, user.item, self.log)
@@ -624,7 +653,7 @@ class Utils:
 
             if 'sideCondition' in move:
                 sidecond = move['sideCondition']
-                target.add_sidecond(sidecond)
+                env.add_sidecond(sidecond, target, cond, self.log)
 
             # TODO: Multiple types of heal
             if 'heal' in move:
@@ -662,8 +691,8 @@ class Utils:
                 user.HP = avg_hp
                 target.HP = avg_hp
 
-            if move['name'] == 'Healing Wish':
-                user.healing_wish = True
+            if 'slotCondition' in move:
+                env.add_slotcond(move['slotCondition'], user)
 
             if move['name'] == 'Haze':
                 self.log.add(event='haze')
@@ -686,10 +715,9 @@ class Utils:
                 else:
                     user.heal(0, 1 / 2)
 
-            if 'self' in move:
-                side_effect = move['self']
-                if 'volatileStatus' in side_effect:
-                    user.add_vstate(side_effect['volatileStatus'])
+            if move['name'] in ['Roar', 'Whirlwind']:
+                if target.can_force_switch():
+                    game.call_switch(target.player)
 
         if 'contact' in move['flags']:
             if target.ability in ['Iron Barbs', 'Rough Skin']:
@@ -732,7 +760,7 @@ class Utils:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
                     user.add_status('slp', env, user)
 
-        if move['name'] == 'Knock Off' and target.can_lose_item() and target.alive:
+        if move['name'] == 'Knock Off' and target and target.alive:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
             target.lose_item()
 
@@ -772,11 +800,6 @@ class Utils:
                     return Onhold
             else:
                 user.charge = None
-
-        if sk_type == 'Normal' and user.ability == 'Galvanize':
-            sk_type = 'Electric'
-        if user.ability == 'Normalize':
-            sk_type = 'Normal'
 
         if sk_ctg == 'Status':
             if move['target'] == 'normal' and 'Grass' in target.attr and move['type'] == 'Grass':
@@ -1120,29 +1143,6 @@ class Utils:
             other_buff *= 2
 
         # ability buff
-        if user.ability == 'Aerilate' and sk_type == 'Normal':
-            sk_type = 'Flying'
-            other_buff *= 1.2
-
-        if user.ability == 'Galvanize' and sk_type == 'Normal':
-            sk_type = 'Electric'
-            other_buff *= 1.2
-
-        if user.ability == 'Refrigerate' and sk_type == 'Normal':
-            sk_type = 'Ice'
-            other_buff *= 1.2
-
-        if user.ability == 'Pixilate' and sk_type == 'Normal':
-            sk_type = 'Fairy'
-            other_buff *= 1.2
-
-        if user.ability == 'Liquid Voice':
-            if sk_name in sound_move:
-                sk_type = 'Water'
-
-        if user.ability == 'Normalize':
-            sk_type = 'Normal'
-            other_buff *= 1.2
 
         if user.ability == 'Sheer Force':
             effects = None
@@ -1163,7 +1163,7 @@ class Utils:
             other_buff *= 1.5
 
         if user.ability == 'Mega Launcher':
-            if sk_name in pulse_move:
+            if 'pulse' in move['flags']:
                 other_buff *= 1.5
 
         if user.ability == 'Analytic' and last:
@@ -1342,12 +1342,13 @@ class Utils:
         if target.ability in ['Shadow Shield', 'Multiscale'] and target.maxHP == target.HP:
             other_buff *= 0.5
 
+        target_sidecond = env.get_sidecond(target)
         if user.ability != 'Infiltrator' and sk_name != 'ConfusionHit':
-            if target.get_sidecond()['lightscreen'] and ctg == 'Special':
+            if target_sidecond['lightscreen'] and ctg == 'Special':
                 other_buff *= 0.5
-            if target.get_sidecond()['reflect'] and ctg == 'Physical':
+            if target_sidecond['reflect'] and ctg == 'Physical':
                 other_buff *= 0.5
-            if target.get_sidecond()['auroraveil']:
+            if target_sidecond['auroraveil']:
                 other_buff *= 0.5
 
         if target.vstatus['protect'] and 'is_z_move' in move:

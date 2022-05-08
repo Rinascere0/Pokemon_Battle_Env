@@ -8,7 +8,7 @@ class Signal:
 
 
 class ActionType:
-    Common, Mega, Z_Move, Switch = range(4)
+    Common, Mega, Z_Move, Switch, Pass = range(5)
 
 
 Z_MOVES = {
@@ -32,7 +32,8 @@ Z_MOVES = {
     'Fairy': 'Twinkle Tackle'
 }
 
-vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion']
+vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion',
+                'partiallytrapped']
 
 z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
               'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',

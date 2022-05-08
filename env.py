@@ -23,6 +23,9 @@ class Env:
                                     'stickyweb': 0, 'tailwind': 0, 'toxicspikes': 0,
                                     'wideguard': 0})
 
+        self.slot_condition = [{'healingwish': 0, 'wish': {'turn': 0, 'val': None}, 'lunardance': 0, 'heal': 0},
+                               {'healingwish': 0, 'wish': {'turn': 0, 'val': None}, 'lunardance': 0, 'heal': 0}]
+
         self.weather = None
         self.weather_turn = 0
         # {'hail': 0, 'RainDance': 0, 'Sandstorm': 0, 'sunnyday': 0}
@@ -33,6 +36,7 @@ class Env:
         self.terrain = None
         self.terrain_turn = 0
         # {'electricterrain': 0, 'grassyterrain': 0, 'mistyterrain': 0, 'psychicterrain': 0}
+        self.uproar = False
 
     def set_weather(self, weather, item, log):
         if weather == 'hail' and item == 'Icy Rock' or weather == 'sunnyday' and item == 'Heat Rock' or weather == 'Sandstorm' and item == 'Smooth Rock' or weather == 'RainDance' and item == 'Damp Rock':
@@ -58,6 +62,42 @@ class Env:
             self.terrain_turn = turn
             log.add(event=terrain)
 
+    def get_sidecond(self, pkm):
+        return self.side_condition[pkm.player.pid]
+
+    def get_slotcond(self, pkm):
+        return self.slot_condition[pkm.player.pid]
+
+    def add_slotcond(self, slotcond, pkm):
+        pid = pkm.player.pid
+        if slotcond == 'wish':
+            self.slot_condition[pid]['wish'] = {'turn': 2, 'val': pkm.maxHP / 2}
+        else:
+            self.slot_condition[pid][slotcond] = 1
+
+    def add_sidecond(self, sidecond, pkm, cond, log):
+        my_sidecond = self.get_sidecond(pkm)
+        if sidecond == 'toxicspikes' and my_sidecond[sidecond] > 1 \
+                or sidecond == 'spikes' and my_sidecond[sidecond] > 2 \
+                or 'spikes' not in sidecond and my_sidecond[sidecond] > 0:
+            log.add(event='fail')
+            return
+        if sidecond == 'auroraveil' and self.weather['hail'] == 0:
+            log.add(event='fail')
+            return
+
+        turn = 1
+        if cond:
+            turn = cond['duration']
+            if sidecond in ['lightscreen', 'reflect', 'auroraveil'] and self.item == 'Light Clay':
+                turn = 8
+        else:
+            if my_sidecond[sidecond]:
+                log.add(event='fail')
+                return
+        my_sidecond[sidecond] += turn
+        log.add(actor=pkm.player, event=sidecond)
+
     def step_pseudo_weather(self, log):
         for pd in self.pseudo_weather:
             if self.pseudo_weather[pd] > 0:
@@ -67,13 +107,22 @@ class Env:
 
     def step(self, players, log):
         for player in players:
-            sidecond = self.side_condition[player.pid]
+            pid = player.pid
+            sidecond = self.side_condition[pid]
             for cond in ['auroraveil', 'craftyshield', 'lightscreen', 'luckychant', 'matblock', 'mist', 'quickguard',
                          'reflect', 'safeguard', 'tailwind', 'wideguard']:
                 if sidecond[cond] > 0:
                     sidecond[cond] -= 1
                     if sidecond[cond] == 0:
                         log.add(actor=player, event='-' + cond)
+
+            wish = self.slot_condition[pid]['wish']
+            if wish['turn'] > 0:
+                wish['turn'] -= 1
+                if wish['turn'] == 0:
+                    log.add(actor=wish['val'], event='+wish')
+                    player.get_pivot().heal(wish['val'])
+                    wish['turn'] = 0
 
         if self.weather_turn > 0:
             self.weather_turn -= 1

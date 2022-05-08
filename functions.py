@@ -60,13 +60,6 @@ def gen_z_move(move):
     return z_move
 
 
-def minus(x, y):
-    if x < y:
-        return 0
-    else:
-        return x - y
-
-
 def move_to_key(move):
     return move.replace(' ', '').replace('-', '').replace('[', '').replace(']', '').replace('\'', '').lower()
 
@@ -86,6 +79,11 @@ def calc_type_buff(move, target):
         type_buff *= 4
 
     return type
+
+
+def imm_poison(pkm):
+    return 'Steel' in pkm.attr or 'Poison' in pkm.attr or pkm.ability == 'Immunity'
+
 
 
 def imm_ground(pkm):

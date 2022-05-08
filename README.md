@@ -94,7 +94,7 @@ Mega
 
 【Todo】\
 ✔Roost\
-Z-move\
+✔Z-move\
 ✔Ability log in utils\
 ✔Berry\
 ✔struggle\
@@ -136,10 +136,19 @@ Prankster\
 natural cure
 
 【Todo】\
-wish\
-roar\
-change move type before effecting\
-z move not effected by skin
+✔wish\
+✔roar\
+✔change move type before effecting\
+✔z move not effected by skin
 
 【ToFix】\
 Wrong struggle
+
+
+2020.5.8
+
+【Add】\
+Arceus Z
+
+【ToFix】\
+Partiallytrapped

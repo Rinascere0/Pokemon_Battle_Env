@@ -87,6 +87,7 @@ class Game:
             done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
             self.reset_round()
 
+            self.env.step(self.players, self.log)
             while not done and len(to_switch) > 0:
                 for player in to_switch:
                     player.signal(Signal.Switch)
@@ -98,8 +99,9 @@ class Game:
                     self.moves.append(None)
                 done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
                 self.reset_round()
+            self.utils.finish_turn(self.env,self.players)
 
-            self.env.step(self.players, self.log)
+
             self.log.step_print()
             Round += 1
 
