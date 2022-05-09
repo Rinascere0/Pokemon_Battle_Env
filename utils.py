@@ -19,8 +19,11 @@ class Utils:
     def __init__(self, log):
         self.log = log
 
+    # checks the move priority
     def check_prior(self, env, pkms, moves=None):
         prior = np.zeros(2)
+
+        # check speed first, if same speed then gen random
         if pkms[0].Spe > pkms[1].Spe:
             prior[0] += 0.1
         elif pkms[0].Spe < pkms[1].Spe:
@@ -28,9 +31,12 @@ class Utils:
         else:
             prior[random.randint(0, 1)] += 0.1
 
+        # trick room reverse speed
         if env.pseudo_weather['trickroom'] > 0:
             prior = - prior
 
+        # check priority moves, items, abilities
+        # TODO: Quick Claw ignores anti-prior, but it's always banned
         if moves:
             for pkm_id, (pkm, move_set) in enumerate(zip(pkms, moves)):
                 if move_set['type'] == ActionType.Switch:
@@ -46,49 +52,57 @@ class Utils:
 
         return int(prior[0] < prior[1])
 
+    # handle switch action
     def switch(self, game, env, players, pkms, moves, first):
         last = 1 - first
+        foe = players[last].get_pivot()
+        # if opponent don't Pursuit, just switch
         if moves[last]['type'] == ActionType.Switch or moves[last]['item']['name'] != 'Pursuit':
-            players[first].switch(env, moves[first]['item'], withdraw=True)
+            players[first].switch(env, moves[first]['item'], foe, withdraw=True)
         else:
-            # pursuit
+            # if opponent use Pursuit, set 'to switch' to True for move handler to know
             pkms[first].to_switch = True
             self.use_move(user=pkms[last], target=pkms[first], move=moves[last]['item'], env=env, game=game,
                           last=True)
             pkms[first].to_switch = False
+
+            # opponent's Pursuit consume its turn
+            pkms[last].turn = False
+
+            # if self's pivot still alive, handle switch
             if pkms[first].turn:
-                players[first].switch(env, moves[first]['item'], withdraw=True)
-                pkms[last].turn = False
+                players[first].switch(env, moves[first]['item'], foe, withdraw=True)
             else:
                 return
 
+        # perform preparations after switching on, e.g. abilities
         self.switch_on(players, env)
 
     def step_turn(self, game, env, players, moves):
+        # get the pivots in both team and initialize
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
         pkms[0].prep(env, pkms[1], moves[0])
         pkms[1].prep(env, pkms[0], moves[1])
-        megas = [None, None]
 
-        # check mega and z
+        # check if mega
+        megas = [None, None]
         if moves[0]['type'] == ActionType.Mega:
             megas[0] = True
         if moves[1]['type'] == ActionType.Mega:
             megas[1] = True
 
-        #  calc speed for switch and mega
+        # calc priority for switch and mega
         first = self.check_prior(env, pkms)
         last = 1 - first
 
-        #  print(moves[first]['type'])
-        #  print(moves[last]['type'])
-        # switch first
+        # handle switch actions first
         if moves[first]['type'] == ActionType.Switch:
             self.switch(game, env, players, pkms, moves, first)
 
         if moves[last]['type'] == ActionType.Switch:
             self.switch(game, env, players, pkms, moves, last)
 
+        # then handle mega actions
         if megas[first]:
             pkms[first].mega_evolve()
             players[first].use_mega()
@@ -99,7 +113,7 @@ class Utils:
             players[last].use_mega()
             self.switch_on(players, env)
 
-        # calc speed again for moves, with new stat (after mega)
+        # calc prior again for moves, with new stats (after mega)
         pkms = [players[0].get_pivot(), players[1].get_pivot()]
         pkms[0].calc_stat(env, pkms[1])
         pkms[1].calc_stat(env, pkms[0])
@@ -108,12 +122,10 @@ class Utils:
 
         if pkms[first].turn:
             # if opponent stepped turn, it actually moves last
-            #  print('turn',pkms[first].name)
             move_last = not pkms[last].turn
             self.use_move(pkms[first], pkms[last], moves[first]['item'], env, game, move_last)
 
         if pkms[last].turn:
-            # print('turn', pkms[last].name)
             # always move last
             self.use_move(pkms[last], players[first].get_pivot(), moves[last]['item'], env, game, True)
 
@@ -121,30 +133,40 @@ class Utils:
         for pid, player in enumerate(players):
             player.get_pivot().end_turn(env, players[1 - pid].get_pivot())
 
+        # check if any side needs to switch
         done, to_switch = self.check_switch(env, players)
 
         return done, to_switch
 
+    # gen action masks for next turn
+    # Q: Why not gen masks in 'end turn'?
+    # A: Pkm can faint in 'end turn' judge, and masks would probably change after another switches on
     def finish_turn(self, env, players):
         for pid, player in enumerate(players):
             player.get_pivot().finish_turn(env, players[1 - pid].get_pivot())
 
+    # match-up hanld in the beginning of game
     def match_up(self, env, players, moves):
         for pid, (player, move) in enumerate(zip(players, moves)):
             player.switch(env, move['item'])
         self.switch_on(players, env)
         self.log.step_print()
 
+    # handle switches in turn and after the end of turn, and check if any side still needs to switch after switch-on judge,
+    # and check if the game ends
     def check_switch(self, env, players, moves=[None, None], check=True):
         done = False
         to_switch = []
         for pid, (player, move) in enumerate(zip(players, moves)):
-            if move is not None:
+            foe = players[1 - pid].get_pivot()
+            # handle switches after the end of turn
+            if move:
                 pivot = move['item']
                 if pivot == player.pivot:
                     continue
-                player.switch(env, pivot, not check)
+                player.switch(env, pivot, foe, not check)
 
+            # if pkm on field fainted, check if the side loses, or need to switch on another pokemon
             if check:
                 if not player.get_pivot().alive:
                     if player.lose():
@@ -153,17 +175,21 @@ class Utils:
                     else:
                         to_switch.append(player)
 
+        # if both sides don't need to switch again, activate the abilities and show item prompt
         if not to_switch and not done:
             self.switch_on(players, env)
 
         return done, to_switch
 
+    # handle switch on events
+    # Q: Difference between activate and switch on?
+    # A: 'Switch on' is performed upon a pkm switches on, while 'Activate' is also performed when a pkm mega evolves
     def switch_on(self, players, env):
         for pid, player in enumerate(players):
             user = player.get_pivot()
             target = players[1 - pid].get_pivot()
+            # activate abilities
             if user.activate:
-
                 if user.ability == 'Trace':
                     self.log.add(actor=user, event='Trace', type=logType.ability)
                     self.log.add(actor=user, event='+trace', val=target.ability)
@@ -239,6 +265,7 @@ class Utils:
                         target.use_item()
                         target.boost('spe', 1)
 
+            # show switch on prompts and use items
             if user.switch_on:
                 if user.item is 'Air Balloon':
                     self.log.add(actor=user, event='balloon')
@@ -255,6 +282,7 @@ class Utils:
 
             user.activate = False
 
+    # old method for test
     def step_turn_pkm(self, env, pkms, moves):
         pkms[0].prep(env)
         pkms[1].prep(env)
@@ -285,10 +313,14 @@ class Utils:
 
         self.log.step_print()
 
+    # handler for pkm using a move
     def use_move(self, user: Pokemon, target: Pokemon, move, env, game, last):
+        # if pkm has consumed its turn, e.g. used pursuit or has died, just pass
         if not user.turn:
             return
         user.turn = False
+
+        # check if pkm is flinched
         if user.vstatus['flinch']:
             if user.ability == 'Inner Focus':
                 self.log.add(actor=user, event=user.ability, type=logType.ability)
@@ -298,6 +330,8 @@ class Utils:
                     self.log.add(actor=user, event='Steadfast', type=logType.ability)
                     user.boost('spe', 1)
                 return
+
+        # check if pkm is asleep, and step the status
         if user.status is 'slp':
             if user.status_turn > 0:
                 self.log.add(actor=user, event='+slp')
@@ -308,16 +342,21 @@ class Utils:
                 user.status = None
                 user.vstatus['nightmare'] = 0
 
+        # check if pkm is frozen, and step the status
         if user.status is 'frz':
             if random.uniform(0, 1) <= 0.2:
                 self.log.add(actor=user, event='-frz')
             else:
                 self.log.add(actor=user, event='+frz')
                 return
+
+        # check if pkm is paralysed
         if user.status is 'par':
             if random.uniform(0, 1) <= 0.25:
                 self.log.add(actor=user, event='+par')
                 return
+
+        # check if pkm is confused, and step the vstatus
         if user.vstatus['confusion']:
             if random.uniform(0, 1) <= 0.3:
                 self.log.add(actor=user, event='+confusion')
@@ -325,6 +364,13 @@ class Utils:
                 user.damage(dmg)
                 return
 
+        # check if pkm is taunted before using move
+        if user.vstatus['taunt']:
+            if move['category'] == 'Status' and not z_move:
+                self.log.add(actor=user, event='+taunt', val=move['name'])
+                return
+
+        # lose pp
         if target.ability == 'Pressure':
             user.loss_pp(move, 2)
         else:
@@ -333,6 +379,7 @@ class Utils:
         if not user.choice_move and user.item in ['Choice Band', 'Choice Scarf', 'Choice Specs']:
             user.choice_move = move['name']
 
+        # check if z-move, and transform move_name and power for attack move
         z_move = 'is_z_move' in move
         if z_move:
             self.log.add(actor=user, event='zmove')
@@ -340,6 +387,7 @@ class Utils:
         elif 'basePower' in move:
             sk_type = move['type']
             power = move['basePower']
+
             if user.ability == 'Aerilate' and sk_type == 'Normal':
                 sk_type = 'Flying'
                 power *= 1.2
@@ -357,6 +405,19 @@ class Utils:
                 sk_type *= 1.2
             if user.ability == 'Liquid Voice' and 'sound' in move['flags']:
                 sk_type = 'Water'
+
+            if move['name'] == 'Weather Ball':
+                if env.weather is 'hail':
+                    sk_type = 'Ice'
+                elif env.weather is 'sunnyday':
+                    sk_type = 'Fire'
+                elif env.weather is 'Raindance':
+                    sk_type = 'Water'
+                elif env.weather is 'Sandstorm':
+                    sk_type = 'Rock'
+                if sk_type != 'Normal':
+                    power = 100
+
             move = copy.deepcopy(move)
             move['type'] = sk_type
             move['basePower'] = power
@@ -368,6 +429,13 @@ class Utils:
             self.log.add(actor=user, event='change_type', val=move['type'])
             user.attr = [move['type']]
 
+        if move['name'] == user.last_move:
+            user.metronome += 1
+        else:
+            user.metronome = 0
+            user.last_move = move
+
+        # activate effects for z-status-move
         if z_move and 'zMove' in move:
             if 'effect' in move['zMove']:
                 effect = move['zMove']['effect']
@@ -391,22 +459,7 @@ class Utils:
                 for stat, lv in boost.items():
                     user.boost(stat, lv)
 
-        if user.vstatus['taunt']:
-            if move['category'] == 'Status' and not z_move:
-                self.log.add(actor=user, event='+taunt', val=move['name'])
-                return
-
-        if move['name'] == 'Sucker Punch':
-            if last or target.next_move and target.next_move['category'] == 'Status':
-                self.log.add(event='fail')
-                return
-
-        if move['name'] == user.last_move:
-            user.metronome += 1
-        else:
-            user.metronome = 0
-            user.last_move = move['name']
-
+        # reflect status move if magic bounce/coat
         if 'reflectable' in move['flags']:
             reflect = False
             if target.ability == 'Magic Bounce':
@@ -416,6 +469,18 @@ class Utils:
                 self.log.add(actor=target, event='+magiccoat', val=move['name'])
                 target = user
 
+        if move['target'] == 'common' and target.vstatus['craftyshield']:
+            self.log.add(actor=target, event='+craftyshield')
+            return
+
+        if move['priority'] > 0:
+            if env.terrain == 'psychicterrain':
+                self.log.add(actor=target, event='+psychicterrain')
+                return
+            if env.get_sidecond(target)['quickguard']:
+                self.log.add(actor=target, event='+quickguard')
+                return
+
         if move['name'] == 'Splash':
             self.log.add(event='splash')
             return
@@ -424,41 +489,55 @@ class Utils:
             self.log.add(event='fail')
             return
 
-        if move['priority'] > 0 and env.terrain == 'psychicterrain':
-            self.log.add(actor=target, event='+psychicterrain')
-            return
+        # check if sucker is useful
+        if move['name'] == 'Sucker Punch':
+            if last or target.next_move and target.next_move['category'] == 'Status':
+                self.log.add(event='fail')
+                return
 
+        # check if always suicide
         self_destruct = None
         if 'selfdestruct' in move:
             self_destruct = move['selfdestruct']
             if self_destruct == 'always':
                 user.damage(0, 100)
 
+        # check move count, e.g. triple kick
         if 'multiaccuracy' in move:
             count = move['multihit']
         else:
             count = 1
 
+        # calc stats of both pkm
         user.calc_stat(env, target)
         target.calc_stat(env, user)
+
+        # check the move target
         if move['target'] == 'self':
             target = user
 
         for i in range(count):
+            # avoid multi move continuing on dead pkm
             if not target.alive:
                 if i == 0:
                     self.log.add(event='fail')
                 break
+
+            # check if the move is useful, and if the move hit target
             useful = self.check_useful(env, user, target, move, last)
+
             if useful == Hit:
                 if self_destruct == 'ifHit':
                     user.damage(0, 100)
                 self.effect_move(user, target, move, game, env, last)
-                # eject button
+
+                # handle switch after move effect
                 if target.item == 'Eject Button':
                     target.use_item()
                     game.call_switch(target.player)
+
                 # switch if not opponent eject button
+                # TODO: Actually could only switch when opponent didn't switch during the move
                 elif target.item == 'Red Card':
                     target.use_item()
                     if user.can_force_switch():
@@ -469,20 +548,25 @@ class Utils:
                         self.use_move(target, user, target.next_move, env, game, True)
                     if user.alive:
                         game.call_switch(user.player)
+
                 elif move['name'] in ['Dragon Tail', 'Circle Throw']:
                     if user.can_force_switch():
                         game.call_switch(target.player)
 
             elif useful == Miss:
                 self.log.add(actor=target, event='avoid')
+                # attack miss penalty
                 user.multi_count = 0
                 if move['name'] in ['Jump Kick', 'High Jump Kick']:
                     self.log.add(actor=user, event='drop')
                     user.damage(0, 1 / 2)
+
             elif useful == NoEffect:
                 self.log.add(actor=target, event='0effect')
                 user.set_lock()
                 break
+
+            # attack protected
             elif useful == NoLog:
                 user.set_lock()
                 break
@@ -493,6 +577,7 @@ class Utils:
 
             if 'isFutureMove' in move:
                 target.add_future(user, move['name'])
+
             if move['name'] in ['Rollout', 'Ice Ball']:
                 user.set_lock(move['name'])
 
@@ -521,34 +606,30 @@ class Utils:
                 if not target.alive:
                     break
 
-            # no side effects for non-status z-move
-
+            # sec_target means the secondary effect target
             sec_target = target
-            effects=[]
-            if 'secondary' in move:
-                effects .append(move['secondary'])
+            effects = []
+            if 'secondary' in move and move['secondary']:
+                effects.append(move['secondary'])
             elif 'secondaries' in move:
-                effects+=['secondaries']
+                effects += ['secondaries']
             elif 'volatileStatus' in move:
-                effects .append(move['volatileStatus'])
+                effects.append({'volatileStatus': move['volatileStatus']})
+
+            # Q: Does it exist move that have side effects to both?
+            # A: No
+            elif 'self' in move and move['self']:
+                effects.append(move['self'])
+                sec_target = user
 
             if user.ability == 'Sheer Force':
                 effects = None
-
-            # TODO: Does it exist move that have side effects to both?
-
-            if 'self' in move:
-                effects = move['self']
-                sec_target = user
-                if type(effects) is not list:
-                    effects = [effects]
 
             if sec_target == target and target.ability == 'Shield Dust':
                 self.log.add(actor=target, event=target.ability, log=logType.ability)
             elif effects:
                 for effect in effects:
-                    if effect is None:
-                        continue
+                    # calc the chance of effect
                     chance = effect['chance'] / 100 if 'chance' in effect else 1
                     if user.ability == 'Serene Grace':
                         chance = min(1, 2 * chance)
@@ -556,14 +637,16 @@ class Utils:
                     if hit:
                         if 'self' in effect:
                             effect = effect['self']
+                            sec_target = user
                         if 'status' in effect:
                             sec_target.add_status(effect['status'], env, user)
                         if 'volatileStatus' in effect:
-                            # mustrecharge
-                            sec_target.add_vstate(effect['volatileStatus'])
+                            sec_target.add_vstate(effect['volatileStatus'], user=user)
                         if 'boosts' in effect:
                             for stat, lv in effect['boosts'].items():
                                 sec_target.boost(stat, lv)
+
+                        # specific effects
                         if move['name'] == 'Tri Attack':
                             status = random.randint(0, 2)
                             if status == 0:
@@ -578,6 +661,7 @@ class Utils:
                 heal = int(move['drain'][0] / move['drain'][1] * dmg)
                 user.heal(heal, False, target)
 
+            # recoil move
             if 'recoil' in move:
                 if user.ability == 'Rock Head':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
@@ -606,20 +690,24 @@ class Utils:
                 if user.lock_round == 5:
                     user.set_lock()
 
-            if move['name'] == 'Rapid Spin':
-                env.clear_field(user.player, type='spike', log=self.log)
-
             # same round move
             if move['name'] in ['Triple Axel', 'Triple Kick']:
                 user.multi_count += 1
+
+            if move['name'] == 'Rapid Spin':
+                env.clear_field(user.player, type='spike', log=self.log)
 
             if user.item == 'Shell Bell':
                 self.log.add(actor=user, event='shellbell')
                 user.heal(total_damage / 8)
 
+        # status move
         else:
+            # includes info, e.g.duration
+            cond = move['condition'] if 'condition' in move else None
             if move['target'] == 'self':
                 target = user
+
             if 'boosts' in move:
                 boosts = move['boosts']
                 for stat in boosts:
@@ -636,17 +724,7 @@ class Utils:
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
-                cond = None
-                if 'condition' in move:
-                    cond = move['condition']
                 target.add_vstate(vstatus, cond, user)
-
-            #     if 'sideCondition' in move:
-            #        side_cond = move['sideCondition']
-            if 'condition' in move:
-                cond = move['condition']
-            else:
-                cond = None
 
             if 'weather' in move:
                 weather = move['weather']
@@ -664,12 +742,7 @@ class Utils:
                 sidecond = move['sideCondition']
                 env.add_sidecond(sidecond, target, cond, self.log)
 
-            # TODO: Multiple types of heal
-            if 'heal' in move:
-                if target.maxHP == target.HP:
-                    self.log.add(event='fail')
-                else:
-                    target.heal(0, move['heal'][0] / move['heal'][1])
+            # other types of effects
             if move['name'] == 'Belly Drum':
                 if user.HP > user.maxHP / 2:
                     if user.stat_lv['atk'] == 6:
@@ -681,7 +754,7 @@ class Utils:
                     self.log.add(actor=user, event='belly_fail_hp')
 
             if move['name'] == 'Defog':
-                target.boost('eva', -1)
+                target.boost('evasion', -1)
                 env.clear_field(user.player, type='spike', log=self.log)
                 env.clear_field(target.player, type='spike', log=self.log)
                 env.clear_field(target.player, type='wall', log=self.log)
@@ -716,18 +789,38 @@ class Utils:
                 self.log.add(event='aromatherapy')
                 user.player.cure_all()
 
-            if move['name'] == 'Synthesis':
-                if env.weather == 'sunnyday':
-                    user.heal(0, 3 / 4)
-                elif env.weather:
-                    user.heal(0, 1 / 4)
+            if 'heal' in move:
+                if move['name'] in ['Sunlight', 'Moonlight', 'Synthesis']:
+                    if env.weather == 'sunnyday':
+                        perc = 2 / 3
+                    elif env.weather:
+                        perc = 1 / 4
+                    else:
+                        perc = 1 / 2
+                elif move['name'] == 'Shore Up':
+                    if env.weather == 'Sandstorm':
+                        perc = 2 / 3
+                    else:
+                        perc = 1 / 2
                 else:
-                    user.heal(0, 1 / 2)
+                    perc = move['heal'][0] / move['heal'][1]
+                target.heal(perc=perc, move=True)
+
+            if move['name'] == 'Rest':
+                if user.HP == user.maxHP:
+                    self.log.add(actor=user, event='0heal')
+                elif user.add_status('slp', env):
+                    user.heal(perc=1)
+
+            if move['name'] == 'Strength Sap':
+                user.heal(target.Atk)
+                target.boost('atk', -1)
 
             if move['name'] in ['Roar', 'Whirlwind']:
                 if target.can_force_switch():
                     game.call_switch(target.player)
 
+        # contact move
         if 'contact' in move['flags']:
             if target.ability in ['Iron Barbs', 'Rough Skin']:
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
@@ -777,6 +870,7 @@ class Utils:
                 if random.uniform(0, 1) < 0.3:
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
                     target.add_status('psn', env, user)
+
         if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
             self.log.add(actor=user, event='knockoff', target=target, val=target.item)
             target.lose_item()
@@ -795,8 +889,7 @@ class Utils:
         acc_buff = 1
         always_hit = False
 
-        # 特性修正
-
+        # check charge move
         if 'charge' in move['flags']:
             if user.charge is None:
                 user.charge = move['name']
@@ -809,21 +902,32 @@ class Utils:
             else:
                 user.charge = None
 
+        # check off field
         if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig', 'Bounce']:
             if user.off_field:
                 user.off_field = None
             else:
                 user.off_field = sk_name
 
-        if target.vstatus['protect'] and target is not user and 'protect' in move['flags']:
-            if sk_name == 'Feint':
-                self.log.add(actor=user, event='feint', target=target)
-                target.vstatus['protect'] = 0
-            elif 'is_z_move' in move:
-                self.log.add(actor=user, event='zprotect')
-            else:
-                self.log.add(actor=target, event='+protect')
-                return NoLog
+        # check protect
+        if target.protect_move:
+            if target is not user and 'protect' in move['flags']:
+                if sk_name == 'Feint':
+                    self.log.add(actor=user, event='feint', target=target)
+                    target.vstatus['protect'] = 0
+                elif 'is_z_move' in move:
+                    self.log.add(actor=user, event='zprotect')
+                else:
+                    self.log.add(actor=target, event='+protect')
+                    # TODO: add log
+                    if 'contact' in move['flags']:
+                        if target.protect_move == 'banefulbunker':
+                            user.add_status('psn')
+                        elif target.protect_move == 'spikyshield':
+                            user.damage(perc=1 / 8)
+                        elif target.protect_move == 'kingsshield':
+                            user.boost('atk', -1)
+                    return NoLog
 
         if 'No Guard' in [user.ability, target.ability]:
             always_hit = True
@@ -838,6 +942,7 @@ class Utils:
             else:
                 return NoEffect
 
+        # check status move useful
         if sk_ctg == 'Status':
             if move['target'] == 'normal' and 'Grass' in target.attr and move['type'] == 'Grass':
                 return NoEffect
@@ -856,6 +961,7 @@ class Utils:
         if user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']:
             target.moldbreak()
 
+        # calc accuracy
         if move['name'] in ['Thunder', 'Hurricane']:
             if env.weather is 'sunnyday':
                 acc = 50
@@ -864,16 +970,6 @@ class Utils:
 
         if move['name'] == 'Blizzard' and env.weather is 'hail':
             acc = 100
-
-        if move['name'] == 'Weather Ball':
-            if env.weather is 'hail':
-                sk_type = 'Ice'
-            elif env.weather is 'sunnyday':
-                sk_type = 'Fire'
-            elif env.weather is 'Raindance':
-                sk_type = 'Water'
-            elif env.weather is 'Sandstorm':
-                sk_type = 'Rock'
 
         if sk_type == 'Water':
             if target.ability == 'Water Absorb':
@@ -927,6 +1023,7 @@ class Utils:
             self.log.add(actor=target, event=target.ability, type=logType.ability)
             return NoEffect
 
+        # check no effect move type
         if sk_ctg != 'Status':
             type_buff = 1
             for attr in target.attr:
@@ -940,9 +1037,11 @@ class Utils:
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
                 return NoEffect
 
+        # no guard
         if always_hit:
             return True
 
+        # accuracy buff
         if user.item == 'Wide Lens':
             acc_buff *= 1.1
 
@@ -961,12 +1060,10 @@ class Utils:
         if user.ability == 'Hustle' and sk_ctg == 'Physical':
             acc_buff *= 0.8
 
-        # 命中判定
-        #   if target == user:
-        #       return Hit
-
         user_acc = user.Acc
         target_eva = target.Eva
+
+        # always hit move
         if acc is True:
             return Hit
 
@@ -1030,19 +1127,6 @@ class Utils:
         if sk_name == 'Acrobatics' and user.item is None:
             power *= 2
 
-        if move['name'] == 'Weather Ball':
-            power = 100
-            if env.weather is 'hail':
-                sk_type = 'Ice'
-            elif env.weather is 'sunnyday':
-                sk_type = 'Fire'
-            elif env.weather is 'Raindance':
-                sk_type = 'Water'
-            elif env.weather is 'Sandstorm':
-                sk_type = 'Rock'
-            else:
-                power = 50
-
         if sk_name in ['Low Kick', 'Grass Knot']:
             if target.weight < 10:
                 power = 20
@@ -1086,18 +1170,8 @@ class Utils:
         if sk_name == 'Gyro Ball':
             power = min(150, int(25 * target.Spe / user.Spe))
 
-        # 相克补正
-        type_buff = 1
-        for attr in target.attr:
-            type_buff *= get_attr_fac(sk_type, attr)
-
-        if sk_name == 'Flying Press':
-            for attr in target.attr:
-                type_buff *= get_attr_fac('Flying', attr)
-
-        if sk_name == 'Freeze Dry' and target.attr:
-            # should be effective
-            type_buff *= 4
+        # type_buff
+        type_buff = calc_type_buff(move, target)
 
         if type_buff > 1:
             self.log.add(event='effect')

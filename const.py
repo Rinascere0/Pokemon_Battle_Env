@@ -31,7 +31,7 @@ Z_MOVES = {
     'Dark': 'Black Hole Eclipse',
     'Fairy': 'Twinkle Tackle'
 }
-
+protect_moves = ['protect', 'detect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']
 vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion',
                 'partiallytrapped']
 
@@ -99,8 +99,9 @@ full_stat = {
     'spa': 'Sp. Atk',
     'spd': 'Sp. Def',
     'spe': 'Spe',
-    'eva': 'Evasion',
-    'acc': 'Accuracy'
+    'evasion': 'Evasion',
+    'accuracy': 'Accuracy',
+    'ct': 'Critical Rate'
 }
 
 sound_move = ['Boomburst ', 'Bug Buzz ', 'Chatter ', 'Clanging Scales ', 'Clangorous Soul ', 'Clangorous Soulblaze ',

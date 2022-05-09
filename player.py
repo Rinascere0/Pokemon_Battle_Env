@@ -54,7 +54,6 @@ class Player:
             if pkm.alive:
                 return pkm
 
-
     def start(self):
         thread = Thread(target=self.mainloop, args=())
         thread.start()
@@ -102,21 +101,15 @@ class Player:
             elif self.status == Signal.End:
                 return
 
-    def switch(self, env, pivot, withdraw=False):
+    def switch(self, env, pivot, foe=None, withdraw=False):
         if withdraw:
             self.log.add(actor=self, event='withdraw', val=self.get_pivot().name)
         self.log.add(actor=self, event='switch', val=self.pkms[pivot].name)
         if self.pivot == -1:
-            self.pkms[pivot].switch(env, None)
+            self.pkms[pivot].switch(env, None, foe)
         else:
-            self.pkms[pivot].switch(env, self.get_pivot())
+            self.pkms[pivot].switch(env, self.get_pivot(), foe)
         self.pivot = pivot
-
-    def make_switch(self, random=False):
-        if random:
-            self.switch(np.random.choice(np.arange(0, 6), self.alive / self.alive.sum()))
-        else:
-            self.switch(np.random.choice(np.arange(0, 6), self.alive / self.alive.sum()))
 
     @abstractmethod
     def gen_switch(self):

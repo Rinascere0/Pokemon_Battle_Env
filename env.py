@@ -91,10 +91,7 @@ class Env:
             turn = cond['duration']
             if sidecond in ['lightscreen', 'reflect', 'auroraveil'] and self.item == 'Light Clay':
                 turn = 8
-        else:
-            if my_sidecond[sidecond]:
-                log.add(event='fail')
-                return
+
         my_sidecond[sidecond] += turn
         log.add(actor=pkm.player, event=sidecond)
 

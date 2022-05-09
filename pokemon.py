@@ -12,84 +12,128 @@ Burn, Sleep, Toxic, Poison, Paralyse, Frozen = range(6)
 
 class Pokemon:
     def __init__(self, info):
-        # load team info
+        # pokemon name
         self.name = (info['Name'].split('-Mega')[0]).split('-Ash')[0]
+        # revealed name, e.g. illusion
         self.current_name = self.name
-        #    self.nickname = info['nicknam]e']
+
         self.gender = info['Gender']
         self.evs = {key: None2Zero(value) for key, value in info.items() if
                     key in ['Atk', 'Def', 'SpA', 'SpD', 'Spe', 'HP']}
         self.ivs = {key[1:]: None2Zero(value) for key, value in info.items() if
                     key in ['iAtk', 'iDef', 'iSpA', 'iSpD', 'iSpe', 'iHP']}
         self.nature = info['Nature']
+
+        # move names
         self.moves = [info['Move1'], info['Move2'], info['Move3'], info['Move4']]
+        # move infos
         self.move_infos = [Moves[move_to_key(move)] for move in self.moves]
+
         self.pp = [move['pp'] * 1.6 for move in self.move_infos]
         self.lv = info['Lv']
-        self.item = info['Item']
+
+        # item carried
         self.base_item = info['Item']
+        # current useful item in battle, could be temporarily set to None, e.g. Magic Room
+        self.item = info['Item']
+        # used item
         self.used_item = None
+
+        # ability in dex
         self.base_ability = info['Ability']
+        # base ability during this switch on, could be changed by other abilities, e.g. mummy
         self.current_ability = info['Ability']
+        # ability in battle, could be temporarily set to None, e.g. Moldbreaker
         self.ability = info['Ability']
 
         # load dex info
         pkm_info = pokedex[self.name.replace(' ', '').replace('-', '').lower()]
-        #    if 'baseSpecies' in pkm_info:  # Mega & Ash
-        #        self.name = pkm_info['baseSpecies']
+        # specie stat
         self.sp = pkm_info['baseStats']
+        # types of pkm in dex
         self.base_attr = pkm_info['types']
         if self.name == 'Silvally' and self.item in memories:
             self.base_attr = [memories[self.item]]
         if self.name == 'Arceus' and (self.item in plates or self.item in z_crystals):
             self.base_attr = [plates[self.item]]
+        # types of pkm in battle, could be temporarily changed, e.g. soak
         self.attr = copy.deepcopy(self.base_attr)
 
+        # weight in dex
         self.base_weight = pkm_info['weightkg']
+        # weight in battle, could be temporarily changed, e.g. light metal
+        self.weight = self.base_weight
         self.can_evo = 'evos' in pkm_info
 
-        # state
+        #  base stats
         self.base_stats = gen_stats(self.sp, self.evs, self.ivs, self.lv, self.nature)
+        # stats in battle, calculated before any move
         self.stats = copy.deepcopy(self.base_stats)
+
+        # HP
         self.maxHP = self.stats['HP']
         self.HP = self.stats['HP']
 
+        # stat levels
         self.stat_lv = {
             'atk': 0,
             'def': 0,
             'spa': 0,
             'spd': 0,
             'spe': 0,
-            'eva': 0,
-            'acc': 0,
+            'evasion': 0,
+            'accuracy': 0,
             'ct': 0
         }
 
         # battle stat
         self.status = None
-        # {'brn': 0, 'slp': 0, 'tox': 0, 'psn': 0, 'par': 0, 'frz': 0}
         self.status_turn = 0
-        self.protect_turn = 0
+
+        # move used last turn
         self.last_move = None
+        # move to use this turn
         self.next_move = None
+
+        # move traps pkm
+        self.trap_move = None
+
+        # metronome turn
         self.metronome = 0
+
+        # continue protect turn
+        self.protect_move = None
+        self.protect_turn = 0
+
+        # if unburden activates
         self.unburden = False
+
+        # if flash fire activates
         self.flash_fire = False
 
-        # lock skill e.g. outrage, iceball
+        # lock skill e.g. outrage, ice ball
         self.lock_move = None
         self.lock_round = 0
 
+        # choice item locked move
+        # Q: Why not use last move?
+        # A: Magic Room
         self.choice_move = None
+
+        # move disabled by curse skin, disable etc.
         self.disable_move = None
-        # charge move e.g. solar beam
+
+        # move during charge, e.g. solar beam
         self.charge = None
         self.charge_round = 0
 
-        # multihit buff e.g. triple kick
+        # multi-hit buff, e.g. triple kick
         self.multi_count = 0
 
-        self.future = []
+        # move name if pkm is off field
+        self.off_field = None
+
+        # True if pkm is alive
         self.alive = True
 
         # True if player can gen action next turn
@@ -109,26 +153,27 @@ class Pokemon:
         self.turn = False
         # first turn switch on
 
-        self.off_field = None
-
+        # dmg bear this turn
         self.round_dmg = {'Physical': 0, 'Special': 0}
 
+        # volatile status
         self.vstatus = {'aquaring': 0, 'attract': 0, 'banefulbunker': 0, 'bide': 0, 'partiallytrapped': 0, 'charge': 0,
-                        'confusion': 0, 'curse': 0, 'defensecurl': 0, 'destinybond': 0, 'protect': 0, 'disable': 0,
-                        'electrify': 0, 'embargo': 0, 'encore': 0, 'endure': 0, 'flinch': 0, 'focusenergy': 0,
-                        'followme': 0, 'foresight': 0, 'gastroacid': 0, 'grudge': 0, 'healblock': 0, 'helpinghand': 0,
-                        'imprison': 0,
-                        'ingrain': 0, 'kingsshield': 0, 'laserfocus': 0, 'leechseed': 0, 'lockedmove': 0,
-                        'magiccoat': 0,
+                        'confusion': 0, 'curse': 0, 'defensecurl': 0, 'destinybond': 0, 'protect': 0,
+                        'disable': 0, 'electrify': 0, 'embargo': 0, 'encore': 0, 'endure': 0, 'flinch': 0,
+                        'focusenergy': 0, 'followme': 0, 'foresight': 0, 'gastroacid': 0, 'grudge': 0, 'healblock': 0,
+                        'helpinghand': 0, 'imprison': 0, 'ingrain': 0, 'kingsshield': 0, 'laserfocus': 0,
+                        'leechseed': 0, 'lockedmove': 0, 'magiccoat': 0,
                         'magnetrise': 0, 'maxguard': 0, 'minimize': 0, 'miracleeye': 0, 'nightmare': 0, 'noretreat': 0,
                         'obstruct': 0, 'octolock': 0, 'powder': 0, 'powertrick': 0, 'ragepowder': 0, 'smackdown': 0,
                         'snatch': 0, 'spikyshield': 0, 'spotlight': 0, 'stockpile': 0, 'substitute': 0, 'tarshot': 0,
                         'taunt': 0, 'telekinesis': 0, 'torment': 0, 'yawn': 0, 'roost': 0, 'mustrecharge': 0}
 
+        # register to current game
         self.pkm_id = -1
         self.player = None
         self.log = None
 
+        # masks of the valid move and z-use
         self.move_mask = np.ones(4)
         self.z_mask = np.zeros(4)
         if self.item in z_crystals:
@@ -291,169 +336,180 @@ class Pokemon:
             self.cure_status()
 
     def add_vstate(self, vstatus, cond=None, user=None):
+        # fail if already dead
         if not self.alive:
             return False
-            # 已有相同状态
+
+        # fail if already had same v-status
         if self.vstatus[vstatus] != 0:
             self.log.add(actor=self, event='++' + vstatus)
             return False
-        if vstatus in ['lockedmove', 'uproar']:
-            pass
+
+        # oblivous immues attract and taunt
         if self.ability == 'Oblivious' and vstatus in ['attract', 'taunt']:
             self.log.add(actor=self, event=self.ability, type=logType.ability)
-        # 持续时间特殊
-        turn = 1
-        val = ''
-        print('vstate',vstatus)
-        if cond is None:
-            if vstatus == 'confusion':
-                if self.ability == 'Own Tempo':
-                    self.log.add(actor=self, event=self.ability, type=logType.ability)
-                    return False
-                turn = random.randint(1, 4)
-            elif vstatus in ['smackdown', 'foresight']:
-                turn = 10000
-            # continuous protect count
-            elif vstatus == 'protect':
-                if random.uniform(0, 1) <= math.pow(1 / 2, self.protect_turn):
-                    self.protect_turn += 1
-                else:
-                    self.protect_turn = 0
-                    self.log.add(event='fail')
-                    return False
-            elif vstatus == 'partiallytrapped':
-                turn = random.randint(4, 5)
-                trap_move = user.next_move['name']
-                self.trap_move = trap_move
-                val = trap_move
-            elif vstatus == 'roost':
-                pass
 
-                # 持续时间给出
-        elif 'duration' in cond:
+        # the turn of v-status, default 1
+        turn = 1
+        # v-status detail for log
+        val = ''
+
+        # the turn is given in cond
+        if cond and 'duration' in cond:
             turn = cond['duration']
 
-        if vstatus == 'substitute':
-            if self.HP > self.maxHP / 4:
-                turn = self.maxHP / 4
-            else:
-                self.log.add(actor=self, event='--substitute')
+        if vstatus == 'confusion':
+            if self.ability == 'Own Tempo':
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
                 return False
-        elif vstatus in ['destinybond']:
-            turn = 1
-        elif vstatus == 'nightmare':
-            if self.status['slp'] > 0:
-                turn = 10000
-            else:
-                return False
-        elif vstatus == 'disable':
-            self.disable_move = self.last_move
-            turn = 5
+            turn = random.randint(1, 4)
+        elif vstatus in ['smackdown', 'foresight']:
+            turn = 10000
         elif vstatus == 'attract':
             if self.gender and user.gender and self.gender != user.gender:
                 turn = 10000
             else:
                 return False
+        elif vstatus == 'nightmare':
+            if self.status['slp'] > 0:
+                turn = 10000
+            else:
+                return False
+        elif vstatus in ['protect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']:
+            # TODO: Quick Guard etc. are also influenced by chance, but don't count up
+            if random.uniform(0, 1) <= math.pow(1 / 3, self.protect_turn):
+                self.protect_turn += 1
+                if vstatus != 'endure':
+                    self.protect_move = vstatus
+            else:
+                self.protect_turn = 0
+                self.log.add(event='fail')
+                return False
+        elif vstatus == 'partiallytrapped':
+            turn = random.randint(4, 5)
+            trap_move = user.next_move['name']
+            self.trap_move = trap_move
+            val = trap_move
+        elif vstatus == 'roost':
+            pass
+        elif vstatus == 'substitute':
+            if self.HP > self.maxHP / 4:
+                turn = self.maxHP / 4
+            else:
+                self.log.add(actor=self, event='--substitute')
+                return False
+        elif vstatus == 'disable':
+            self.disable_move = self.last_move
+            turn = 5
 
         self.log.add(actor=self, event=vstatus, val=val)
         self.vstatus[vstatus] = turn
 
+        # remove bad v-status
         if self.item == 'Mental Herb' and vstatus in ['attract', 'disable', 'encore', 'healblock', 'taunt', 'torment']:
             self.use_item()
             self.cure_vstatus(vstatus)
 
-    def can_force_switch(self):
-        if self.ability == 'Suction Cups':
-            self.log.add(actor=self, event=self.ability, type=logType.ability)
-            self.log.add(actor=self, event='-forceswitch')
-        elif self.alive:
-            return True
-        return False
+    # heal the pkm
+    '''
+    Inputs: 
+        val: the value of heal
+        perc: the percentage of heal
+        target: the source of the heal, deal with Liquid Ooze
+    '''
 
-    def heal(self, val=0, perc=False, target=None):
-        if not self.alive:
-            return
-        if perc:  # 百分比治疗
-            val = int(self.maxHP * perc)
-        if self.item == 'Big Root':
-            val = int(val * 1.3)
-        if target and target.ability == 'Liquid Ooze':
-            self.log.add(actor=self, event='ooze', type=logType.ability)
-            self.damage(val)
-        else:
-            val = min(val, self.maxHP - self.HP)
-            if val == 0:
-                return
-            self.HP += val
-            self.log.add(actor=self, event='heal', val=round(100 * val / self.maxHP, 1))
+    def heal(self, val=0, perc=0, target=None, move=True):
+        def handle_heal(val, perc, target):
+            if not self.alive:
+                return True
+            if perc:  # 百分比治疗
+                val = int(self.maxHP * perc)
+            if self.item == 'Big Root':
+                val = int(val * 1.3)
+            if target and target.ability == 'Liquid Ooze':
+                self.log.add(actor=self, event='ooze', type=logType.ability)
+                self.damage(val)
+            else:
+                val = min(val, self.maxHP - self.HP)
+                if val == 0:
+                    return False
+                self.HP += val
+                self.log.add(actor=self, event='heal', val=round(100 * val / self.maxHP, 1))
+            return True
+
+        if not handle_heal(val, perc, target) and move:
+            self.log.add(actor=self, event='0heal')
+
+    # pkm boost stats
+    '''
+    Inputs: 
+        stat: the stat to boost
+        lv: the lv of boost, range(-6,6)
+        src: the pkm  the boost
+    '''
 
     def boost(self, stat, lv, src=None):
         if not self.alive:
             return
-        if stat == 'accuracy':
-            stat = 'acc'
-        if stat == 'evasion':
-            stat = 'eva'
-        if self.item == 'White Herb':
-            self.log.add(event='+whiteherb')
-            return
-        if self.ability == 'Contrary':
+
+        def ability_log(stat):
             self.log.add(actor=self, event=self.ability, type=logType.ability)
-            lv = -lv
-        if lv > 0:
-            if self.stat_lv[stat] == 6:
-                self.log.add(actor=self, event='+7', val=full_stat[stat])
-            else:
-                self.stat_lv[stat] = min(self.stat_lv[stat] + lv, 6)
-                if lv == 1:
-                    self.log.add(actor=self, event='+1', val=full_stat[stat])
-                elif lv == 2:
-                    self.log.add(actor=self, event='+2', val=full_stat[stat])
-                elif lv == 3:
-                    self.log.add(actor=self, event='+3', val=full_stat[stat])
-                elif lv == 6:
-                    self.log.add(actor=self, event='+6', val=full_stat[stat])
-        else:
-            if self.ability == 'Flower Veil' and 'Grass' in self.attr:
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.log.add(actor=self, event='-0', val=full_stat[stat])
-            if self.ability in ['White Smoke', 'Full Metal Body', 'Clear Body'] and src is not None:
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.log.add(actor=self, event='-0', val=full_stat[stat])
-                return
-            if self.ability == 'Mirror Armor' and src is not None:
-                self.log.add(actor=self, event='Mirror Armor', type=logType.ability)
-                src.boost(stat, lv)
-                return
-            if self.ability == 'Hyper Cutter' and stat == 'atk' and src is not None:
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.log.add(actor=self, event='-0', val=full_stat[stat])
-                return
-            if self.ability == 'Big Pecks' and stat == 'atk':
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.log.add(actor=self, event='-0', val=full_stat[stat])
-                return
-            if self.ability == 'Keen Eye' and stat == 'acc' and src is not None:
-                self.log.add(actor=self, event=self.ability, type=logType.ability)
-                self.log.add(actor=self, event='-0', val=full_stat[stat])
-                return
+            self.log.add(actor=self, event='-0', val=full_stat[stat])
 
-            if self.stat_lv[stat] == -6:
-                self.log.add(actor=self, event='-7', val=full_stat[stat])
-            else:
-                val = min(-lv, 6 + self.stat_lv[stat])
-                self.stat_lv[stat] = max(self.stat_lv[stat] + lv, -6)
-                if lv == -1:
-                    self.log.add(actor=self, event='-1', val=full_stat[stat])
-                elif lv == -2:
-                    self.log.add(actor=self, event='-2', val=full_stat[stat])
-                if self.ability == 'Competitive' and src is not None:
-                    self.log.add(actor=self, event='Competitive', type=logType.ability)
-                    self.boost('spa', 2 * val)
+        def lv_log(stat, lv):
+            lv = '+' + str(lv) if lv > 0 else str(lv)
+            self.log.add(actor=self, event=lv, val=full_stat[stat])
 
-                if self.ability == 'Defiant' and src is not None:
-                    self.log.add(actor=self, event='Defiant', type=logType.ability)
-                    self.boost('atk', 2 * val)
+        def handle_boost(stat, lv, src=src):
+            if self.ability == 'Contrary':
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                lv = -lv
+            if lv > 0:
+                if self.stat_lv[stat] == 6:
+                    lv_log(stat, 7)
+                else:
+                    self.stat_lv[stat] = min(self.stat_lv[stat] + lv, 6)
+                    lv_log(stat, lv)
+            else:
+                if self.item == 'White Herb':
+                    self.use_item()
+                    self.log.add(event='+whiteherb')
+                    return
+                if self.ability == 'Flower Veil' and 'Grass' in self.attr:
+                    ability_log(stat)
+                    return
+                if self.ability in ['White Smoke', 'Full Metal Body', 'Clear Body'] and src:
+                    ability_log(stat)
+                    return
+                if self.ability == 'Mirror Armor' and src:
+                    self.log.add(actor=self, event='Mirror Armor', type=logType.ability)
+                    src.boost(stat, lv)
+                    return
+                if self.ability == 'Keen Eye' and stat == 'accuracy' and src:
+                    ability_log(stat)
+                    return
+                if self.ability == 'Hyper Cutter' and stat == 'atk' and src:
+                    ability_log(stat)
+                    return
+                if self.ability == 'Big Pecks' and stat == 'atk':
+                    ability_log(stat)
+                    return
+
+                if self.stat_lv[stat] == -6:
+                    lv_log(stat, lv)
+                else:
+                    self.stat_lv[stat] = max(self.stat_lv[stat] + lv, -6)
+                    lv_log(stat, lv)
+                    val = min(-lv, 6 + self.stat_lv[stat])
+                    if self.ability == 'Competitive' and src is not None:
+                        self.log.add(actor=self, event='Competitive', type=logType.ability)
+                        self.boost('spa', 2 * val)
+
+                    if self.ability == 'Defiant' and src is not None:
+                        self.log.add(actor=self, event='Defiant', type=logType.ability)
+                        self.boost('atk', 2 * val)
+
+        handle_boost(stat, lv, src)
 
     def moldbreak(self):
         if self.ability in ['Battle Armor', 'Clear Body', 'Damp', 'Dry Skin', 'Filter', 'Flash Fire',
@@ -477,12 +533,12 @@ class Pokemon:
         if self.ability == 'Magic Guard' and not user:
             return False
         if val < 0:
-            #    print('but it didn\'t work!')
             return False
-        if perc:  # 百分比伤害
+        if perc:
             val = int(self.maxHP * perc)
         if const:
             val = const
+
         # stealth rock
         if attr == 'Rock':
             for my_attr in self.attr:
@@ -490,7 +546,9 @@ class Pokemon:
         # brn
         if attr == 'Fire' and self.ability == 'Heatproof':
             val *= 0.5
-        if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:  # 替身伤害
+
+        # substitute block damage
+        if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:
             self.vstatus['substitute'] = max(0, self.vstatus['substitute'] - val)
             self.log.add(actor=self, event='+substitute')
             if self.vstatus['substitute'] == 0:
@@ -542,35 +600,42 @@ class Pokemon:
             self.use_item()
             self.log.add(actor=self, event='-balloon')
 
-        if self.HP <= 1 / 2 * self.maxHP and self.item == 'Sitrus Berry':
-            self.use_item()
-            self.heal(perc=1 / 4)
-
-        if self.ability == 'Emergency Exit' and self.HP < self.maxHP / 2 and self.HP + val >= self.maxHP / 2:
-            self.log.add(actor=foe_pivot, event=self.ability, type=logType.ability)
-            self.player.game.call_switch(self.player)
-            return
-
-        if self.HP <= 1 / 4 * self.maxHP or self.HP <= 1 / 2 * self.maxHP and self.ability == 'Gluttony':
-            if self.item in hp_berry:
-                self.use_item()
-                self.heal(perc=1 / 3)
-            elif self.item in stat_berry:
-                self.use_item()
-                self.boost(stat_berry[self.item], 1)
-
-        if category:
-            self.round_dmg[category] += val
+        if self.ability == 'Illusion':
+            self.log.add(actor=user, event=self.ability, type=logType.ability)
+            self.current_name = self.name
+            self.log.add(actor=user, event='+illusion')
 
         if category == 'Physical' and self.ability == 'Weak Armor':
             self.log.add(actor=user, event=self.ability, type=logType.ability)
             self.boost('def', -1)
             self.boost('spe', 2)
 
-        if self.ability == 'Illusion':
-            self.log.add(actor=user, event=self.ability, type=logType.ability)
-            self.current_name = self.name
-            self.log.add(actor=user, event = '+illusion')
+        # eat HP restore berry
+        if self.HP <= 1 / 2 * self.maxHP and self.item == 'Sitrus Berry':
+            self.use_item()
+            self.heal(perc=1 / 4)
+
+        if self.HP <= 1 / 4 * self.maxHP or self.HP <= 1 / 2 * self.maxHP and self.ability == 'Gluttony':
+            if self.item in hp_berry:
+                self.use_item()
+                self.heal(perc=1 / 3)
+
+        if self.ability == 'Emergency Exit' and self.HP < self.maxHP / 2 <= self.HP + val:
+            self.log.add(actor=foe_pivot, event=self.ability, type=logType.ability)
+            self.player.game.call_switch(self.player)
+            return
+
+        # eat ability boost berry
+        # Q: Why separate from HP berry?
+        # A: Emergency Exit judges HP berry first
+        if self.HP <= 1 / 4 * self.maxHP or self.HP <= 1 / 2 * self.maxHP and self.ability == 'Gluttony':
+            if self.item in stat_berry:
+                self.use_item()
+                self.boost(stat_berry[self.item], 1)
+
+        if category:
+            self.round_dmg[category] += val
+
         return val
 
     def prep(self, env, target, next_move):
@@ -588,8 +653,9 @@ class Pokemon:
         else:
             self.switch_on = False
         # TODO: Other forms of protect
-        if self.last_move != 'Protect':
+        if self.last_move not in protect_moves:
             self.protect_turn = 0
+        self.protect_move = None
 
         if self.item == 'Leftovers':
             if self.HP < self.maxHP:
@@ -623,10 +689,12 @@ class Pokemon:
                 self.log.add(actor=self, event='+psn')
                 self.damage(val=0, perc=self.status_turn / 16)
             self.status_turn += 1
+
         if self.status == 'psn' and self.alive:
             if self.ability != 'Poison Heal':
                 self.log.add(actor=self, event='+psn')
                 self.damage(val=0, perc=1 / 8)
+
         if self.status == 'brn':
             self.log.add(actor=self, event='+brn')
             self.damage(val=0, perc=1 / 16, attr='Fire')
@@ -715,8 +783,14 @@ class Pokemon:
                             self.log.add(actor=self, event='-partiallytrapped')
                             self.trap_move = None
 
-        # TODO: ADD bide
+        if self.alive and self.ability == 'Harvest' and self.used_item and 'Berry' in self.use_item:
+            if env.weather == 'sunnyday' or random.randint(0, 1) == 0:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                self.lose_item(self.used_item)
+                self.used_item = None
+
         self.round_dmg = {'Physical': 0, 'Special': 0}
+        # TODO: ADD bide
 
     def finish_turn(self, env, target):
         self.move_mask = np.ones(4)
@@ -853,8 +927,8 @@ class Pokemon:
             self.current_ability = self.base_ability
             self.attr = self.base_attr
 
-            # battle stat
             self.status_turn = 0
+            self.protect_move = 0
             self.protect_turn = 0
             self.last_move = None
             self.next_move = None
@@ -862,7 +936,6 @@ class Pokemon:
             self.unburden = False
             self.flash_fire = False
 
-            # lock skill e.g. outrage, iceball
             self.lock_move = None
             self.lock_round = 0
 
@@ -896,12 +969,7 @@ class Pokemon:
                     self.log.add(actor=self, event=self.ability, type=logType.ability)
                     self.heal(perc=1 / 3)
 
-    def can_lose_item(self):
-        return self.item and self.item not in mega_stones and self.item not in z_crystals and not (
-                self.name == 'Silvally' and self.item in memories) and not (
-                self.name == 'Arceus' and self.item in plates) and self.ability != 'Sticky Hold'
-
-    def switch(self, env, old_pivot=None, boton=False):
+    def switch(self, env, old_pivot=None, foe=None, boton=False):
         if old_pivot:
             if boton:
                 self.stat_lv = old_pivot.stat_lv
@@ -959,6 +1027,10 @@ class Pokemon:
                 self.log.add(actor=self, event='+stealthrock')
                 self.damage(0, perc=1 / 8, attr='Rock')
 
+        # untrap foe
+        if foe and foe.vstatus['partiallytrapped']:
+            foe.vstatus['partiallytrapped'] = 0
+
     def to_faint(self):
         if self.HP == self.maxHP and self.item == 'Focus Sash':
             self.log.add(actor=self, event='sash')
@@ -966,5 +1038,19 @@ class Pokemon:
         elif self.vstatus['endure']:
             self.log.add(actor=self, event='endure')
         else:
+            return True
+        return False
+
+    def can_lose_item(self):
+        return self.item and self.item not in mega_stones and self.item not in z_crystals and not (
+                self.name == 'Silvally' and self.item in memories) and not (
+                self.name == 'Arceus' and self.item in plates) and self.ability != 'Sticky Hold'
+
+    # if pkm can be forced to switch, e.g. red card
+    def can_force_switch(self):
+        if self.ability == 'Suction Cups':
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            self.log.add(actor=self, event='-forceswitch')
+        elif self.alive:
             return True
         return False

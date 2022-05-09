@@ -98,6 +98,9 @@ class BattleLog:
             elif event == 'heal':
                 log = 'was healed ' + str(val) + '% of it\'s health!'
 
+            elif event == '0heal':
+                log = '\'s HP is already full!'
+
             elif event == '-substitute':
                 log = '\'s substitute faded...'
 
@@ -565,8 +568,8 @@ class BattleLog:
             elif event == '+roughskin':
                 log = 'was hurt by Rough Skin!'
 
-            elif event=='+illusion':
-                log='\'s illusion disappeard!'
+            elif event == '+illusion':
+                log = '\'s illusion disappeard!'
 
             elif event == '+whiteherb':
                 log = 'prevented the ability decrease!'

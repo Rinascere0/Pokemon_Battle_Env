@@ -5,8 +5,6 @@ import copy
 from const import *
 
 
-# from pokemon import Pokemon
-
 def gen_z_move(move):
     sk_ctg = move['category']
     if sk_ctg == 'Status':
@@ -60,9 +58,7 @@ def gen_z_move(move):
     return z_move
 
 
-def move_to_key(move):
-    return move.replace(' ', '').replace('-', '').replace('[', '').replace(']', '').replace('\'', '').lower()
-
+# type related
 
 def calc_type_buff(move, target):
     sk_name, sk_type = move['name'], move['type']
@@ -75,15 +71,16 @@ def calc_type_buff(move, target):
             type_buff *= get_attr_fac(Attr.Flying, attr)
 
     if sk_name == 'Freeze Dry' and target.attr:
-        # should be effective
         type_buff *= 4
+    return type_buff
 
-    return type
+
+def get_attr_fac(atk_type, def_type):
+    return Attr_Mat[Attr_dict[atk_type], Attr_dict[def_type]]
 
 
 def imm_poison(pkm):
     return 'Steel' in pkm.attr or 'Poison' in pkm.attr or pkm.ability == 'Immunity'
-
 
 
 def imm_ground(pkm):
@@ -92,26 +89,18 @@ def imm_ground(pkm):
                'magnetrise'] or pkm.vstatus['telekinesis']
 
 
-# add gravity
-
+# stat related
 
 def gen_stats(sp, evs, ivs, lv, nature):
     stats = {}
     stats['HP'] = int((sp['hp'] * 2 + ivs['HP'] + evs['HP'] / 4) * lv / 100 + 10 + lv)
     for ID in ['Atk', 'Def', 'SpA', 'SpD', 'Spe']:
         stats[ID] = int((sp[ID.lower()] * 2 + ivs[ID] + evs[ID] / 4) * lv / 100 + 5)
-
     if nature in Nature:
         buf, deb = Nature[nature]
-
         stats[buf] = int(stats[buf] * 1.1)
         stats[deb] = int(stats[deb] * 0.9)
-
     return stats
-
-
-def None2Zero(x):
-    return 0 if x is None else float(x)
 
 
 def get_ct(lv):
@@ -132,5 +121,11 @@ def calc_stat_lv(lv):
         return 2 / (2 - lv)
 
 
-def get_attr_fac(atk_type, def_type):
-    return Attr_Mat[Attr_dict[atk_type], Attr_dict[def_type]]
+# key related
+
+def move_to_key(move):
+    return move.replace(' ', '').replace('-', '').replace('[', '').replace(']', '').replace('\'', '').lower()
+
+
+def None2Zero(x):
+    return 0 if x is None else float(x)

@@ -165,6 +165,15 @@ Illusion\
 Emergency Exit
 
 【ToFix】\
-Partiallytrapped\
+✔Partiallytrapped\
 mind blown\
 damp
+
+2020.5.9
+
+【Add】\
+Arranged code
+
+【Todo】\
+Natural Gift\
+Soak etc.
