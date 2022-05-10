@@ -101,6 +101,9 @@ class BattleLog:
             elif event == '0heal':
                 log = '\'s HP is already full!'
 
+            elif event =='burnitem':
+                log='\'s '+val+' was burned!'
+
             elif event == '-substitute':
                 log = '\'s substitute faded...'
 
@@ -112,6 +115,12 @@ class BattleLog:
 
             elif event == 'change_type':
                 log = '\'s type changed to ' + val + '!'
+
+            elif event == 'add_type':
+                log = '\'s type was added ' + val + '!'
+
+            elif event == 'add_type':
+                log = 'was removed ' + val + ' types!'
 
             elif event == 'lose':
                 log = 'lost!'
@@ -489,6 +498,7 @@ class BattleLog:
                 return log
 
             # skill
+
             elif event == 'knockoff':
                 log = 'knocked off ' + target + '\'s ' + val + '!'
 

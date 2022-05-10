@@ -89,7 +89,7 @@ class Env:
         turn = 1
         if cond:
             turn = cond['duration']
-            if sidecond in ['lightscreen', 'reflect', 'auroraveil'] and self.item == 'Light Clay':
+            if sidecond in ['lightscreen', 'reflect', 'auroraveil'] and pkm.item == 'Light Clay':
                 turn = 8
 
         my_sidecond[sidecond] += turn

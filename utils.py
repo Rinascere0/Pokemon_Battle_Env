@@ -320,6 +320,10 @@ class Utils:
             return
         user.turn = False
 
+        user.ability = user.current_ability
+        if user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']:
+            target.moldbreak()
+
         # check if pkm is flinched
         if user.vstatus['flinch']:
             if user.ability == 'Inner Focus':
@@ -344,6 +348,9 @@ class Utils:
 
         # check if pkm is frozen, and step the status
         if user.status is 'frz':
+            if move['name'] in ['Fusion Flare', 'Flare Blitz', 'Flame Wheel', 'Scald', 'Steam Eruption', 'Burn Up',
+                                'Sacred Fire']:
+                self.log.add(actor=user, event='-frz')
             if random.uniform(0, 1) <= 0.2:
                 self.log.add(actor=user, event='-frz')
             else:
@@ -365,6 +372,7 @@ class Utils:
                 return
 
         # check if pkm is taunted before using move
+        z_move = 'is_z_move' in move
         if user.vstatus['taunt']:
             if move['category'] == 'Status' and not z_move:
                 self.log.add(actor=user, event='+taunt', val=move['name'])
@@ -380,7 +388,6 @@ class Utils:
             user.choice_move = move['name']
 
         # check if z-move, and transform move_name and power for attack move
-        z_move = 'is_z_move' in move
         if z_move:
             self.log.add(actor=user, event='zmove')
             user.player.use_z()
@@ -424,16 +431,19 @@ class Utils:
 
         self.log.add(actor=user, event='use', val=move['name'])
 
+        if move['name'] == 'Burn Up' and 'Fire' not in user.attr:
+            self.log.add(event='fail')
+            return
+
         if user.ability == 'Protean':
             self.log.add(actor=user, event='Protean', type=logType.ability)
-            self.log.add(actor=user, event='change_type', val=move['type'])
-            user.attr = [move['type']]
+            user.change_type()
 
         if move['name'] == user.last_move:
             user.metronome += 1
         else:
             user.metronome = 0
-            user.last_move = move
+            user.last_move = move['name']
 
         # activate effects for z-status-move
         if z_move and 'zMove' in move:
@@ -469,7 +479,7 @@ class Utils:
                 self.log.add(actor=target, event='+magiccoat', val=move['name'])
                 target = user
 
-        if move['target'] == 'common' and target.vstatus['craftyshield']:
+        if move['target'] == 'common' and env.get_sidecond(target)['craftyshield']:
             self.log.add(actor=target, event='+craftyshield')
             return
 
@@ -701,6 +711,13 @@ class Utils:
                 self.log.add(actor=user, event='shellbell')
                 user.heal(total_damage / 8)
 
+            if move['name'] == 'Burn Up':
+                user.change_type(attr='Fire', add=-1)
+
+            if move['name'] == 'Incinerate' and target.item and ('Berry' in target.item or 'Gem' in target.item):
+                self.log.add(actor=target, event='burn_item', val=target.item)
+                target.lose_item()
+
         # status move
         else:
             # includes info, e.g.duration
@@ -767,6 +784,18 @@ class Utils:
                 else:
                     self.log.add(event='fail')
 
+            if move['name'] == 'Conversion':
+                user.change_type(attr=user.move_infos[0]['type'])
+
+            if move['name'] == 'Conversion2':
+                attr = Moves[move_to_key[target.last_move]]['type']
+                new_attr = gen_def_type(attr)
+                if [new_attr] != user.attr:
+                    self.log.add(event='fail')
+                    return
+                else:
+                    user.change_type(new_attr)
+
             if move['name'] == 'Pain Split':
                 self.log.add(actor=user, event='painsplit', target=target)
                 avg_hp = (user.HP + target.HP) / 2
@@ -815,6 +844,15 @@ class Utils:
             if move['name'] == 'Strength Sap':
                 user.heal(target.Atk)
                 target.boost('atk', -1)
+
+            if move['name'] == 'Soak':
+                target.change_type('Water')
+
+            if move['name'] == 'Forest\'s Curse':
+                target.change_type('Grass', add=True)
+
+            if move['name'] == 'Trick-or-Treat':
+                target.change_type('Ghost', add=True)
 
             if move['name'] in ['Roar', 'Whirlwind']:
                 if target.can_force_switch():
@@ -872,13 +910,14 @@ class Utils:
                     target.add_status('psn', env, user)
 
         if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
-            self.log.add(actor=user, event='knockoff', target=target, val=target.item)
-            target.lose_item()
+            if target.lose_item():
+                self.log.add(actor=user, event='knockoff', target=target, val=target.item)
 
         if user.ability in ['Magician', 'Pickpocket'] and not user.base_item:
             item = target.lose_item()
-            self.log.add(actor=target, event=target.ability, type=logType.ability)
-            user.lose_item(item)
+            if item:
+                self.log.add(actor=target, event=target.ability, type=logType.ability)
+                user.lose_item(item)
 
     def check_useful(self, env, user, target, move, last):
         sk_type = move['type']
@@ -958,9 +997,6 @@ class Utils:
                 if sk_type == 'Normal' and 'Ghost' in target.attr or sk_type == 'Electric' and 'Ground' in target.attr:
                     return NoEffect
 
-        if user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']:
-            target.moldbreak()
-
         # calc accuracy
         if move['name'] in ['Thunder', 'Hurricane']:
             if env.weather is 'sunnyday':
@@ -1011,7 +1047,7 @@ class Utils:
                 target.boost('atk', 1)
                 return NoEffect
 
-        if sk_type == 'Ground':
+        if sk_type == 'Ground' and move['target'] == 'common':
             if imm_ground(target):
                 return NoEffect
 

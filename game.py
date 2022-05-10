@@ -25,22 +25,18 @@ class Game:
         player.set_game(self, len(self.players), self.env, self.log)
         self.players.append(player)
 
+    def force_end(self):
+        for player in self.players:
+            player.signal(Signal.End)
+
     def send(self, pid, move, in_turn=False):
-        # check_valid
         if move['type'] == ActionType.Switch:
             # in turn switch
             if in_turn:
-                if move == self.players[pid].pivot and self.players[pid].alive.sum() > 1:
-                    self.players[pid].signal(Signal.Switch_in_turn)
-                else:
-                    self.switch_in_turn.append(move)
+                self.switch_in_turn.append(move)
             else:
-                # common switch
-                if move == self.players[pid].pivot:
-                    self.players[pid].signal(Signal.Switch)
-                else:
-                    self.round_players.append(self.players[pid])
-                    self.moves.append(move)
+                self.round_players.append(self.players[pid])
+                self.moves.append(move)
         else:
             # use move
             self.round_players.append(self.players[pid])
@@ -53,6 +49,8 @@ class Game:
         self.moves = []
 
     def call_switch(self, player):
+        if player.alive.sum() <= 1:
+            return
         player.signal(Signal.Switch_in_turn)
         while len(self.switch_in_turn) == 0:
             time.sleep(0.01)
@@ -99,14 +97,12 @@ class Game:
                     self.moves.append(None)
                 done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
                 self.reset_round()
-            self.utils.finish_turn(self.env,self.players)
-
+            self.utils.finish_turn(self.env, self.players)
 
             self.log.step_print()
             Round += 1
 
-        for player in self.players:
-            player.signal(Signal.End)
+        self.force_end()
 
 
 if __name__ == '__main__':

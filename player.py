@@ -85,19 +85,83 @@ class Player:
             if pkm.alive:
                 pkm.cure_status()
 
+    def check_valid_action(self, action):
+        try:
+            if action['type'] == ActionType.Switch:
+                return self.check_valid_switch(action, common_action=True)
+            else:
+                pivot = self.get_pivot()
+                move_id = action['item']
+                # check valid move index
+                if not 0 <= move_id < 4:
+                    raise ValueError('Invalid move id!')
+                else:
+                    move = pivot.move_infos[move_id]
+                # check valid mega
+                if action['type'] == ActionType.Mega:
+                    if not self.mega[self.pivot]:
+                        raise ValueError(pivot.name + ' cannot mega now!')
+                # check valid z
+                if action['type'] == ActionType.Z_Move and not pivot.z_mask[move_id]:
+                    raise ValueError(pivot.name + ' cannot use Z now!')
+                # check valid move
+                if not pivot.move_mask[move_id]:
+                    if pivot.move_mask.sum() == 0:
+                        return Moves['struggle']
+                    else:
+                        raise ValueError(pivot.name + ' cannot use ' + move['name'] + ' now!')
+                action['item'] = move
+                return action
+        except ValueError as e:
+            print(repr(e))
+            return False
+
+    def check_valid_switch(self, action, common_action=False):
+        try:
+            pivot = action['item']
+            if action['type'] != ActionType.Switch:
+                raise ValueError('Invalid switch action type!')
+            elif not 0 <= action['item'] < 6:
+                raise ValueError('Invalid switch action index!')
+            elif action['item'] == self.pivot and self.alive.sum() > 1:
+                raise ValueError('Cannot switch to the pokemon on field!')
+            elif not self.alive[action['item']]:
+                raise ValueError('Cannot switch to exhausted pokemon!(' + self.pkms[pivot].name + ')')
+            elif not self.get_pivot().can_switch_out() and common_action:
+                raise ValueError(self.get_pivot().name + ' cannot switch now！')
+        except ValueError as e:
+            print(repr(e))
+            return False
+        else:
+            return action
+
+    def gen_valid_action(self):
+        action = self.gen_action()
+        if self.check_valid_action(action):
+            return action
+        else:
+            self.game.force_end()
+
+    def gen_valid_switch(self):
+        action = self.gen_switch()
+        if self.check_valid_switch(action):
+            return action
+        else:
+            self.game.force_end()
+
     def mainloop(self):
         self.load_team(read_team())
         while True:
             time.sleep(0.1)
             if self.status == Signal.Move:
                 self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_action())
+                self.game.send(self.pid, self.gen_valid_action())
             elif self.status == Signal.Switch:
                 self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_switch())
+                self.game.send(self.pid, self.gen_valid_switch())
             elif self.status == Signal.Switch_in_turn:
                 self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_switch(), in_turn=True)
+                self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
             elif self.status == Signal.End:
                 return
 
@@ -146,16 +210,15 @@ class RandomPlayer(Player):
         pivot = self.pkms[self.pivot]
         use_z = False
         if not pivot.move_mask.any():
-            move = Moves['struggle']
+            move_id = 0
         else:
             move_id = np.random.choice(np.arange(4), p=pivot.move_mask / pivot.move_mask.sum())
-            move = pivot.move_infos[move_id]
             if pivot.z_mask[move_id] and random.uniform(0, 1) < 0.5:
                 use_z = True
 
         if self.mega[self.pivot]:
-            return {'type': ActionType.Mega, 'item': move}
+            return {'type': ActionType.Mega, 'item': move_id}
         elif use_z:
-            return {'type': ActionType.Z_Move, 'item': move}
+            return {'type': ActionType.Z_Move, 'item': move_id}
         else:
-            return {'type': ActionType.Common, 'item': move}
+            return {'type': ActionType.Common, 'item': move_id}

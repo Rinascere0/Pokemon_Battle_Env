@@ -56,3 +56,24 @@ def f():
 #get_key('self')
 print(get_move('strengthsap'))
 print(get_move('quickguard'))
+
+def outer():
+    try:
+        if 1<2:
+            raise ValueError('1')
+        return
+        print('inner')
+    except ValueError as e:
+        print(repr(e))
+    else:
+        return 0
+def outter():
+    try:
+        if outer():
+            raise ValueError('2')
+        print(222)
+    except ValueError as e:
+        print(repr(e))
+
+
+outter()

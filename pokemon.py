@@ -527,7 +527,7 @@ class Pokemon:
                             'Ice Scales', 'Ice Face', 'Pastel Veil ']:
             self.ability = None
 
-    def damage(self, val=0, perc=False, const=0, attr='NoAttr', user=None, category=None):
+    def damage(self, val=0, perc=False, const=0, attr=None, user=None, category=None):
         if not self.alive:
             return False
         if self.ability == 'Magic Guard' and not user:
@@ -540,12 +540,13 @@ class Pokemon:
             val = const
 
         # stealth rock
-        if attr == 'Rock':
-            for my_attr in self.attr:
-                val *= get_attr_fac(attr, my_attr)
-        # brn
-        if attr == 'Fire' and self.ability == 'Heatproof':
-            val *= 0.5
+        if not user:
+            if attr == 'Rock':
+                for my_attr in self.attr:
+                    val *= get_attr_fac(attr, my_attr)
+            # brn
+            if attr == 'Fire' and self.ability == 'Heatproof':
+                val *= 0.5
 
         # substitute block damage
         if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:
@@ -566,7 +567,7 @@ class Pokemon:
             self.HP = 0
             if self.to_faint():
                 self.faint()
-                if user and user is not self:
+                if user and user is not self and user.alive:
                     if self.vstatus['destinybond']:
                         self.log.add(actor=self, event='destinybond', target=user)
                         user.faint()
@@ -585,7 +586,7 @@ class Pokemon:
                         self.log.add(actor=user, event='Beast Boost', type=logType.ability)
                         user.boost(max_stat.lower(), 1)
                 foe_pivot = self.player.get_opponent_pivot()
-                if foe_pivot.ability == 'Soul-Heart':
+                if foe_pivot.alive and foe_pivot.ability == 'Soul-Heart':
                     self.log.add(actor=foe_pivot, event='Soul Heart', type=logType.ability)
                     foe_pivot.boost('spa', 1)
 
@@ -604,6 +605,10 @@ class Pokemon:
             self.log.add(actor=user, event=self.ability, type=logType.ability)
             self.current_name = self.name
             self.log.add(actor=user, event='+illusion')
+
+        if self.ability =='Color Change' and user:
+            self.log.add(actor=user, event=self.ability, type=logType.ability)
+            self.change_type(attr)
 
         if category == 'Physical' and self.ability == 'Weak Armor':
             self.log.add(actor=user, event=self.ability, type=logType.ability)
@@ -838,8 +843,6 @@ class Pokemon:
             self.Acc = calc_stat_lv(Acc_lv)
 
         # Ability Buff
-        self.ability = self.current_ability
-
         if self.ability == 'Defeatist' and self.HP / self.maxHP <= 1 / 2:
             self.Atk *= 0.5
             self.Satk *= 0.5
@@ -1041,6 +1044,17 @@ class Pokemon:
             return True
         return False
 
+    def change_type(self, attr, add=False):
+        if add==True:
+            self.log.add(actor=self, event='add_type', val=attr)
+            self.attr.append(attr)
+        elif add==-1:
+            self.log.add(actor=self, event='remove_type', val=attr)
+            self.attr.remove(attr)
+        else:
+            self.log.add(actor=self, event='change_type', val=attr)
+            self.attr = [attr]
+
     def can_lose_item(self):
         return self.item and self.item not in mega_stones and self.item not in z_crystals and not (
                 self.name == 'Silvally' and self.item in memories) and not (
@@ -1054,3 +1068,6 @@ class Pokemon:
         elif self.alive:
             return True
         return False
+
+    def can_switch_out(self):
+        return self.can_switch and not self.vstatus['partiallytrapped']
