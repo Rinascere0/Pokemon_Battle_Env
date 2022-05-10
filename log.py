@@ -64,6 +64,7 @@ class BattleLog:
             # ability
             if logtype == logType.ability:
                 log = '[' + actor + '\'s ' + event + ']'
+                raw_log['actor'].ability_revealed=True
 
             if log:
                 return log

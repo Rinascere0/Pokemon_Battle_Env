@@ -49,6 +49,7 @@ class Player:
         self.env = env
         self.name = names[pid]
 
+
     def get_last_alive(self):
         for pkm in reversed(self.pkms):
             if pkm.alive:
@@ -150,7 +151,7 @@ class Player:
             self.game.force_end()
 
     def mainloop(self):
-        self.load_team(read_team())
+        self.set_team()
         while True:
             time.sleep(0.1)
             if self.status == Signal.Move:
@@ -175,20 +176,40 @@ class Player:
             self.pkms[pivot].switch(env, self.get_pivot(), foe)
         self.pivot = pivot
 
+    # Change tid into your own team name!
+    def set_team(self):
+        self.load_team(read_team(tid=0))
+
+
     @abstractmethod
+    # You should return a dict:{'type':ActionType.Switch,'item':pivot}
+    # where pivot represents the index of pkm in team you want to switch: range (0,6), type Int
     def gen_switch(self):
         # TODO
         return
 
     @abstractmethod
+    # You should return a dict:{'type':your action_type,'item':move_id}
+    # where action_type includes ActionType.mega, ActionType.z_move and ActionType.common representing not using former two
+    # and move_id represents the index of move you want to use in your pkm on field: range (0,4), type Int
     def gen_action(self):
         # TODO
         return
+
+    # functional method
+    def get_state(self):
+        return self.game.get_state(self.pid)
 
 
 class RandomPlayer(Player):
     def __init__(self):
         super(RandomPlayer, self).__init__()
+
+    def set_team(self):
+        self.load_team(read_team(tid=0))
+        # for test
+        for pkm in self.pkms:
+            pkm.calc_stat(self.env)
 
     def gen_action(self):
         rnd = random.uniform(0, 1)

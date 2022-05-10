@@ -437,7 +437,7 @@ class Utils:
 
         if user.ability == 'Protean':
             self.log.add(actor=user, event='Protean', type=logType.ability)
-            user.change_type()
+            user.change_type(move['type'])
 
         if move['name'] == user.last_move:
             user.metronome += 1

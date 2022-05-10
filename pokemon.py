@@ -30,6 +30,7 @@ class Pokemon:
         self.move_infos = [Moves[move_to_key(move)] for move in self.moves]
 
         self.pp = [move['pp'] * 1.6 for move in self.move_infos]
+        self.maxpp = copy.deepcopy(self.pp)
         self.lv = info['Lv']
 
         # item carried
@@ -45,9 +46,13 @@ class Pokemon:
         self.current_ability = info['Ability']
         # ability in battle, could be temporarily set to None, e.g. Moldbreaker
         self.ability = info['Ability']
+        self.ability_revealed = False
 
         # load dex info
         pkm_info = pokedex[self.name.replace(' ', '').replace('-', '').lower()]
+        # gender
+        if 'gender' not in pkm_info and not self.gender:
+            self.gender=random.choice(['M','F'])
         # specie stat
         self.sp = pkm_info['baseStats']
         # types of pkm in dex
@@ -606,7 +611,7 @@ class Pokemon:
             self.current_name = self.name
             self.log.add(actor=user, event='+illusion')
 
-        if self.ability =='Color Change' and user:
+        if self.ability == 'Color Change' and user:
             self.log.add(actor=user, event=self.ability, type=logType.ability)
             self.change_type(attr)
 
@@ -829,7 +834,7 @@ class Pokemon:
         if self.lock_move or self.vstatus['mustrecharge']:
             self.can_switch = False
 
-    def calc_stat(self, env, target, raw=False):
+    def calc_stat(self, env, target=None, raw=False):
         _, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe = self.stats.values()
         Atk_lv, Def_lv, Satk_lv, Sdef_lv, Spe_lv, Eva_lv, Acc_lv, _ = self.stat_lv.values()
 
@@ -877,7 +882,7 @@ class Pokemon:
         else:
             self.item = self.base_item
 
-        if self.item and 'Berry' in self.item and (self.ability == 'Unnerve' or target.ability == 'Unnerve'):
+        if self.item and 'Berry' in self.item and (self.ability == 'Unnerve' or target and target.ability == 'Unnerve'):
             self.item = None
 
         if self.item == 'Choice Band':
@@ -1045,10 +1050,10 @@ class Pokemon:
         return False
 
     def change_type(self, attr, add=False):
-        if add==True:
+        if add == True:
             self.log.add(actor=self, event='add_type', val=attr)
             self.attr.append(attr)
-        elif add==-1:
+        elif add == -1:
             self.log.add(actor=self, event='remove_type', val=attr)
             self.attr.remove(attr)
         else:

@@ -104,6 +104,109 @@ class Game:
 
         self.force_end()
 
+    def get_state(self, pid):
+        player = self.players[pid]
+        foe = self.players[1 - pid]
+        state = {}
+        my_team = {}
+        pkms = []
+        for pid,pkm in enumerate(player.pkms):
+            pkm_info = {'name': pkm.name,
+                        'id':pid,
+                        'type': pkm.attr,
+                        'gender': pkm.gender,
+                        'nature': pkm.nature,
+                        'item': pkm.base_item,
+                        'ability': pkm.current_ability,
+                        'weight': pkm.weight,
+                        'hp': pkm.HP,
+                        'maxhp': pkm.maxHP,
+                        'atk': pkm.Atk,
+                        'def': pkm.Def,
+                        'spa': pkm.Satk,
+                        'spd': pkm.Sdef,
+                        'spe': pkm.Spe,
+                        'status': pkm.status,
+                        'status_turn': pkm.status_turn,
+                        'stat_lv': pkm.stat_lv,
+                        'alive': pkm.alive}
+            for move_id, move in enumerate(pkm.moves):
+                pkm_info['move' + str(move_id + 1)] = {'name': move, 'pp': pkm.pp[move_id]}
+            total_vstatus = {}
+            for vstatus, turn in pkm.vstatus.items():
+                if turn:
+                    total_vstatus[vstatus] = turn
+            pkm_info['vstatus'] = total_vstatus
+            pkms.append(pkm_info)
+
+        sideconds = {}
+        for sidecond, turn in self.env.side_condition[pid].items():
+            if turn > 0:
+                sideconds[sidecond] = turn
+
+        slotconds = {}
+        for slotcond, turn in self.env.slot_condition[pid].items():
+            if turn:
+                slotconds[slotcond] = turn
+
+        my_team['pkms'] = pkms
+        my_team['sidecond'] = sideconds
+        my_team['slotcond'] = slotconds
+
+        foe_team = {}
+        foe_pkms = []
+        for pid, pkm in enumerate(foe.pkms):
+            pkm_info = {'name': pkm.name,
+                        'id': pid,
+                        'type': pkm.attr,
+                        'status': pkm.status,
+                        'status_turn': pkm.status_turn,
+                        'stat_lv': pkm.stat_lv,
+                        'alive': pkm.alive}
+            if pkm.ability_revealed:
+                pkm_info['ability'] = pkm.ability
+            else:
+                pkm_info['ability'] = 'unrevealed'
+            for move_id, (move, pp, maxpp) in enumerate(zip(pkm.moves, pkm.pp, pkm.maxpp)):
+                if pp < maxpp:
+                    pkm_info['move' + str(move_id + 1)] = {'name': move, 'pp': pkm.pp[move_id]}
+                else:
+                    pkm_info['move' + str(move_id + 1)] = {'name': 'unrevealed'}
+            for vstatus, turn in pkm.vstatus.items():
+                if turn:
+                    total_vstatus[vstatus] = turn
+            pkm_info['vstatus'] = total_vstatus
+            foe_pkms.append(pkm_info)
+
+        sideconds = {}
+        for sidecond, turn in self.env.side_condition[1 - pid].items():
+            if turn > 0:
+                sideconds[sidecond] = turn
+
+        slotconds = {}
+        for slotcond, turn in self.env.slot_condition[1 - pid].items():
+            if turn:
+                slotconds[slotcond] = turn
+
+        foe_team['pkms'] = foe_pkms
+        foe_team['sidecond'] = sideconds
+        foe_team['slotcond'] = slotconds
+
+        env = {'weather': {'name': self.env.weather, 'remain': self.env.weather_turn},
+               'terrain': {'name': self.env.terrain, 'remain': self.env.terrain_turn}}
+
+        pseudo_weather = {}
+        for pd_weather, turn in self.env.pseudo_weather.items():
+            if turn:
+                pseudo_weather[pd_weather] = turn
+        env['pseudo_weather'] = pseudo_weather
+
+        state['my_team'] = my_team
+        state['foe_team'] = foe_team
+        state['env'] = env
+
+        return state
+
 
 if __name__ == '__main__':
     game = Game()

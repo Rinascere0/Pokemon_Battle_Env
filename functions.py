@@ -141,6 +141,3 @@ def gen_def_type(attr):
 def gen_atk_type(attr):
     return
 
-
-print(gen_def_type('Grass'))
-

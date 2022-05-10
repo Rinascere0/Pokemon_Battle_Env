@@ -76,4 +76,4 @@ def outter():
         print(repr(e))
 
 
-outter()
+print(pokedex['latios'])

@@ -23,8 +23,8 @@ class Env:
                                     'stickyweb': 0, 'tailwind': 0, 'toxicspikes': 0,
                                     'wideguard': 0})
 
-        self.slot_condition = [{'healingwish': 0, 'wish': {'turn': 0, 'val': None}, 'lunardance': 0, 'heal': 0},
-                               {'healingwish': 0, 'wish': {'turn': 0, 'val': None}, 'lunardance': 0, 'heal': 0}]
+        self.slot_condition = [{'healingwish': 0, 'wish': None, 'lunardance': 0, 'heal': 0},
+                               {'healingwish': 0, 'wish': None, 'lunardance': 0, 'heal': 0}]
 
         self.weather = None
         self.weather_turn = 0
@@ -114,12 +114,12 @@ class Env:
                         log.add(actor=player, event='-' + cond)
 
             wish = self.slot_condition[pid]['wish']
-            if wish['turn'] > 0:
+            if wish:
                 wish['turn'] -= 1
                 if wish['turn'] == 0:
                     log.add(actor=wish['val'], event='+wish')
                     player.get_pivot().heal(wish['val'])
-                    wish['turn'] = 0
+                    wish = None
 
         if self.weather_turn > 0:
             self.weather_turn -= 1
@@ -145,11 +145,12 @@ class Env:
             else:
                 log.add(event='fail')
                 return
-        log.add(event=pseudo_weather)
-        if pseudo_weather in ['fairylock', 'iondeluge']:
-            self.pseudo_weather[pseudo_weather] = 1
         else:
-            self.pseudo_weather[pseudo_weather] = 5
+            log.add(event=pseudo_weather)
+            if pseudo_weather in ['fairylock', 'iondeluge']:
+                self.pseudo_weather[pseudo_weather] = 1
+            else:
+                self.pseudo_weather[pseudo_weather] = 5
 
     def clear_field(self, player, type, log):
         pid = player.pid
