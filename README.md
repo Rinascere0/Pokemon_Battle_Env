@@ -3,7 +3,7 @@
 ## About it
 
 It's an alpha version of Pokemon 6v6 battle env, implementing most mechanism of OU and UU tier.\
-Any reports of bugs and unimplemented mechanisms are always welcome!\
+Any reports of bugs and unimplemented mechanisms are always welcome!
 
 Thanks to database provided by Pokemon Showdown.\
 Thanks to teams provide by BJK.
