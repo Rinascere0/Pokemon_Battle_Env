@@ -36,3 +36,6 @@ def get_move(name):
 # get_key('volatileStatus')
 # get_key('self')
 # get_nkey('flags')
+get_move('taunt')
+get_move('leechseed')
+get_move('spiritshackle')

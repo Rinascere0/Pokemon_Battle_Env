@@ -33,7 +33,7 @@ Z_MOVES = {
 }
 protect_moves = ['protect', 'detect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']
 vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion',
-                'partiallytrapped']
+                'partiallytrapped','lockon','embargo','healblock','telekinesis']
 
 z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
               'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',

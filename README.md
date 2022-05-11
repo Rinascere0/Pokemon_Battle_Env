@@ -5,8 +5,8 @@
 It's an alpha version of Pokemon 6v6 battle env, implementing most mechanism of OU and UU tier.\
 Any reports of bugs and unimplemented mechanisms are always welcome!
 
-Thanks to database provided by Pokemon Showdown.\
-Thanks to teams provide by BJK.
+Thanks to Pokemon Showdown for providing pokemon and move data.\
+Thanks to BJK for providing battle teams.
 ## How to use?
 
 Run `game.py`, and built-in AI will automatically perform a 6v6 battle!
@@ -15,7 +15,7 @@ Run `game.py`, and built-in AI will automatically perform a 6v6 battle!
 
 1. Create your own player class by inheriting Player class in `player.py`,
 2. Implement abstract methods in your class according to your strategy,
-3. Import your own team into 'team' directory, and edit according parameters in your class (Of course you ccan just use
+3. Import your own team into 'team' directory, and edit according parameters in your class (Of course you can just use
    built-in teams!).
 
 
@@ -39,7 +39,7 @@ Spikes (add and effect)
 ✔U-turn\
 ✔volt switch
 
-2020.5.1
+2022.5.1
 
 【Add】\
 weather, ability & stop\
@@ -70,7 +70,7 @@ focus sash
 ✔match-up switch-\
 is to ==
 
-2020.5.2
+2022.5.2
 
 【Add】\
 Justified\
@@ -87,7 +87,7 @@ First Impression
 【ToFix】\
 ✔Faint over and over!
 
-2020.5.3
+2022.5.3
 
 【Todo】\
 ✔Own Tempo\
@@ -97,7 +97,7 @@ First Impression
 ✔Water Bubble\
 ✔Skill Link
 
-2020.5.4
+2022.5.4
 
 【Add】\
 Mega
@@ -110,7 +110,7 @@ Mega
 ✔struggle\
 Ditto
 
-2020.5.5
+2022.5.5
 
 【Add】\
 heal bell\
@@ -128,7 +128,7 @@ nightmare
 Gravity [immue judge]\
 sleep talk
 
-2020.5.6
+2022.5.6
 
 【Add】\
 all gen7 ou abilities\
@@ -138,7 +138,7 @@ mega seq
 【Todo】\
 破格时机
 
-2020.5.7
+2022.5.7
 
 【Add】\
 Prankster\
@@ -153,7 +153,7 @@ natural cure
 【ToFix】\
 Wrong struggle
 
-2020.5.8
+2022.5.8
 
 【Add】\
 Arceus Z Inner Focus\
@@ -176,7 +176,7 @@ Emergency Exit
 mind blown\
 damp
 
-2020.5.9
+2022.5.9
 
 【Add】\
 Arranged code
@@ -184,5 +184,10 @@ Arranged code
 【Todo】\
 Natural Gift\
 Soak etc.
+
+2022.5.9
+
+【Todo】\
+embargo log
 
 </details>

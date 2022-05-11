@@ -51,7 +51,8 @@ class BattleLog:
                 f.write('\n')
         else:
             for log in self.log_text:
-                print(log)
+                if log:
+                    print(log)
                 if log and 'lost!' in log:
                     break
             print()
@@ -273,7 +274,7 @@ class BattleLog:
                 log = 'is no longer trapped!'
 
             elif event == 'status':
-                log = 'is ' + str(val) + '!'
+                log = 'was ' + str(val) + '!'
                 if val == 'paralysed':
                     log += ' It may be unable to move!'
 
@@ -350,7 +351,7 @@ class BattleLog:
             elif event == 'sunnyday':
                 log = "The sunlight turned harsh!"
 
-            elif event == 'Raindance':
+            elif event == 'RainDance':
                 log = "It started to rain!"
 
             elif event == 'hail':
@@ -359,7 +360,7 @@ class BattleLog:
             elif event == 'Sandstorm':
                 log = "A sandstorm kicked up!"
 
-            elif event == '=Raindance':
+            elif event == '=RainDance':
                 log = 'Rain continues to fall.'
 
             elif event == '=Sandstorm':
@@ -374,7 +375,7 @@ class BattleLog:
             elif event == '-sunnyday':
                 log = "The sunlight faded."
 
-            elif event == '-Raindance':
+            elif event == '-RainDance':
                 log = "The rain stopped."
 
             elif event == '-hail':

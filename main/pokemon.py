@@ -164,11 +164,11 @@ class Pokemon:
 
         # volatile status
         self.vstatus = {'aquaring': 0, 'attract': 0, 'banefulbunker': 0, 'bide': 0, 'partiallytrapped': 0, 'charge': 0,
-                        'confusion': 0, 'curse': 0, 'defensecurl': 0, 'destinybond': 0, 'protect': 0,
+                        'confusion': 0, 'curse': 0, 'defensecurl': 0, 'destinybond': 0, 'protect': 0, 'cantescape': 0,
                         'disable': 0, 'electrify': 0, 'embargo': 0, 'encore': 0, 'endure': 0, 'flinch': 0,
                         'focusenergy': 0, 'followme': 0, 'foresight': 0, 'gastroacid': 0, 'grudge': 0, 'healblock': 0,
                         'helpinghand': 0, 'imprison': 0, 'ingrain': 0, 'kingsshield': 0, 'laserfocus': 0,
-                        'leechseed': 0, 'lockedmove': 0, 'magiccoat': 0,
+                        'leechseed': 0, 'lockedmove': 0, 'magiccoat': 0,'lockon':0,
                         'magnetrise': 0, 'maxguard': 0, 'minimize': 0, 'miracleeye': 0, 'nightmare': 0, 'noretreat': 0,
                         'obstruct': 0, 'octolock': 0, 'powder': 0, 'powertrick': 0, 'ragepowder': 0, 'smackdown': 0,
                         'snatch': 0, 'spikyshield': 0, 'spotlight': 0, 'stockpile': 0, 'substitute': 0, 'tarshot': 0,
@@ -236,7 +236,7 @@ class Pokemon:
             self.unburden = True
 
     def lose_item(self, sub=None):
-        if self.item in mega_stones or self.item in z_crystals:
+        if self.item in mega_stones or self.item in z_crystals or self.substitute:
             return False
         if sub:
             temp = self.base_item
@@ -295,8 +295,11 @@ class Pokemon:
         self.log.add(actor=self, event='-vstatus', val=vs)
         self.vstatus[vs] = 0
 
+    # TODO: Differ between return True and Nolog
     def add_status(self, status, env, user=None):
         if not self.alive:
+            return False
+        if self.vstatus['substitute'] and user:
             return False
         if not imm_ground(
                 self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
@@ -337,10 +340,13 @@ class Pokemon:
                 user.add_status(status, env)
         else:
             self.log.add(actor=self, event='++status', val=full_status[self.status])
+            return True
 
         if self.item == 'Lum Berry':
             self.use_item()
             self.cure_status()
+
+        return True
 
     def add_vstate(self, vstatus, cond=None, user=None):
         # fail if already dead
@@ -350,6 +356,12 @@ class Pokemon:
         # fail if already had same v-status
         if self.vstatus[vstatus] != 0:
             self.log.add(actor=self, event='++' + vstatus)
+            # here True means no log
+            return True
+
+        if self.vstatus['substitute'] and vstatus in ['confusion', 'flinch', 'leechseed', 'drowsy', 'nightmare',
+                                                      'lockon', 'healblock', 'embargo',
+                                                      'telekinesis', 'cantescape']:
             return False
 
         # oblivous immues attract and taunt
@@ -370,7 +382,7 @@ class Pokemon:
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 return False
             turn = random.randint(1, 4)
-        elif vstatus in ['smackdown', 'foresight']:
+        elif vstatus in ['smackdown', 'foresight', 'curse']:
             turn = 10000
         elif vstatus == 'attract':
             if self.gender and user.gender and self.gender != user.gender:
@@ -390,8 +402,7 @@ class Pokemon:
                     self.protect_move = vstatus
             else:
                 self.protect_turn = 0
-                self.log.add(event='fail')
-                return False
+                return True
         elif vstatus == 'partiallytrapped':
             turn = random.randint(4, 5)
             trap_move = user.next_move['name']
@@ -406,7 +417,7 @@ class Pokemon:
                 turn = self.maxHP / 4
             else:
                 self.log.add(actor=self, event='--substitute')
-                return False
+                return True
         elif vstatus == 'disable':
             self.disable_move = self.last_move
             turn = 5
@@ -418,6 +429,8 @@ class Pokemon:
         if self.item == 'Mental Herb' and vstatus in ['attract', 'disable', 'encore', 'healblock', 'taunt', 'torment']:
             self.use_item()
             self.cure_vstatus(vstatus)
+
+        return True
 
     # heal the pkm
     '''
@@ -548,6 +561,8 @@ class Pokemon:
         if const:
             val = const
 
+        # judge where have substitute before this damage
+        self.substitute = self.vstatus['substitute']
         # stealth rock
         if not user:
             if attr == 'Rock':
@@ -656,6 +671,7 @@ class Pokemon:
         self.calc_stat(env, target)
         self.turn = True
         self.next_move = None
+        self.substitute = self.vstatus['substitute']
         if next_move['type'] != ActionType.Switch:
             self.next_move = next_move['item']
 
@@ -702,7 +718,7 @@ class Pokemon:
             self.status_turn += 1
             if self.ability != 'Poison Heal':
                 self.log.add(actor=self, event='+psn')
-                self.damage(val=0, perc=(self.status_turn-1) / 16)
+                self.damage(val=0, perc=(self.status_turn - 1) / 16)
 
         if self.status == 'psn' and self.alive:
             if self.ability != 'Poison Heal':
@@ -725,11 +741,11 @@ class Pokemon:
             self.log.add(actor=self, event='dryskin')
             self.damage(0, 1 / 8)
 
-        if self.ability == 'Dry Skin' and env.weather is 'Raindance' and self.alive:
+        if self.ability == 'Dry Skin' and env.weather is 'RainDance' and self.alive:
             self.log.add(actor=self, event='dryskin')
             self.heal(0, 1 / 8)
 
-        if env.weather == 'Raindance' and self.ability == 'Rain Dish' and self.alive:
+        if env.weather == 'RainDance' and self.ability == 'Rain Dish' and self.alive:
             self.log.add(actor=self, event='Rain Dish')
             self.heal(0, 1 / 16)
 
@@ -746,7 +762,7 @@ class Pokemon:
                 self.log.add(actor=self, event='+Sandstorm')
                 self.damage(0, 1 / 16)
 
-        if env.weather == 'Raindance' and self.ability == 'Hydration' and self.alive:
+        if env.weather == 'RainDance' and self.ability == 'Hydration' and self.alive:
             if self.status:
                 self.log.add(actor=self, event='Hydration', type=logType.ability)
                 self.cure_status()
@@ -873,7 +889,7 @@ class Pokemon:
             self.Satk *= 2
         if self.ability == 'Chlorophyll' and env.weather == 'sunnyday':
             self.Spe *= 2
-        if self.ability == 'Swift Swim' and env.weather == 'Raindance':
+        if self.ability == 'Swift Swim' and env.weather == 'RainDance':
             self.Spe *= 2
         if self.ability == 'Sand Rush' and env.weather == 'Sandstorm':
             self.Spe *= 2
@@ -887,7 +903,7 @@ class Pokemon:
             self.Spe *= 2
 
         # Item Buff
-        if env.pseudo_weather['magicroom'] or self.ability == 'Klutz':
+        if env.pseudo_weather['magicroom'] or self.ability == 'Klutz' or self.vstatus['embargo']:
             self.item = None
         else:
             self.item = self.base_item
@@ -945,7 +961,7 @@ class Pokemon:
             self.current_ability = self.base_ability
             self.attr = self.base_attr
 
-            if self.status=='tox':
+            if self.status == 'tox':
                 self.status_turn = 1
             self.protect_move = 0
             self.protect_turn = 0

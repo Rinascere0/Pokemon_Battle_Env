@@ -80,6 +80,7 @@ def imm_poison(pkm):
     return 'Steel' in pkm.attr or 'Poison' in pkm.attr or pkm.ability == 'Immunity'
 
 
+# TODO: Gravity
 def imm_ground(pkm):
     return not pkm.vstatus[
         'smackdown'] and 'Flying' in pkm.attr or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' or pkm.vstatus[
@@ -129,12 +130,10 @@ def None2Zero(x):
 
 
 def gen_def_type(attr):
-
-    type_prob = Attr_Mat[ Attr_dict[attr]] < 1
+    type_prob = Attr_Mat[Attr_dict[attr]] < 1
     type_id = np.random.choice(np.arange(0, 19), p=type_prob / type_prob.sum())
     return list(Attr_dict.keys())[type_id]
 
 
 def gen_atk_type(attr):
     return
-

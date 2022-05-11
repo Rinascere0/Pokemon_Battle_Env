@@ -1,12 +1,14 @@
-from lib.functions import *
 from data.moves import Moves
 
+from lib.functions import *
 from lib.read_team import *
-from main.player import Player
-from main.env import Env
 from lib.const import *
 
+from main.player import Player
+from main.env import Env
 from main.log import BattleLog
+
+import math
 
 Hit, Miss, NoEffect, Onhold, NoLog = 0, 1, 2, 3, 4
 
@@ -217,7 +219,7 @@ class Utils:
 
                 if user.ability == 'Drizzle':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
-                    env.set_weather(weather='Raindance', item=user.item, log=self.log)
+                    env.set_weather(weather='RainDance', item=user.item, log=self.log)
 
                 if user.ability == 'Drought':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
@@ -280,8 +282,8 @@ class Utils:
 
     # old method for test
     def step_turn_pkm(self, env, pkms, moves):
-        pkms[0].prep(env)
-        pkms[1].prep(env)
+        pkms[0].prep(env,pkms[1],moves[0])
+        pkms[1].prep(env,pkms[0],moves[1])
         moves = [Moves[moves[0]], Moves[moves[1]]]
         prior = np.zeros(2)
         if pkms[0].Spe > pkms[1].Spe:
@@ -414,7 +416,7 @@ class Utils:
                     sk_type = 'Ice'
                 elif env.weather is 'sunnyday':
                     sk_type = 'Fire'
-                elif env.weather is 'Raindance':
+                elif env.weather is 'RainDance':
                     sk_type = 'Water'
                 elif env.weather is 'Sandstorm':
                     sk_type = 'Rock'
@@ -644,23 +646,24 @@ class Utils:
                         if 'self' in effect:
                             effect = effect['self']
                             sec_target = user
-                        if 'status' in effect:
-                            sec_target.add_status(effect['status'], env, user)
-                        if 'volatileStatus' in effect:
-                            sec_target.add_vstate(effect['volatileStatus'], user=user)
-                        if 'boosts' in effect:
-                            for stat, lv in effect['boosts'].items():
-                                sec_target.boost(stat, lv)
+                        if sec_target is user or not sec_target.substitute:
+                            if 'status' in effect:
+                                sec_target.add_status(effect['status'], env, user)
+                            if 'volatileStatus' in effect:
+                                sec_target.add_vstate(effect['volatileStatus'], user=user)
+                            if 'boosts' in effect:
+                                for stat, lv in effect['boosts'].items():
+                                    sec_target.boost(stat, lv)
 
-                        # specific effects
-                        if move['name'] == 'Tri Attack':
-                            status = random.randint(0, 2)
-                            if status == 0:
-                                sec_target.add_status('par', env, user)
-                            elif status == 1:
-                                sec_target.add_status('brn', env, user)
-                            else:
-                                sec_target.add_status('frz', env, user)
+                            # specific effects
+                            if move['name'] == 'Tri Attack':
+                                status = random.randint(0, 2)
+                                if status == 0:
+                                    sec_target.add_status('par', env, user)
+                                elif status == 1:
+                                    sec_target.add_status('brn', env, user)
+                                else:
+                                    sec_target.add_status('frz', env, user)
 
             # drain move
             if 'drain' in move:
@@ -733,11 +736,13 @@ class Utils:
 
             if 'status' in move:
                 status = move['status']
-                target.add_status(status, env, user)
+                if not target.add_status(status, env, user):
+                    self.log.add(event='fail')
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
-                target.add_vstate(vstatus, cond, user)
+                if not target.add_vstate(vstatus, cond, user):
+                    self.log.add(event='fail')
 
             if 'weather' in move:
                 weather = move['weather']
@@ -753,7 +758,8 @@ class Utils:
 
             if 'sideCondition' in move:
                 sidecond = move['sideCondition']
-                env.add_sidecond(sidecond, target, cond, self.log)
+                if not env.add_sidecond(sidecond, target, cond, self.log):
+                    self.log.add(event='fail')
 
             # other types of effects
             if move['name'] == 'Belly Drum':
@@ -806,6 +812,15 @@ class Utils:
                 user.reset_stat_lv()
                 target.reset_stat_lv()
 
+            if move['name'] == 'Curse':
+                if 'Ghost' in user.attr:
+                    user.damage(perc=1 / 2)
+                    target.add_vstate('curse')
+                else:
+                    user.boost('atk', 1)
+                    user.boost('def', 1)
+                    user.boost('spe', -1)
+
             if move['name'] == 'Heal Bell':
                 self.log.add(event='healbell')
                 user.player.cure_all()
@@ -855,65 +870,67 @@ class Utils:
                     game.call_switch(target.player)
 
         # contact move
+        # TODO: Multi-count move should judge each time!
         if 'contact' in move['flags']:
-            if target.ability in ['Iron Barbs', 'Rough Skin']:
-                self.log.add(actor=target, event=target.ability, type=logType.ability)
-                user.damage(0, perc=1 / 8)
-
-            if target.item == 'Rocky Helmet':
-                self.log.add(actor=user, event='rockyhelmet')
-                user.damage(0, perc=1 / 6)
-
-            if target.ability == 'Gooey':
-                self.log.add(actor=target, event=target.ability, type=logType.ability)
-                user.boost('spe', -1)
-
-            if target.ability == 'Cute Charm':
-                if random.uniform(0, 1) < 0.3:
+            if not target.substitute:
+                if target.ability in ['Iron Barbs', 'Rough Skin']:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_vstate('attract', cond=None, user=user)
+                    user.damage(0, perc=1 / 8)
 
-            if target.ability == 'Poison Point':
-                if random.uniform(0, 1) < 0.3:
+                if target.item == 'Rocky Helmet':
+                    self.log.add(actor=user, event='rockyhelmet')
+                    user.damage(0, perc=1 / 6)
+
+                if target.ability == 'Gooey':
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('psn', env, user)
+                    user.boost('spe', -1)
 
-            if target.ability == 'Flame Body':
-                if random.uniform(0, 1) < 0.3:
+                if target.ability == 'Cute Charm':
+                    if random.uniform(0, 1) < 0.3:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_vstate('attract', cond=None, user=user)
+
+                if target.ability == 'Poison Point':
+                    if random.uniform(0, 1) < 0.3:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_status('psn', env, user)
+
+                if target.ability == 'Flame Body':
+                    if random.uniform(0, 1) < 0.3:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_status('brn', env, user)
+
+                if target.ability == 'Static':
+                    if random.uniform(0, 1) < 0.3:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_status('par', env, user)
+
+                if target.ability == 'Effect Spore':
+                    rnd = random.uniform(0, 1)
+                    if rnd < 0.1:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_status('psn', env, user)
+                    elif rnd < 0.2:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_status('par', env, user)
+                    elif rnd < 0.3:
+                        self.log.add(actor=target, event=target.ability, type=logType.ability)
+                        user.add_status('slp', env, user)
+
+                if target.ability == 'Poison Touch':
+                    if random.uniform(0, 1) < 0.3:
+                        self.log.add(actor=user, event=user.ability, type=logType.ability)
+                        target.add_status('psn', env, user)
+
+            if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
+                if target.lose_item():
+                    self.log.add(actor=user, event='knockoff', target=target, val=target.item)
+
+            if user.ability in ['Magician', 'Pickpocket'] and not user.base_item:
+                item = target.lose_item()
+                if item:
                     self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('brn', env, user)
-
-            if target.ability == 'Static':
-                if random.uniform(0, 1) < 0.3:
-                    self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('par', env, user)
-
-            if target.ability == 'Effect Spore':
-                rnd = random.uniform(0, 1)
-                if rnd < 0.1:
-                    self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('psn', env, user)
-                elif rnd < 0.2:
-                    self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('par', env, user)
-                elif rnd < 0.3:
-                    self.log.add(actor=target, event=target.ability, type=logType.ability)
-                    user.add_status('slp', env, user)
-
-            if target.ability == 'Poison Touch':
-                if random.uniform(0, 1) < 0.3:
-                    self.log.add(actor=user, event=user.ability, type=logType.ability)
-                    target.add_status('psn', env, user)
-
-        if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
-            if target.lose_item():
-                self.log.add(actor=user, event='knockoff', target=target, val=target.item)
-
-        if user.ability in ['Magician', 'Pickpocket'] and not user.base_item:
-            item = target.lose_item()
-            if item:
-                self.log.add(actor=target, event=target.ability, type=logType.ability)
-                user.lose_item(item)
+                    user.lose_item(item)
 
     def check_useful(self, env, user, target, move, last):
         sk_type = move['type']
@@ -964,8 +981,9 @@ class Utils:
                             user.boost('atk', -1)
                     return NoLog
 
-        if 'No Guard' in [user.ability, target.ability]:
+        if 'No Guard' in [user.ability, target.ability] or target.vstatus['lockon']:
             always_hit = True
+
 
         if target.off_field and not always_hit:
             if target.off_field == 'Dig':
@@ -997,7 +1015,7 @@ class Utils:
         if move['name'] in ['Thunder', 'Hurricane']:
             if env.weather is 'sunnyday':
                 acc = 50
-            if env.weather is 'Raindance':
+            if env.weather is 'RainDance':
                 acc = 100
 
         if move['name'] == 'Blizzard' and env.weather is 'hail':
@@ -1445,7 +1463,7 @@ class Utils:
         if env.weather == 'sunnyday' and sk_type == 'Fire':
             other_buff *= 1.5
 
-        if env.weather == 'Raindance' and sk_type == 'Water':
+        if env.weather == 'RainDance' and sk_type == 'Water':
             other_buff *= 1.5
 
         if env.pseudo_weather['mudsport'] and sk_type == 'Electric':

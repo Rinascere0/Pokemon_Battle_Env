@@ -80,11 +80,9 @@ class Env:
         if sidecond == 'toxicspikes' and my_sidecond[sidecond] > 1 \
                 or sidecond == 'spikes' and my_sidecond[sidecond] > 2 \
                 or 'spikes' not in sidecond and my_sidecond[sidecond] > 0:
-            log.add(event='fail')
-            return
+            return False
         if sidecond == 'auroraveil' and self.weather['hail'] == 0:
-            log.add(event='fail')
-            return
+            return False
 
         turn = 1
         if cond:
@@ -94,6 +92,7 @@ class Env:
 
         my_sidecond[sidecond] += turn
         log.add(actor=pkm.player, event=sidecond)
+        return True
 
     def step_pseudo_weather(self, log):
         for pd in self.pseudo_weather:
