@@ -1,11 +1,11 @@
 import random
 import re
-from pokemon import Pokemon
+from main.pokemon import Pokemon
 import pickle
 
 
 def read_set():
-    with open('team/ou.txt', 'r') as f:
+    with open('../team/ou.txt', 'r') as f:
         s = f.read()
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
     ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 \-]+))'
@@ -35,10 +35,10 @@ def read_set():
             pkm_sets[name] = [pkm]
             pkm_dicts[name] = [res]
 
-    with open('team/ou.pkl', 'wb') as f:
+    with open('../team/ou.pkl', 'wb') as f:
         pickle.dump(pkm_sets, f)
 
-    with open('team/ou.py', 'w') as f:
+    with open('../team/ou.py', 'w') as f:
         f.write('ou_sets=' + str(pkm_dicts))
 
 

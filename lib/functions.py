@@ -1,8 +1,5 @@
-import numpy
-import math
-import random
 import copy
-from const import *
+from lib.const import *
 
 
 def gen_z_move(move):

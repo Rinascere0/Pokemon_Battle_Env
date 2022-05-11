@@ -1,25 +1,33 @@
 import time
 
-from env import Env
-from player import RandomPlayer
-from log import BattleLog
-from utils import Utils
-from const import *
-from functions import *
+from main.env import Env
+# import your own player class
+from main.player import RandomPlayer
+from main.log import BattleLog
+from main.utils import Utils
+from lib.functions import *
+
+# set total game nums
+game_nums = 5
+
+# whether show log in terminal or save log in file
+save_log = False
 
 
 class Game:
     def __init__(self):
         self.env = Env()
-        self.log = BattleLog()
+        self.log = BattleLog(save_log)
         self.utils = Utils(self.log)
         self.players = []
         self.moves = []
         self.round_players = []
         self.switch_in_turn = []
+        self.end = False
 
-        for _ in range(2):
-            self.add_player(RandomPlayer())
+        # change to your own player class!
+        self.add_player(RandomPlayer())
+        self.add_player(RandomPlayer())
 
     def add_player(self, player):
         player.set_game(self, len(self.players), self.env, self.log)
@@ -29,7 +37,13 @@ class Game:
         for player in self.players:
             player.signal(Signal.End)
 
+    def force_wait(self):
+        for player in self.players:
+            player.signal(Signal.Wait)
+
     def send(self, pid, move, in_turn=False):
+        if not move:
+            self.end = True
         if move['type'] == ActionType.Switch:
             # in turn switch
             if in_turn:
@@ -63,44 +77,49 @@ class Game:
         for player in self.players:
             player.start()
         time.sleep(0.1)
-        self.log.reset(self.players)
 
-        # Match-up
-        self.moves = []
-        self.players[0].signal(Signal.Switch)
-        self.players[1].signal(Signal.Switch)
-        while len(self.moves) < 2:
-            time.sleep(0.01)
-        done = self.utils.match_up(self.env, self.round_players, self.moves)
-        self.reset_round()
+        for game_id in range(game_nums):
+            for player in self.players:
+                player.set_team()
+            self.log.reset(self.players)
+            self.env.reset()
 
-        # Mainloop
-        Round = 1
-        while not done:
-            print('Round', Round)
-            self.players[0].signal(Signal.Move)
-            self.players[1].signal(Signal.Move)
+            # Match-up
+            self.moves = []
+            self.players[0].signal(Signal.Switch)
+            self.players[1].signal(Signal.Switch)
             while len(self.moves) < 2:
                 time.sleep(0.01)
-            done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
+            done = self.utils.match_up(self.env, self.round_players, self.moves)
             self.reset_round()
 
-            self.env.step(self.players, self.log)
-            while not done and len(to_switch) > 0:
-                for player in to_switch:
-                    player.signal(Signal.Switch)
-                while len(self.moves) < len(to_switch):
+            # Mainloop
+            Round = 1
+            while not done:
+                print('Round', Round)
+                self.players[0].signal(Signal.Move)
+                self.players[1].signal(Signal.Move)
+                while len(self.moves) < 2:
                     time.sleep(0.01)
-
-                if len(to_switch) < 2:
-                    self.round_players.append(self.players[1 - self.round_players[0].pid])
-                    self.moves.append(None)
-                done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
+                done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
                 self.reset_round()
-            self.utils.finish_turn(self.env, self.players)
 
-            self.log.step_print()
-            Round += 1
+                self.env.step(self.players, self.log)
+                while not done and len(to_switch) > 0:
+                    for player in to_switch:
+                        player.signal(Signal.Switch)
+                    while len(self.moves) < len(to_switch):
+                        time.sleep(0.01)
+
+                    if len(to_switch) < 2:
+                        self.round_players.append(self.players[1 - self.round_players[0].pid])
+                        self.moves.append(None)
+                    done, to_switch = self.utils.check_switch(self.env, self.round_players, self.moves)
+                    self.reset_round()
+                self.utils.finish_turn(self.env, self.players)
+
+                self.log.step_print()
+                Round += 1
 
         self.force_end()
 
@@ -110,9 +129,9 @@ class Game:
         state = {}
         my_team = {}
         pkms = []
-        for pid,pkm in enumerate(player.pkms):
+        for pkm_id, pkm in enumerate(player.pkms):
             pkm_info = {'name': pkm.name,
-                        'id':pid,
+                        'id': pkm_id,
                         'type': pkm.attr,
                         'gender': pkm.gender,
                         'nature': pkm.nature,
@@ -155,9 +174,9 @@ class Game:
 
         foe_team = {}
         foe_pkms = []
-        for pid, pkm in enumerate(foe.pkms):
+        for pkm_id, pkm in enumerate(foe.pkms):
             pkm_info = {'name': pkm.name,
-                        'id': pid,
+                        'id': pkm_id,
                         'type': pkm.attr,
                         'status': pkm.status,
                         'status_turn': pkm.status_turn,
@@ -204,6 +223,7 @@ class Game:
         state['my_team'] = my_team
         state['foe_team'] = foe_team
         state['env'] = env
+        state['loser'] = self.log.loser
 
         return state
 

@@ -1,15 +1,11 @@
 import random
 import time
-import numpy as np
 from abc import abstractmethod
 from data.moves import Moves
 
-from pokemon import Pokemon
-from const import *
+from lib.const import *
 from threading import Thread
-from read_team import read_team
-
-import numpy
+from lib.read_team import read_team
 
 Common, Mega, Z_Move = range(3)
 
@@ -32,6 +28,8 @@ class Player:
         self.pkms = team
         self.alive = np.ones(6)
         self.pivot = -1
+        self.mega = np.zeros(6)
+        self.zmove = np.zeros((6, 4))
         for pkm_id, pkm in enumerate(self.pkms):
             pkm.setup(pkm_id, self, self.env, self.log)
             if pkm.item in mega_stones and pkm.name == mega_stones[pkm.item]:
@@ -48,7 +46,6 @@ class Player:
         self.log = log
         self.env = env
         self.name = names[pid]
-
 
     def get_last_alive(self):
         for pkm in reversed(self.pkms):
@@ -93,29 +90,35 @@ class Player:
             else:
                 pivot = self.get_pivot()
                 move_id = action['item']
+
                 # check valid move index
                 if not 0 <= move_id < 4:
                     raise ValueError('Invalid move id!')
-                else:
-                    move = pivot.move_infos[move_id]
+
+                move = pivot.move_infos[move_id]
+                action['item'] = move
+
                 # check valid mega
                 if action['type'] == ActionType.Mega:
                     if not self.mega[self.pivot]:
                         raise ValueError(pivot.name + ' cannot mega now!')
+
                 # check valid z
                 if action['type'] == ActionType.Z_Move and not pivot.z_mask[move_id]:
                     raise ValueError(pivot.name + ' cannot use Z now!')
+
                 # check valid move
                 if not pivot.move_mask[move_id]:
                     if pivot.move_mask.sum() == 0:
-                        return Moves['struggle']
+                        action['item'] = Moves['struggle']
                     else:
                         raise ValueError(pivot.name + ' cannot use ' + move['name'] + ' now!')
-                action['item'] = move
-                return action
+
         except ValueError as e:
             print(repr(e))
             return False
+        else:
+            return True
 
     def check_valid_switch(self, action, common_action=False):
         try:
@@ -128,13 +131,13 @@ class Player:
                 raise ValueError('Cannot switch to the pokemon on field!')
             elif not self.alive[action['item']]:
                 raise ValueError('Cannot switch to exhausted pokemon!(' + self.pkms[pivot].name + ')')
-            elif not self.get_pivot().can_switch_out() and common_action:
+            elif not self.get_pivot().can_switch and common_action:
                 raise ValueError(self.get_pivot().name + ' cannot switch now！')
         except ValueError as e:
             print(repr(e))
             return False
         else:
-            return action
+            return True
 
     def gen_valid_action(self):
         action = self.gen_action()
@@ -151,7 +154,6 @@ class Player:
             self.game.force_end()
 
     def mainloop(self):
-        self.set_team()
         while True:
             time.sleep(0.1)
             if self.status == Signal.Move:
@@ -180,7 +182,6 @@ class Player:
     def set_team(self):
         self.load_team(read_team(tid=0))
 
-
     @abstractmethod
     # You should return a dict:{'type':ActionType.Switch,'item':pivot}
     # where pivot represents the index of pkm in team you want to switch: range (0,6), type Int
@@ -196,9 +197,25 @@ class Player:
         # TODO
         return
 
-    # functional method
+    # functional methods for AI
+
+    # get current state in your view
     def get_state(self):
         return self.game.get_state(self.pid)
+
+    # get masks for action
+    def get_masks(self):
+        return {
+            # np(4), representing which move of pkm on field could use
+            'move_mask': self.get_pivot().move_mask,
+            # np(6), representing which pkm in team can mega
+            'mega_mask': self.mega,
+            # np(6,4), representing which move of which pkm can use-z
+            'z_mask': self.zmove,
+            # bool, representing whether you can switch as an action of turn
+            # notice that, switch forced by foe(roar) or as side effect of skill(u-turn) are not effected
+            'can_switch': self.get_pivot().can_switch,
+        }
 
 
 class RandomPlayer(Player):
@@ -213,7 +230,7 @@ class RandomPlayer(Player):
 
     def gen_action(self):
         rnd = random.uniform(0, 1)
-        if rnd >= 0.9 and self.alive.sum() > 1:
+        if rnd >= 0.9 and self.alive.sum() > 1 and self.get_pivot().can_switch:
             return self.gen_switch()
         else:
             return self.gen_move()

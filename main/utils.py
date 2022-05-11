@@ -1,16 +1,12 @@
-import copy
-import random
-
-from pokemon import Pokemon
-from functions import *
+from lib.functions import *
 from data.moves import Moves
 
-from read_team import *
-from player import Player
-from env import Env
-from const import *
+from lib.read_team import *
+from main.player import Player
+from main.env import Env
+from lib.const import *
 
-from log import BattleLog
+from main.log import BattleLog
 
 Hit, Miss, NoEffect, Onhold, NoLog = 0, 1, 2, 3, 4
 
@@ -270,12 +266,12 @@ class Utils:
                 if user.item is 'Air Balloon':
                     self.log.add(actor=user, event='balloon')
 
-                if user.item in ['Electric Seed', 'Grassy Seed']:
+                if user.item == 'Electric Seed' and env.pseudo_weather == 'electricterrain' or user.item == 'Grassy Seed' and env.pseudo_weather == 'grassyterrain':
                     self.log.add(actor=user, event='use item')
                     user.use_item()
                     user.boost('def', 1)
 
-                if user.item in ['Psychic Seed', 'Misty Seed']:
+                if user.item == 'Psychic Seed' and env.pseudo_weather == 'psychicterrain' or user.item == 'Misty Seed' and env.pseudo_weather == 'mistyterrain':
                     self.log.add(actor=user, event='use item')
                     user.use_item()
                     user.boost('spd', 1)

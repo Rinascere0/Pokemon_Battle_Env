@@ -1,13 +1,17 @@
-from pokemon import Pokemon
-from const import *
+from main.pokemon import Pokemon
+from lib.const import *
+import time
+import os
 
 
 class BattleLog:
-    def __init__(self):
+    def __init__(self, save_log=False):
         self.total_logs = []
         self.log = []
         self.total_log_texts = []
         self.log_text = []
+        self.save_log = save_log
+        self.loser = None
 
     def step(self):
         self.total_logs.append(self.log)
@@ -18,6 +22,12 @@ class BattleLog:
         self.log_text = []
         self.total_logs = []
         self.log = []
+        self.loser = None
+
+        if self.save_log:
+            if not os.path.exists('../log'):
+                os.mkdir('../log')
+            self.log_file = 'log/' + str(time.asctime()).replace(':', '-') + '.txt'
 
         self.log_text.append('The game between ' + players[0].name + ' and ' + players[1].name + ' started!')
         for player in players:
@@ -31,11 +41,21 @@ class BattleLog:
     def step_print(self):
         self.total_logs.append(self.log)
         self.total_log_texts.append(self.log_text)
-        for log in self.log_text:
-            print(log)
-            if log and 'lost!' in log:
-                break
-        print()
+        if self.save_log:
+            with open(self.log_file, 'a') as f:
+                for log in self.log_text:
+                    if log:
+                        f.write(log + '\n')
+                    if log and 'lost!' in log:
+                        break
+                f.write('\n')
+        else:
+            for log in self.log_text:
+                print(log)
+                if log and 'lost!' in log:
+                    break
+            print()
+
         self.log = []
         self.log_text = []
 
@@ -64,7 +84,7 @@ class BattleLog:
             # ability
             if logtype == logType.ability:
                 log = '[' + actor + '\'s ' + event + ']'
-                raw_log['actor'].ability_revealed=True
+                raw_log['actor'].ability_revealed = True
 
             if log:
                 return log
@@ -102,8 +122,8 @@ class BattleLog:
             elif event == '0heal':
                 log = '\'s HP is already full!'
 
-            elif event =='burnitem':
-                log='\'s '+val+' was burned!'
+            elif event == 'burnitem':
+                log = '\'s ' + val + ' was burned!'
 
             elif event == '-substitute':
                 log = '\'s substitute faded...'
@@ -125,6 +145,8 @@ class BattleLog:
 
             elif event == 'lose':
                 log = 'lost!'
+                if not self.loser:
+                    self.loser = actor[:-1]
 
             elif event == 'withdraw':
                 log = 'withdrew ' + str(val) + '!'

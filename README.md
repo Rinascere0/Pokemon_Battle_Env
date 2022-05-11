@@ -1,15 +1,26 @@
 # Pokemon_Battle_Env
 
-【Example】
-https://paste.ubuntu.com/p/PZW2XrVdnW/
+## About it
 
-【How to use】\
-Put your team in '/team',\
-Edit the parameter in player.py(or read_team.py) in order to load your team,\
-(Of course you can just use default teams)\
-Run game.py.
+It's an alpha version of Pokemon 6v6 battle env, implementing most mechanism of OU and UU tier.\
+Any reports of bugs and unimplemented mechanisms are always welcome!\
 
-【Update Log】
+Thanks to database provided by Pokemon Showdown.\
+Thanks to teams provide by BJK.
+## How to use?
+
+Run `game.py`, and built-in AI will automatically perform a 6v6 battle!
+
+## How to create my own AI?
+
+1. Create your own player class by inheriting Player class in `player.py`,
+2. Implement abstract methods in your class according to your strategy,
+3. Import your own team into 'team' directory, and edit according parameters in your class (Of course you ccan just use
+   built-in teams!).
+
+
+<details>
+<summary>Update Log</summary>
 
 2022.4.30
 
@@ -21,8 +32,7 @@ Spikes (add and effect)
 ✔defog \
 ✔rapid spin\
 ✔leech seed\
-✔knock off\ 
-✔status moves fail after taunt\
+✔knock off\ ✔status moves fail after taunt\
 ✔contrary\
 ✔counter\
 ✔mirror coat\
@@ -118,7 +128,6 @@ nightmare
 Gravity [immue judge]\
 sleep talk
 
-
 2020.5.6
 
 【Add】\
@@ -144,12 +153,10 @@ natural cure
 【ToFix】\
 Wrong struggle
 
-
 2020.5.8
 
 【Add】\
-Arceus Z
-Inner Focus\
+Arceus Z Inner Focus\
 moxie\
 magician, pickpocket\
 heatproof\
@@ -177,3 +184,5 @@ Arranged code
 【Todo】\
 Natural Gift\
 Soak etc.
+
+</details>

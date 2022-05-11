@@ -1,11 +1,11 @@
 import random
 
-import numpy as np
 from data.moves import Moves
 from data.pokedex import pokedex
-from functions import *
+from lib.functions import *
 import copy
-from const import *
+from lib.const import *
+import math
 
 Burn, Sleep, Toxic, Poison, Paralyse, Frozen = range(6)
 
@@ -52,7 +52,7 @@ class Pokemon:
         pkm_info = pokedex[self.name.replace(' ', '').replace('-', '').lower()]
         # gender
         if 'gender' not in pkm_info and not self.gender:
-            self.gender=random.choice(['M','F'])
+            self.gender = random.choice(['M', 'F'])
         # specie stat
         self.sp = pkm_info['baseStats']
         # types of pkm in dex
@@ -102,6 +102,7 @@ class Pokemon:
 
         # move traps pkm
         self.trap_move = None
+        self.trap_user = None
 
         # metronome turn
         self.metronome = 0
@@ -330,6 +331,7 @@ class Pokemon:
                 self.status_turn = random.randint(1, 3)
             else:
                 self.status_turn = 1
+
             if user and user != self and self.ability == 'Synchronize' and status in ['brn', 'psn', 'tox', 'par']:
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 user.add_status(status, env)
@@ -394,7 +396,9 @@ class Pokemon:
             turn = random.randint(4, 5)
             trap_move = user.next_move['name']
             self.trap_move = trap_move
+            self.trap_user = user
             val = trap_move
+
         elif vstatus == 'roost':
             pass
         elif vstatus == 'substitute':
@@ -695,10 +699,10 @@ class Pokemon:
             self.damage(perc=1 / 4)
 
         if self.status == 'tox' and self.alive:
+            self.status_turn += 1
             if self.ability != 'Poison Heal':
                 self.log.add(actor=self, event='+psn')
-                self.damage(val=0, perc=self.status_turn / 16)
-            self.status_turn += 1
+                self.damage(val=0, perc=(self.status_turn-1) / 16)
 
         if self.status == 'psn' and self.alive:
             if self.ability != 'Poison Heal':
@@ -753,8 +757,12 @@ class Pokemon:
             target.heal(dmg)
 
         if self.vstatus['partiallytrapped'] and self.alive:
-            self.log.add(actor=self, event='+partiallytrapped', val=self.trap_move)
-            self.damage(perc=1 / 8)
+            if not target.alive or target != self.trap_user:
+                self.trap_move = None
+                self.trap_user = None
+            else:
+                self.log.add(actor=self, event='+partiallytrapped', val=self.trap_move)
+                self.damage(perc=1 / 8)
 
         if self.charge and self.alive:
             self.charge_round += 1
@@ -828,6 +836,8 @@ class Pokemon:
         if target.ability == 'Arena Trap' and not imm_ground(target):
             self.can_switch = False
         if target.ability == 'Shadow Tag' and not target.ability == 'Shadow Tag':
+            self.can_switch = False
+        if self.vstatus['partiallytrapped']:
             self.can_switch = False
         if self.item == 'Shed Shell':
             self.can_switch = True
@@ -935,7 +945,8 @@ class Pokemon:
             self.current_ability = self.base_ability
             self.attr = self.base_attr
 
-            self.status_turn = 0
+            if self.status=='tox':
+                self.status_turn = 1
             self.protect_move = 0
             self.protect_turn = 0
             self.last_move = None
@@ -1035,10 +1046,6 @@ class Pokemon:
                 self.log.add(actor=self, event='+stealthrock')
                 self.damage(0, perc=1 / 8, attr='Rock')
 
-        # untrap foe
-        if foe and foe.vstatus['partiallytrapped']:
-            foe.vstatus['partiallytrapped'] = 0
-
     def to_faint(self):
         if self.HP == self.maxHP and self.item == 'Focus Sash':
             self.log.add(actor=self, event='sash')
@@ -1073,6 +1080,3 @@ class Pokemon:
         elif self.alive:
             return True
         return False
-
-    def can_switch_out(self):
-        return self.can_switch and not self.vstatus['partiallytrapped']
