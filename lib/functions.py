@@ -80,11 +80,10 @@ def imm_poison(pkm):
     return 'Steel' in pkm.attr or 'Poison' in pkm.attr or pkm.ability == 'Immunity'
 
 
-# TODO: Gravity
-def imm_ground(pkm):
+def imm_ground(pkm, env):
     return not pkm.vstatus[
         'smackdown'] and 'Flying' in pkm.attr or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' or pkm.vstatus[
-               'magnetrise'] or pkm.vstatus['telekinesis']
+               'magnetrise'] or pkm.vstatus['telekinesis'] or env.pseudo_weather['gravity']
 
 
 # stat related

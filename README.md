@@ -2,7 +2,7 @@
 
 ## About it
 
-It's an alpha version of Pokemon 6v6 battle env, implementing most mechanism of OU and UU tier.\
+It's an alpha version of Pokemon Gen7 6v6 battle env, implementing most mechanism of OU and UU tier.\
 Any reports of bugs and unimplemented mechanisms are always welcome!
 
 Thanks to Pokemon Showdown for providing pokemon and move data.\
@@ -185,9 +185,11 @@ Arranged code
 Natural Gift\
 Soak etc.
 
-2022.5.9
+2022.5.11
 
 【Todo】\
 embargo log
 
+【ToFix】\
+subsitute judge->whether damaged dealt to true body
 </details>

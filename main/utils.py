@@ -1062,7 +1062,7 @@ class Utils:
                 return NoEffect
 
         if sk_type == 'Ground' and move['target'] == 'common':
-            if imm_ground(target):
+            if imm_ground(target,env):
                 return NoEffect
 
         if target.ability == 'Bulletproof' and 'bullet' in sk_flag:
@@ -1077,7 +1077,7 @@ class Utils:
         if sk_ctg != 'Status':
             type_buff = 1
             for attr in target.attr:
-                if sk_type == 'Ground' and attr == 'Flying' and not imm_ground(target):
+                if sk_type == 'Ground' and attr == 'Flying' and not imm_ground(target,env):
                     continue
                 type_buff *= get_attr_fac(sk_type, attr)
             if type_buff == 0:
@@ -1445,19 +1445,19 @@ class Utils:
 
         # env buff
 
-        if not imm_ground(user) and env.terrain == 'psychicterrain' and sk_type == 'Psychic':
+        if not imm_ground(user,env) and env.terrain == 'psychicterrain' and sk_type == 'Psychic':
             other_buff *= 1.3
 
-        if not imm_ground(user) and env.terrain == 'electricterrain' and sk_type == 'Electric':
+        if not imm_ground(user,env) and env.terrain == 'electricterrain' and sk_type == 'Electric':
             other_buff *= 1.3
 
-        if not imm_ground(user) and env.terrain == 'grassyterrain' and sk_type == 'Grass':
+        if not imm_ground(user,env) and env.terrain == 'grassyterrain' and sk_type == 'Grass':
             other_buff *= 1.3
 
-        if not imm_ground(user) and env.terrain == 'grassyterrain' and sk_type == 'Ground':
+        if not imm_ground(user,env) and env.terrain == 'grassyterrain' and sk_type == 'Ground':
             other_buff *= 0.5
 
-        if not imm_ground(target) and env.terrain == 'mistyterrain' and sk_type == 'Dragon':
+        if not imm_ground(target,env) and env.terrain == 'mistyterrain' and sk_type == 'Dragon':
             other_buff *= 0.5
 
         if env.weather == 'sunnyday' and sk_type == 'Fire':

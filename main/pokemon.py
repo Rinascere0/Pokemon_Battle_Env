@@ -302,7 +302,7 @@ class Pokemon:
         if self.vstatus['substitute'] and user:
             return False
         if not imm_ground(
-                self) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
+                self,env) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
             self.log.add(actor=self, event='+' + env.terrain)
             return False
         if self.ability == 'Flower Veil' and 'Grass' in self.attr:
@@ -697,7 +697,7 @@ class Pokemon:
             self.heal(perc=1 / 8)
 
         if env.terrain == 'grassyterrain' and self.alive:
-            if not imm_ground(self):
+            if not imm_ground(self,env):
                 if self.HP < self.maxHP:
                     self.log.add(actor=self, event='+grassyterrain')
                 self.heal(0, 1 / 16)
@@ -849,7 +849,7 @@ class Pokemon:
         self.can_switch = True
         if target.ability == 'Magnet Pull' and 'Steel' in target.attr:
             self.can_switch = False
-        if target.ability == 'Arena Trap' and not imm_ground(target):
+        if target.ability == 'Arena Trap' and not imm_ground(target,env):
             self.can_switch = False
         if target.ability == 'Shadow Tag' and not target.ability == 'Shadow Tag':
             self.can_switch = False
@@ -1038,7 +1038,7 @@ class Pokemon:
         self.turn = False
 
         sidecond = env.get_sidecond(self)
-        if not imm_ground(self):
+        if not imm_ground(self,env):
             if sidecond['toxicspikes'] > 0:
                 if 'Poison' in self.attr:
                     sidecond['toxicspikes'] = 0
