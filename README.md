@@ -503,8 +503,8 @@ Emergency Exit
 
 【ToFix】\
 ✔Partiallytrapped\
-mind blown\
-damp
+✔mind blown\
+✔damp
 
 2022.5.9
 
@@ -522,4 +522,11 @@ embargo log
 
 【ToFix】\
 subsitute judge->whether damaged dealt to true body
+
+2022.5.13
+
+【Todo】\
+Cloud Nine
+
 </details>
+

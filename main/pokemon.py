@@ -1,5 +1,7 @@
 import random
 
+import numpy as np
+
 from data.moves import Moves
 from data.pokedex import pokedex
 from lib.functions import *
@@ -15,7 +17,7 @@ class Pokemon:
         # pokemon name
         self.name = (info['Name'].split('-Mega')[0]).split('-Ash')[0]
         # revealed name, e.g. illusion
-        self.current_name = self.name
+        self.base_name = self.name
 
         self.gender = info['Gender']
         self.evs = {key: None2Zero(value) for key, value in info.items() if
@@ -61,6 +63,7 @@ class Pokemon:
             self.base_attr = [memories[self.item]]
         if self.name == 'Arceus' and (self.item in plates or self.item in z_crystals):
             self.base_attr = [plates[self.item]]
+
         # types of pkm in battle, could be temporarily changed, e.g. soak
         self.attr = copy.deepcopy(self.base_attr)
 
@@ -99,6 +102,9 @@ class Pokemon:
         self.last_move = None
         # move to use this turn
         self.next_move = None
+
+        # if transformed
+        self.transform = False
 
         # move traps pkm
         self.trap_move = None
@@ -168,7 +174,7 @@ class Pokemon:
                         'disable': 0, 'electrify': 0, 'embargo': 0, 'encore': 0, 'endure': 0, 'flinch': 0,
                         'focusenergy': 0, 'followme': 0, 'foresight': 0, 'gastroacid': 0, 'grudge': 0, 'healblock': 0,
                         'helpinghand': 0, 'imprison': 0, 'ingrain': 0, 'kingsshield': 0, 'laserfocus': 0,
-                        'leechseed': 0, 'lockedmove': 0, 'magiccoat': 0,'lockon':0,
+                        'leechseed': 0, 'lockedmove': 0, 'magiccoat': 0, 'lockon': 0,
                         'magnetrise': 0, 'maxguard': 0, 'minimize': 0, 'miracleeye': 0, 'nightmare': 0, 'noretreat': 0,
                         'obstruct': 0, 'octolock': 0, 'powder': 0, 'powertrick': 0, 'ragepowder': 0, 'smackdown': 0,
                         'snatch': 0, 'spikyshield': 0, 'spotlight': 0, 'stockpile': 0, 'substitute': 0, 'tarshot': 0,
@@ -188,11 +194,42 @@ class Pokemon:
                 if move['type'] == sk_type:
                     self.z_mask[move_id] = 1
 
+    def transpose(self, target):
+        self.transform = True
+        self.log.add(actor=self, event='transform', target=target)
+        self.base_info = {
+            'stats': self.stats,
+            'gender': self.gender,
+            'lv': self.lv,
+            'nature': self.nature,
+            'weight': self.base_weight,
+            'moves': self.moves,
+            'move_infos': self.move_infos,
+            'pp': self.pp,
+            'maxpp': self.maxpp,
+        }
+
+        self.name = target.name
+        self.gender = target.gender
+        self.stats = copy.deepcopy(target.stats)
+        self.stat_lv = copy.deepcopy(target.stat_lv)
+        self.attr = target.attr
+        self.current_ability = target.current_ability
+        self.ability = self.current_ability
+        self.lv = target.lv
+        self.nature = target.nature
+        self.base_weight = target.base_weight
+        self.moves = target.moves
+        self.move_infos = target.move_infos
+        self.pp = target.pp
+        self.maxpp = target.maxpp
+
     def bond_evolve(self):
         if self.name == 'Greninja':
             self.log.add(actor=self, event='Battle Bond', type=logType.ability)
             self.log.add(actor=self, event='transform', val='Greninja-Ash')
             self.name = 'Greninja-Ash'
+            self.base_name = self.name
             pkm_info = pokedex['greninjaash']
             self.sp = pkm_info['baseStats']
             self.base_attr = pkm_info['types']
@@ -211,6 +248,7 @@ class Pokemon:
             mega_name = mega_name + '-Y'
         self.log.add(actor=self, event='mega', val=mega_name)
         self.name = mega_name
+        self.base_name = mega_name
         pkm_info = pokedex[self.name.replace(' ', '').replace('-', '').lower()]
         self.ability = pkm_info['abilities']['0']
         self.base_ability = pkm_info['abilities']['0']
@@ -236,20 +274,20 @@ class Pokemon:
             self.unburden = True
 
     def lose_item(self, sub=None):
-        if self.item in mega_stones or self.item in z_crystals or self.substitute:
+        if self.item in mega_stones or self.item in z_crystals:
             return False
+
+        temp = self.base_item
         if sub:
-            temp = self.base_item
             self.base_item = sub
             self.item = sub
             self.log.add(actor=self, event='obtain', val=sub)
-            return temp
         else:
             self.base_item = None
             self.item = None
             if self.ability == 'Unburden':
                 self.unburden = True
-            return
+        return temp
 
     def setup(self, pkm_id, player, env, log):
         self.pkm_id = pkm_id
@@ -302,7 +340,7 @@ class Pokemon:
         if self.vstatus['substitute'] and user:
             return False
         if not imm_ground(
-                self,env) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
+                self, env) and env.terrain == 'mistyterrain' or env.terrain == 'electricterrain' and status == 'slp':
             self.log.add(actor=self, event='+' + env.terrain)
             return False
         if self.ability == 'Flower Veil' and 'Grass' in self.attr:
@@ -311,10 +349,10 @@ class Pokemon:
         if self.ability == 'Leaf Guard' and env.weather == 'sunnyday':
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
-        if status == 'slp' and self.ability in ['Insomnia', 'Vital Spirit']:
+        if status == 'slp' and self.ability in ['Insomnia', 'Vital Spirit', 'Sweet Veil']:
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
-        if status == 'brn' and self.ability == 'Water Bubble':
+        if status == 'brn' and self.ability in ['Water Bubble', 'Water Veil']:
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
         if status in ['psn', 'tox'] and self.ability == 'Immunity':
@@ -533,22 +571,6 @@ class Pokemon:
 
         handle_boost(stat, lv, src)
 
-    def moldbreak(self):
-        if self.ability in ['Battle Armor', 'Clear Body', 'Damp', 'Dry Skin', 'Filter', 'Flash Fire',
-                            'Flower Gift', 'Heatproof', 'Hyper Cutter', 'Immunity', 'Inner Focus', 'Insomnia',
-                            'Keen Eye', 'Leaf Guard', 'Levitate', 'Lightning Rod', 'Limber', 'Magma Armor',
-                            'Marvel Scale', 'Motor Drive', 'Oblivious', 'Own Tempo', 'Sand Veil', 'Shell Armor',
-                            'Shield Dust', 'Simple', 'Snow Cloak', 'Solid Rock', 'Soundproof', 'Sticky Hold',
-                            'Storm Drain', 'Sturdy', 'Suction Cups', 'Tangled Feet', 'Thick Fat', 'Unaware',
-                            'Vital Spirit', 'Volt Absorb', 'Water Absorb', 'Water Veil', 'White Smoke',
-                            'Wonder Guard', 'Big Pecks', 'Contrary', 'Friend Guard', 'Heavy Metal',
-                            'Light Metal',
-                            'Magic Bounce', 'Multi Scale', 'Sap Sipper', 'Telepathy', 'Wonder Skin', 'Aroma Veil',
-                            'Bulletproof', 'Flower Veil', 'Fur Coat', 'Overcoat', 'Sweet Veil,Dazzling',
-                            'Disguise', 'Fluffy', 'Queenly Majesty', 'Water Bubble', 'Mirror Armor', 'Punk Rock',
-                            'Ice Scales', 'Ice Face', 'Pastel Veil ']:
-            self.ability = None
-
     def damage(self, val=0, perc=False, const=0, attr=None, user=None, category=None):
         if not self.alive:
             return False
@@ -562,7 +584,6 @@ class Pokemon:
             val = const
 
         # judge where have substitute before this damage
-        self.substitute = self.vstatus['substitute']
         # stealth rock
         if not user:
             if attr == 'Rock':
@@ -578,7 +599,7 @@ class Pokemon:
             self.log.add(actor=self, event='+substitute')
             if self.vstatus['substitute'] == 0:
                 self.log.add(actor=self, event='-substitute')
-            return False
+            return -1
         elif user and self.name == 'Mimikyu' and self.ability == 'Disguise':
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             self.log.add(actor=self, event='+disguise')
@@ -627,7 +648,7 @@ class Pokemon:
 
         if self.ability == 'Illusion':
             self.log.add(actor=user, event=self.ability, type=logType.ability)
-            self.current_name = self.name
+            self.name = self.base_name
             self.log.add(actor=user, event='+illusion')
 
         if self.ability == 'Color Change' and user:
@@ -671,7 +692,6 @@ class Pokemon:
         self.calc_stat(env, target)
         self.turn = True
         self.next_move = None
-        self.substitute = self.vstatus['substitute']
         if next_move['type'] != ActionType.Switch:
             self.next_move = next_move['item']
 
@@ -696,8 +716,12 @@ class Pokemon:
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             self.heal(perc=1 / 8)
 
+        if self.ability == 'Shed Skin' and random.uniform(0, 1) < 1 / 3:
+            self.log.add(actor=self, event=self.ability, type=logType.ability)
+            self.cure_status()
+
         if env.terrain == 'grassyterrain' and self.alive:
-            if not imm_ground(self,env):
+            if not imm_ground(self, env):
                 if self.HP < self.maxHP:
                     self.log.add(actor=self, event='+grassyterrain')
                 self.heal(0, 1 / 16)
@@ -849,7 +873,7 @@ class Pokemon:
         self.can_switch = True
         if target.ability == 'Magnet Pull' and 'Steel' in target.attr:
             self.can_switch = False
-        if target.ability == 'Arena Trap' and not imm_ground(target,env):
+        if target.ability == 'Arena Trap' and not imm_ground(target, env):
             self.can_switch = False
         if target.ability == 'Shadow Tag' and not target.ability == 'Shadow Tag':
             self.can_switch = False
@@ -860,7 +884,7 @@ class Pokemon:
         if self.lock_move or self.vstatus['mustrecharge']:
             self.can_switch = False
 
-    def calc_stat(self, env, target=None, raw=False):
+    def calc_stat(self, env, target=None, raw=False, moldbreak=False):
         _, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe = self.stats.values()
         Atk_lv, Def_lv, Satk_lv, Sdef_lv, Spe_lv, Eva_lv, Acc_lv, _ = self.stat_lv.values()
 
@@ -873,6 +897,31 @@ class Pokemon:
             self.Eva = calc_stat_lv(Eva_lv)
             self.Acc = calc_stat_lv(Acc_lv)
 
+        if moldbreak and self.ability in ['Battle Armor', 'Clear Body', 'Damp', 'Dry Skin', 'Filter', 'Flash Fire',
+                                          'Flower Gift', 'Heatproof', 'Hyper Cutter', 'Immunity', 'Inner Focus',
+                                          'Insomnia',
+                                          'Keen Eye', 'Leaf Guard', 'Levitate', 'Lightning Rod', 'Limber',
+                                          'Magma Armor',
+                                          'Marvel Scale', 'Motor Drive', 'Oblivious', 'Own Tempo', 'Sand Veil',
+                                          'Shell Armor',
+                                          'Shield Dust', 'Simple', 'Snow Cloak', 'Solid Rock', 'Soundproof',
+                                          'Sticky Hold',
+                                          'Storm Drain', 'Sturdy', 'Suction Cups', 'Tangled Feet', 'Thick Fat',
+                                          'Unaware',
+                                          'Vital Spirit', 'Volt Absorb', 'Water Absorb', 'Water Veil', 'White Smoke',
+                                          'Wonder Guard', 'Big Pecks', 'Contrary', 'Friend Guard', 'Heavy Metal',
+                                          'Light Metal',
+                                          'Magic Bounce', 'Multi Scale', 'Sap Sipper', 'Telepathy', 'Wonder Skin',
+                                          'Aroma Veil',
+                                          'Bulletproof', 'Flower Veil', 'Fur Coat', 'Overcoat', 'Sweet Veil',
+                                          'Dazzling',
+                                          'Disguise', 'Fluffy', 'Queenly Majesty', 'Water Bubble', 'Mirror Armor',
+                                          'Punk Rock',
+                                          'Ice Scales', 'Ice Face', 'Pastel Veil ']:
+            self.ability = None
+        else:
+            self.ability = self.current_ability
+
         # Ability Buff
         if self.ability == 'Defeatist' and self.HP / self.maxHP <= 1 / 2:
             self.Atk *= 0.5
@@ -881,6 +930,8 @@ class Pokemon:
             self.Atk *= 2
         if self.ability == 'Guts' and self.status:
             self.Atk *= 1.5
+        if self.ability == 'Marvel Scale' and self.status:
+            self.Def *= 1.5
         if self.ability == 'Quick Feet' and self.status:
             self.Spe *= 1.5
         if self.ability == 'Tangled Feet' and self.vstatus['confusion']:
@@ -903,13 +954,12 @@ class Pokemon:
             self.Spe *= 2
 
         # Item Buff
-        if env.pseudo_weather['magicroom'] or self.ability == 'Klutz' or self.vstatus['embargo']:
+        if env.pseudo_weather['magicroom'] or self.ability == 'Klutz' or self.vstatus[
+            'embargo'] or self.item and 'Berry' in self.item and (
+                self.ability == 'Unnerve' or target and target.ability == 'Unnerve'):
             self.item = None
         else:
             self.item = self.base_item
-
-        if self.item and 'Berry' in self.item and (self.ability == 'Unnerve' or target and target.ability == 'Unnerve'):
-            self.item = None
 
         if self.item == 'Choice Band':
             self.Atk *= 1.5
@@ -1011,6 +1061,20 @@ class Pokemon:
                 self.vstatus['substitute'] = copy.deepcopy(old_pivot['substitute'])
                 self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
             old_pivot.reset()
+            if old_pivot.transform:
+                old_pivot.transform = False
+
+                base_info = old_pivot.base_info
+                old_pivot.name = old_pivot.base_name
+                old_pivot.stats = base_info['stats']
+                old_pivot.gender = base_info['gender']
+                old_pivot.nature = base_info['nature']
+                old_pivot.lv = base_info['lv']
+                old_pivot.base_weight = base_info['weight']
+                old_pivot.moves = base_info['moves']
+                old_pivot.move_infos = base_info['move_infos']
+                old_pivot.pp = base_info['pp']
+                old_pivot.maxpp = base_info['maxpp']
 
             slotcond = env.get_slotcond(self)
             if slotcond['healingwish']:
@@ -1027,9 +1091,8 @@ class Pokemon:
                 self.heal(self.maxHP)
                 slotcond['heal'] = 0
 
-        self.current_name = self.name
         if self.ability == 'Illusion':
-            self.current_name = self.player.get_last_alive().name
+            self.name = self.player.get_last_alive().name
         self.can_switch = True
         self.to_switch = False
 
@@ -1038,7 +1101,7 @@ class Pokemon:
         self.turn = False
 
         sidecond = env.get_sidecond(self)
-        if not imm_ground(self,env):
+        if not imm_ground(self, env):
             if sidecond['toxicspikes'] > 0:
                 if 'Poison' in self.attr:
                     sidecond['toxicspikes'] = 0

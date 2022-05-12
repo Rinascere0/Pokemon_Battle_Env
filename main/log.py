@@ -108,9 +108,6 @@ class BattleLog:
             elif event == 'lost':
                 log = 'lost ' + str(val) + '% of it\'s health!'
 
-            elif event == 'transform':
-                log = 'transformed into ' + val + '!'
-
             elif event == 'substitute':
                 log = 'made a substitute!'
 
@@ -522,6 +519,9 @@ class BattleLog:
                 return log
 
             # skill
+
+            elif event == 'transform':
+                log = 'transformed into ' + target + '!'
 
             elif event == 'knockoff':
                 log = 'knocked off ' + target + '\'s ' + val + '!'

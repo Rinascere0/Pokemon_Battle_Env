@@ -1,3 +1,5 @@
+import numpy as np
+
 from data.moves import Moves
 from data.pokedex import pokedex
 
@@ -32,10 +34,11 @@ def get_key3(key, key2):
 def get_move(name):
     print(Moves[name])
 
-# get_key2('volatileStatus', 'condition')
-# get_key('volatileStatus')
-# get_key('self')
-# get_nkey('flags')
-get_move('taunt')
-get_move('leechseed')
-get_move('spiritshackle')
+    # get_key2('volatileStatus', 'condition')
+    # get_key('volatileStatus')
+    # get_key('self')
+    # get_nkey('flags')
+    # get_move('spiritshackle')
+
+
+print(get_move('bite'))
