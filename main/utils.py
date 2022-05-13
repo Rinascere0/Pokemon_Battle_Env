@@ -1,3 +1,5 @@
+import copy
+
 from data.moves import Moves
 
 from lib.functions import *
@@ -344,7 +346,11 @@ class Utils:
             if user.status_turn > 0:
                 self.log.add(actor=user, event='+slp')
                 user.status_turn -= 1
-                return
+                # TODO: check taunt?
+                if move['name'] == 'Sleep Talk':
+                    move = user.get_random_move(neq='Sleep Talk')
+                else:
+                    return
             else:
                 self.log.add(actor=user, event='-slp')
                 user.status = None
@@ -381,6 +387,8 @@ class Utils:
             if move['category'] == 'Status' and not z_move:
                 self.log.add(actor=user, event='+taunt', val=move['name'])
                 return
+
+        target.used_move = True
 
         # lose pp
         if target.ability == 'Pressure':
@@ -464,7 +472,7 @@ class Utils:
             if 'effect' in move['zMove']:
                 effect = move['zMove']['effect']
                 if effect == 'crit2':
-                    user.boost('ct', 2)
+                    user.boost('ct', 2, z_move=True)
                 elif effect == 'clearnegativeboost':
                     user.reset_stat_lv(nega=True)
                 elif effect == 'heal':
@@ -481,7 +489,7 @@ class Utils:
             elif 'boost' in move['zMove']:
                 boost = move['zMove']['boost']
                 for stat, lv in boost.items():
-                    user.boost(stat, lv)
+                    user.boost(stat, lv, z_move=True)
 
         # reflect status move if magic bounce/coat
         if 'reflectable' in move['flags']:
@@ -507,6 +515,9 @@ class Utils:
 
         if move['name'] == 'Splash':
             self.log.add(event='splash')
+            return
+
+        if move['name'] in ['Celebrate', 'Happy Hour']:
             return
 
         if move['name'] == 'Transform':
@@ -696,6 +707,9 @@ class Utils:
                                 self.log.add(actor=user, event=user.ability, type=logType.ability)
                                 target.add_status('psn', env, user)
 
+                    if move['name'] in ['Thousand Waves', 'Anchor Shot', 'Spirit Shackle']:
+                        target.add_vstate('cantescape'
+                                          )
                     if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
                         item = target.lose_item()
                         if item:
@@ -876,6 +890,13 @@ class Utils:
                 else:
                     self.log.add(actor=user, event='belly_fail_hp')
 
+            if move['name'] == 'Topsy-Turvy':
+                for stat in target.stat_lv:
+                    target.stat_lv[stat] = -target.stat_lv[stat]
+            
+            if move['name']=='Psych Up':
+                user.stat_lv=copy.deepcopy(target.stat_lv)
+
             if move['name'] == 'Defog':
                 target.boost('evasion', -1)
                 env.clear_field(user.player, type='spike', log=self.log)
@@ -972,6 +993,22 @@ class Utils:
             if move['name'] in ['Roar', 'Whirlwind']:
                 if target.can_force_switch():
                     game.call_switch(target.player)
+
+            if move['name'] == 'Skill Swap':
+                ability = user.set_ability(move='Skill Swap', sub=target.ability)
+                target.set_ability(sub=ability)
+
+            if move['name'] == 'Simple Beam':
+                target.set_ability(move='Simple Beam', sub='Simple')
+
+            if move['name'] == 'Worry Seed':
+                target.set_ability(move='Worry Seed', sub='Insomnia')
+
+            if move['name'] in 'Gastro Acid':
+                target.set_ability(move='Gastro Acid')
+
+            if move['name'] in ['Mean Look', 'Spider Web', 'Block']:
+                target.add_vstate('cantescape')
 
         # contact move
         # TODO: Multi-count move should judge each time!
@@ -1205,6 +1242,12 @@ class Utils:
             for key, boost in user.stat_lv.items():
                 if boost > 0:
                     power += boost * 20
+
+        if sk_name == 'Avalanche' and (user.round_dmg['Physical'] or user.round_dmg['Special']):
+            power *= 2
+
+        if sk_name in ['Revenge','Payback'] and last and target.used_move:
+            power *= 2
 
         if sk_name == 'Earthquake' and target.off_field == 'Dig':
             power *= 2

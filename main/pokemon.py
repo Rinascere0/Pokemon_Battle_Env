@@ -99,6 +99,7 @@ class Pokemon:
         self.status_turn = 0
 
         # move used last turn
+        self.used_move = None
         self.last_move = None
         # move to use this turn
         self.next_move = None
@@ -148,6 +149,9 @@ class Pokemon:
         # True if pkm is alive
         self.alive = True
 
+        # True if my pkm died last turn
+        self.retalitate = False
+
         # True if player can gen action next turn
         self.can_gen_action = True
         # True if player can gen action next turn
@@ -194,6 +198,38 @@ class Pokemon:
                 if move['type'] == sk_type:
                     self.z_mask[move_id] = 1
 
+    def set_ability(self, move=None, sub=None):
+        if move in ['Simple Beam', 'Worry Seed']:
+            if {self.ability, sub}.intersection(
+                    {'Truant', 'Stance Change', 'Multitype', 'Comatose', 'Shields Down', 'Disguise',
+                     'Schooling', 'RKS System', 'Battle Bond', 'Power Construct'}):
+                return False
+        if move == 'Skill Swap':
+            if {self.ability, sub}.intersection(
+                    {'Zen Mode', 'Illusion', 'Stance Change', 'Multitype', 'Comatose', 'Shields Down',
+                     'Disguise', 'Schooling', 'RKS System', 'Battle Bond', 'Power Construct'}):
+                return False
+        if move == 'Gastro Acid':
+            if self.ability in ['Stance Change', 'Multitype', 'Comatose', 'Shields Down', 'Disguise', 'Schooling',
+                                'RKS System', 'Battle Bond', 'Power Construct']:
+                return False
+        if move == 'Entrainment':
+            if sub in ['Illusion', 'Power of Alchemy', 'Zen Mode', 'Trace', 'Flower Gift', 'Forecast', 'Disguise',
+                       'Power Construct', 'Receiver'] or self.ability in ['Truant', 'Stance Change', 'Comatose',
+                                                                          'Multitype', 'Zen Mode', 'Shields Down',
+                                                                          'Disguise',
+                                                                          'Schooling', 'RKS System', 'Battle Bond']:
+                return False
+
+        temp = self.current_ability
+        self.current_ability = sub
+        self.ability = sub
+        # TODO: Moldbreak?
+
+        self.log.add(actor=self, event='change_ability', val=sub)
+        return temp
+
+    # for ditto
     def transpose(self, target):
         self.transform = True
         self.log.add(actor=self, event='transform', target=target)
@@ -508,7 +544,7 @@ class Pokemon:
         src: the pkm  the boost
     '''
 
-    def boost(self, stat, lv, src=None):
+    def boost(self, stat, lv, src=None, z_move=False):
         if not self.alive:
             return
 
@@ -517,6 +553,12 @@ class Pokemon:
             self.log.add(actor=self, event='-0', val=full_stat[stat])
 
         def lv_log(stat, lv):
+            if 3 < lv < 6:
+                lv = 3
+            elif lv >= 6:
+                lv = 6
+            elif -6 <= lv < -3:
+                lv = -3
             lv = '+' + str(lv) if lv > 0 else str(lv)
             self.log.add(actor=self, event=lv, val=full_stat[stat])
 
@@ -524,6 +566,9 @@ class Pokemon:
             if self.ability == 'Contrary':
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 lv = -lv
+            if self.ability == 'Simple':
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                lv = 2 * lv
             if lv > 0:
                 if self.stat_lv[stat] == 6:
                     lv_log(stat, 7)
@@ -556,7 +601,7 @@ class Pokemon:
                     return
 
                 if self.stat_lv[stat] == -6:
-                    lv_log(stat, lv)
+                    lv_log(stat, -7)
                 else:
                     self.stat_lv[stat] = max(self.stat_lv[stat] + lv, -6)
                     lv_log(stat, lv)
@@ -706,6 +751,8 @@ class Pokemon:
         if self.last_move not in protect_moves:
             self.protect_turn = 0
         self.protect_move = None
+        self.used_move = False
+        self.retalitate = False
 
         if self.item == 'Leftovers':
             if self.HP < self.maxHP:
@@ -1043,6 +1090,8 @@ class Pokemon:
             self.to_switch = False
             self.activate = True
             self.turn = False
+            self.used_move = False
+            self.retalitate = False
 
             if self.ability == 'Natural Cure':
                 if self.status:
@@ -1090,6 +1139,9 @@ class Pokemon:
             elif slotcond['heal']:
                 self.heal(self.maxHP)
                 slotcond['heal'] = 0
+
+            if not old_pivot.alive:
+                self.retalitate=True
 
         if self.ability == 'Illusion':
             self.name = self.player.get_last_alive().name
@@ -1145,6 +1197,15 @@ class Pokemon:
         else:
             self.log.add(actor=self, event='change_type', val=attr)
             self.attr = [attr]
+
+    # for sleep talk
+    # TODO: Cat hand
+    def get_random_move(self, neq=None):
+        p = np.ones(4)
+        for move_id, move in enumerate(self.moves):
+            if move == neq:
+                p[move_id] = 0
+        return np.random.choice(self.move_infos, p=p / p.sum())
 
     def can_lose_item(self):
         return self.item and self.item not in mega_stones and self.item not in z_crystals and not (

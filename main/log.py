@@ -177,7 +177,7 @@ class BattleLog:
             elif event == '-2':
                 log = '\'s ' + str(val) + ' fell harshly!'
             elif event == '-3':
-                log = '\'s ' + str(val) + ' fell drastically!'
+                log = '\'s ' + str(val) + ' fell severely!'
             elif event == '-7':
                 log = '\'s ' + str(val) + ' won\'t go any lower!'
 

@@ -41,4 +41,5 @@ def get_move(name):
     # get_move('spiritshackle')
 
 
-print(get_move('bite'))
+print(get_move('flash'))
+
