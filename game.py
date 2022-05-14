@@ -3,9 +3,12 @@ import time
 from main.env import Env
 # import your own player class
 from main.player import RandomPlayer
+from main.ui_player import myPlayer
 from main.log import BattleLog
 from main.utils import Utils
 from lib.functions import *
+
+from threading import Thread
 
 # set total game nums
 game_nums = 5
@@ -23,15 +26,19 @@ class Game:
         self.moves = []
         self.round_players = []
         self.switch_in_turn = []
+        self.Round = 0
         self.end = False
 
         # change to your own player class!
         self.add_player(RandomPlayer())
-        self.add_player(RandomPlayer())
+        self.add_player(myPlayer())
 
     def add_player(self, player):
         player.set_game(self, len(self.players), self.env, self.log)
         self.players.append(player)
+
+    def get_ui_player(self):
+        return self.players[1]
 
     def force_end(self):
         for player in self.players:
@@ -74,6 +81,10 @@ class Game:
         self.switch_in_turn = []
 
     def start(self):
+        self.thread = Thread(target=self.mainloop, args=())
+        self.thread.start()
+
+    def mainloop(self):
         for player in self.players:
             player.start()
         time.sleep(0.1)
@@ -94,9 +105,9 @@ class Game:
             self.reset_round()
 
             # Mainloop
-            Round = 1
+            self.Round = 1
             while not done:
-                print('Round', Round)
+                print('Round', self.Round)
                 self.players[0].signal(Signal.Move)
                 self.players[1].signal(Signal.Move)
                 while len(self.moves) < 2:
@@ -119,7 +130,7 @@ class Game:
                 self.utils.finish_turn(self.env, self.players)
 
                 self.log.step_print()
-                Round += 1
+                self.Round += 1
 
         self.force_end()
 
@@ -149,8 +160,10 @@ class Game:
                         'status_turn': pkm.status_turn,
                         'stat_lv': pkm.stat_lv,
                         'alive': pkm.alive}
+            moves = []
             for move_id, move in enumerate(pkm.moves):
-                pkm_info['move' + str(move_id + 1)] = {'name': move, 'pp': pkm.pp[move_id]}
+                moves.append({'name': move, 'pp': pkm.pp[move_id], 'maxpp': pkm.maxpp[move_id]})
+            pkm_info['moves'] = moves
             total_vstatus = {}
             for vstatus, turn in pkm.vstatus.items():
                 if turn:
@@ -169,6 +182,7 @@ class Game:
                 slotconds[slotcond] = turn
 
         my_team['pkms'] = pkms
+        my_team['pivot'] = player.pivot
         my_team['sidecond'] = sideconds
         my_team['slotcond'] = slotconds
 
@@ -208,6 +222,7 @@ class Game:
                 slotconds[slotcond] = turn
 
         foe_team['pkms'] = foe_pkms
+        foe_team['pivot'] = foe.pivot
         foe_team['sidecond'] = sideconds
         foe_team['slotcond'] = slotconds
 
@@ -220,6 +235,7 @@ class Game:
                 pseudo_weather[pd_weather] = turn
         env['pseudo_weather'] = pseudo_weather
 
+        state['round'] = self.Round
         state['my_team'] = my_team
         state['foe_team'] = foe_team
         state['env'] = env

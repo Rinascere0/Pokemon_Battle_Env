@@ -31,7 +31,7 @@ class Pokemon:
         # move infos
         self.move_infos = [Moves[move_to_key(move)] for move in self.moves]
 
-        self.pp = [move['pp'] * 1.6 for move in self.move_infos]
+        self.pp = [int(move['pp'] * 1.6) for move in self.move_infos]
         self.maxpp = copy.deepcopy(self.pp)
         self.lv = info['Lv']
 

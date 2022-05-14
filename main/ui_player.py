@@ -1,6 +1,8 @@
 import random
 import time
 from abc import abstractmethod
+import copy
+
 from data.moves import Moves
 
 from lib.const import *
@@ -10,7 +12,7 @@ from lib.read_team import read_team
 Common, Mega, Z_Move = range(3)
 
 
-class Player:
+class UI_Player:
     def __init__(self):
         self.pkms = []
         self.pivot = -1
@@ -23,6 +25,9 @@ class Player:
         self.env = None
         self.mega = np.zeros(6)
         self.zmove = np.zeros((6, 4))
+
+    def set_ui(self, ui):
+        self.ui = ui
 
     def load_team(self, team):
         self.pkms = team
@@ -156,17 +161,20 @@ class Player:
     def mainloop(self):
         while True:
             time.sleep(0.1)
-            if self.status == Signal.Move:
-                self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_valid_action())
-            elif self.status == Signal.Switch:
-                self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_valid_switch())
-            elif self.status == Signal.Switch_in_turn:
-                self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
-            elif self.status == Signal.End:
-                return
+            if self.status != Signal.Wait and self.ui.inited:
+                self.ui.setText()
+                if self.status == Signal.Move:
+                    self.status = Signal.Wait
+                    self.game.send(self.pid, self.gen_valid_action())
+                elif self.status == Signal.Switch:
+                    self.status = Signal.Wait
+                    self.game.send(self.pid, self.gen_valid_switch())
+                elif self.status == Signal.Switch_in_turn:
+                    self.status = Signal.Wait
+                    self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
+                elif self.status == Signal.End:
+                    return
+
 
     def switch(self, env, pivot, foe=None, withdraw=False):
         if withdraw:
@@ -218,9 +226,10 @@ class Player:
         }
 
 
-class RandomPlayer(Player):
+class myPlayer(UI_Player):
     def __init__(self):
-        super(RandomPlayer, self).__init__()
+        super(myPlayer, self).__init__()
+        self.action = None
 
     def set_team(self):
         self.load_team(read_team(tid=0))
@@ -228,35 +237,19 @@ class RandomPlayer(Player):
         for pkm in self.pkms:
             pkm.calc_stat(self.env)
 
+    def set_action(self, action_type):
+        self.action = action_type
+
     def gen_action(self):
-        rnd = random.uniform(0, 1)
-        if rnd >= 0.9 and self.alive.sum() > 1 and self.get_pivot().can_switch:
-            return self.gen_switch()
-        else:
-            return self.gen_move()
+        while not self.action:
+            time.sleep(0.1)
+        temp = copy.deepcopy(self.action)
+        self.action = None
+        return temp
 
     def gen_switch(self):
-        p = np.copy(self.alive)
-        if self.pivot != -1:
-            p[self.pivot] = 0
-        if not p.any():
-            return {'type': ActionType.Switch, 'item': self.pivot}
-        else:
-            return {'type': ActionType.Switch, 'item': int(np.random.choice(np.arange(0, 6), p=p / p.sum()))}
-
-    def gen_move(self):
-        pivot = self.pkms[self.pivot]
-        use_z = False
-        if not pivot.move_mask.any():
-            move_id = 0
-        else:
-            move_id = np.random.choice(np.arange(4), p=pivot.move_mask / pivot.move_mask.sum())
-            if pivot.z_mask[move_id] and random.uniform(0, 1) < 0.5:
-                use_z = True
-
-        if self.mega[self.pivot]:
-            return {'type': ActionType.Mega, 'item': move_id}
-        elif use_z:
-            return {'type': ActionType.Z_Move, 'item': move_id}
-        else:
-            return {'type': ActionType.Common, 'item': move_id}
+        while not self.action:
+            time.sleep(0.1)
+        temp = copy.deepcopy(self.action)
+        self.action = None
+        return temp

@@ -2,10 +2,13 @@ import random
 import re
 from main.pokemon import Pokemon
 import pickle
+import os
+
+path = os.path.abspath(__file__)
 
 
 def read_set():
-    with open('../team/ou.txt', 'r') as f:
+    with open(path+'/../../team/ou.txt', 'r') as f:
         s = f.read()
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
     ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 \-]+))'
@@ -35,17 +38,17 @@ def read_set():
             pkm_sets[name] = [pkm]
             pkm_dicts[name] = [res]
 
-    with open('../team/ou.pkl', 'wb') as f:
+    with open(path+'/../../team/ou.pkl', 'wb') as f:
         pickle.dump(pkm_sets, f)
 
-    with open('../team/ou.py', 'w') as f:
+    with open(path+'/../../team/ou.py', 'w') as f:
         f.write('ou_sets=' + str(pkm_dicts))
 
 
 def read_team(tid=0):
     if tid == 0:
-        tid = random.choice(list(range(1,28)))
-    with open('team/' + str(tid), 'r') as f:
+        tid = random.choice(list(range(1, 28)))
+    with open(path+'/../../team/' + str(tid), 'r') as f:
         s = f.read()
 
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
@@ -66,21 +69,21 @@ def read_team(tid=0):
         res = re.search(total, pm).groupdict()
         if 'Lv' not in res:
             res['Lv'] = 100
-     #   res['Name'] = (res['Name'].split('-Mega')[0]).split('-Ash')[0]
-     #   if '-Mega-X' in res['Name']:
-     #       res['Name'] = res['Name'].replace('-Mega-X', '')
-     #   if '-Mega-X' in res['Name']:
-     #       res['Name'] = res['Name'].replace('-Mega-Y', '')
-     #   if '-Ash' in res['Name']:
-     #       res['Name'] = res['Name'].replace('-Ash', '')
-     #   if '-Mega' in res['Name']:
-     #       res['Name'] = res['Name'].replace('-Mega', '')
+        #   res['Name'] = (res['Name'].split('-Mega')[0]).split('-Ash')[0]
+        #   if '-Mega-X' in res['Name']:
+        #       res['Name'] = res['Name'].replace('-Mega-X', '')
+        #   if '-Mega-X' in res['Name']:
+        #       res['Name'] = res['Name'].replace('-Mega-Y', '')
+        #   if '-Ash' in res['Name']:
+        #       res['Name'] = res['Name'].replace('-Ash', '')
+        #   if '-Mega' in res['Name']:
+        #       res['Name'] = res['Name'].replace('-Mega', '')
         pkms.append(Pokemon(res))
 
     return pkms
 
 
 if __name__ == '__main__':
-    for i in range(28,35):
+    for i in range(28, 35):
         print(i)
         read_team(i)

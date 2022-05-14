@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 from data.moves import Moves
@@ -41,5 +43,28 @@ def get_move(name):
     # get_move('spiritshackle')
 
 
-print(get_move('flash'))
+import wget
 
+
+def get_pic():
+    last_stop = 'pikachuworld'
+
+    for idx, (key, pkm) in enumerate(pokedex.items()):
+        if key == last_stop:
+            last_idx = idx
+    for idx, (_, pkm) in enumerate(pokedex.items()):
+        if idx <= last_idx:
+            continue
+        name = pkm['name'].lower()
+        if 'gmax' in name:
+            continue
+        url = 'https://www.smogon.com/dex/media/sprites/xy/' + name + '.gif'
+        print(url)
+        path = 'D:/resource/' + name + '.gif'
+        try:
+            wget.download(url, path)  # 下载
+        except:
+            continue
+
+
+get_pic()
