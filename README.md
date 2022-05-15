@@ -2,13 +2,13 @@
 
 ## About it
 
-It's an alpha version of Pokemon Gen7 6v6 battle env, implementing most mechanism of OU and UU tier.
+It's an alpha version of Pokémon Gen7 6v6 battle env, implementing most mechanism of OU and UU tier.
 
 It provides both human-vs-AI battle GUI for playing, and AI-vs-AI automatic battle for training.
 
 More features will continue to be updated, and any reports of bugs and unimplemented mechanisms are always welcome!
 
-Thanks to Pokemon Showdown for providing pokemon and move data.\
+Thanks to Pokémon Showdown for providing pokémon and move data.\
 Thanks to BJK for providing battle teams.
 
 
@@ -31,7 +31,9 @@ Note:Change the player class in `Game.py` to switch between the two modes!
 
 <details>
 <summary>GUI Example</summary>
-![](docs/ui.png)
+![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/ui.png)
+
+https://i.imgur.com/H1UFKHS.png
 </details>
 
 <details>
