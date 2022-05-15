@@ -1,16 +1,20 @@
 import sys
+import threading
 import time
 import os
+
+from lib.functions import move_to_key
 
 path = os.path.abspath(__file__) + '/../../resource/'
 pkm_path = path + 'pkm/'
 
-from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor
+from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox
 from PyQt5.QtCore import pyqtSignal, QRect, Qt
 
 from threading import Thread
 
+from data.moves import Moves
 from game import Game
 from lib.const import *
 
@@ -58,11 +62,23 @@ class UI(QWidget):
             HP_bar.setStyleSheet(color)
             HP_bar.setGeometry(HP_bar.x(), HP_bar.y(), HP_perc * 150, 15)
 
+        def move_to_tip(move):
+            s = ''
+            s += 'Type: ' + move['type'] + '\n'
+            s += 'Category: ' + move['category'] + '\n'
+            if move['category'] != 'Status':
+                s += 'BasePower: ' + str(move['basePower']) + '\n'
+            s += 'Accuracy: ' + str(move['accuracy']) + '\n'
+            if 'desc' in move:
+                s += 'Desc: ' + move['desc']
+            return s
+
         # show pivots
         pivot = my_pkms[my_team['pivot']]
         my_pivot_exist = my_team['pivot'] != -1 and pivot['alive']
         if my_pivot_exist:
-            self.myPivot.setPixmap(QPixmap(pkm_path + pivot['name'].replace(' ', '-').lower() + '.gif'))
+            self.myPivot.setPixmap(QPixmap(pkm_path + 'back/' + pivot['name'].replace(' ', '-').lower() + '.gif'))
+            self.myPivot.setToolTip(self.pkm_to_tip(pivot))
             set_HP_bar(self.myPivotHP, pivot['hp_perc'])
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
@@ -74,6 +90,7 @@ class UI(QWidget):
         foe_pivot_exist = foe_team['pivot'] != -1 and foe_pivot['alive']
         if foe_pivot_exist:
             self.foePivot.setPixmap(QPixmap(pkm_path + foe_pivot['name'].replace(' ', '-').lower() + '.gif'))
+            self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
             set_HP_bar(self.foePivotHP, foe_pivot['hp_perc'])
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
@@ -83,11 +100,12 @@ class UI(QWidget):
 
         # show my moves
         for i, move in enumerate(pivot['moves']):
-            if action_required == Signal.Switch:
+            if action_required in [Signal.Switch,Signal.Switch_in_turn]:
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
             else:
                 self.moves[i].setText(move['name'] + '\n' + str(move['pp']) + '/' + str(move['maxpp']))
+                self.moves[i].setToolTip(move_to_tip(Moves[move_to_key(move['name'])]))
                 self.moves[i].setEnabled(move_mask[i])
 
         self.z_move.setChecked(False)
@@ -98,6 +116,7 @@ class UI(QWidget):
 
         for pkm_switch, pkm in zip(self.pkm_switch, my_pkms):
             pkm_switch.setEnabled(switch_mask and pkm['alive'])
+            pkm_switch.setToolTip(self.pkm_to_tip(pkm))
 
         if my_pivot_exist:
             self.pkm_switch[my_team['pivot']].setEnabled(False)
@@ -111,6 +130,7 @@ class UI(QWidget):
                 pixmap = self.get_dead_pkm(pixmap)
             self.mypkm_mini[i].setPixmap(pixmap)
             self.mypkm_mini[i].setScaledContents(True)
+            self.mypkm_mini[i].setToolTip(self.pkm_to_tip(pkm))
 
         # show foe mini team
         for i, pkm in enumerate(foe_pkms):
@@ -120,10 +140,16 @@ class UI(QWidget):
                 pixmap = self.get_dead_pkm(pixmap)
             self.foepkm_mini[i].setPixmap(pixmap)
             self.foepkm_mini[i].setScaledContents(True)
+            self.foepkm_mini[i].setToolTip(self.pkm_to_tip(pkm))
 
     def init_ui(self):
         self.setFixedSize(1130, 720)
         self.move(300, 300)
+        self.setWindowTitle('Pokémon Battle Env')
+
+        # pkm_infos
+        self.my_pkm_infos = [None for _ in range(6)]
+        self.foe_pkm_infos = [None for _ in range(6)]
 
         # field
         self.bg = QLabel(self)
@@ -137,17 +163,17 @@ class UI(QWidget):
         self.log.setFont(QFont("Consolas", 10, 30))
 
         self.myPivot = QLabel(self)
-        self.myPivot.setGeometry(80, 130, 250, 250)
+        self.myPivot.setGeometry(100, 130, 250, 250)
 
         self.myPivotMaxHP = QLabel(self)
-        self.myPivotMaxHP.setGeometry(80, 180, 150, 15)
+        self.myPivotMaxHP.setGeometry(90, 180, 150, 15)
         self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,0)")
 
         self.myPivotHP = QLabel(self)
-        self.myPivotHP.setGeometry(80, 180, 150, 15)
+        self.myPivotHP.setGeometry(90, 180, 150, 15)
 
         self.foePivot = QLabel(self)
-        self.foePivot.setGeometry(350, 10, 250, 250)
+        self.foePivot.setGeometry(370, 10, 250, 250)
 
         self.foePivotMaxHP = QLabel(self)
         self.foePivotMaxHP.setGeometry(350, 60, 150, 15)
@@ -206,7 +232,6 @@ class UI(QWidget):
             pkm.setGeometry(120 + 170 * i, 630, 150, 60)
 
         # connect
-
         self.moves[0].clicked.connect(lambda: self.send(self.gen_action_type(), 0))
         self.moves[1].clicked.connect(lambda: self.send(self.gen_action_type(), 1))
         self.moves[2].clicked.connect(lambda: self.send(self.gen_action_type(), 2))
@@ -222,7 +247,107 @@ class UI(QWidget):
         self.add_signal.connect(lambda x: self.add_log(x))
         self.show()
 
-    def get_dead_pkm(self, pixmap, opacity=50):
+    def pkm_to_tip(self, pkm):
+        tip = ""
+        tip += pkm['name'] + '\n'
+        stat_lv = pkm['stat_lv']
+
+        def lv_to_str(lv):
+            if lv > 0:
+                return '(+' + str(lv) + ')'
+            elif lv < 0:
+                return '(' + str(lv) + ')'
+            else:
+                return ""
+
+        def gen_lv_str(key):
+            if stat_lv[key]:
+                return upper_stat[key] + ': ' + lv_to_str(stat_lv[key]) + '\n'
+            else:
+                return ""
+
+        def gen_stat_str(key):
+            if key in ['accuracy', 'evasion', 'ct']:
+                return gen_lv_str(key)
+            else:
+                return upper_stat[key] + ': ' + str(pkm[key]) + lv_to_str(stat_lv[key]) + '\n'
+
+        def gen_type_str():
+            s = "Type:"
+            for type in pkm['type']:
+                if type:
+                    s += ' ' + type + ','
+                else:
+                    s += ' ' + 'None' + ','
+            return s[:-1] + "\n"
+
+        def gen_move_str():
+            s = ""
+            for move in pkm['moves']:
+                name = move['name']
+                if name == 'unrevealed':
+                    continue
+                s += '- ' + name + ' ' + str(move['pp']) + '/' + str(move['maxpp']) + '\n'
+
+            return s
+
+        def gen_ability_str():
+            if pkm['ability'] == 'unrevealed':
+                return ""
+            elif pkm['ability']:
+                return 'Ability: ' + pkm['ability'] + '\n'
+            else:
+                return 'Ability: None\n'
+
+        def gen_item_str():
+            if pkm['item'] == 'unrevealed':
+                return ""
+            elif pkm['item']:
+                return 'Item: ' + pkm['item'] + '\n'
+            else:
+                return 'Item: None\n'
+
+        # my_pkm
+        if 'hp' in pkm:
+            if not pkm['alive']:
+                tip += '(faint)\n'
+            tip += gen_type_str()
+            tip += gen_ability_str()
+            tip += gen_item_str()
+            tip += 'HP: ' + str(pkm['hp']) + '/' + str(pkm['maxhp']) + '\n'
+
+            for key in pkm['stat_lv']:
+                tip += gen_stat_str(key)
+            tip += gen_move_str()
+            if pkm['status']:
+                tip += 'Status: ' + pkm['status'] + '\n'
+            if pkm['vstatus']:
+                tip += 'VStatus: '
+                for key, turn in pkm['vstatus'].items():
+                    tip += key + ','
+                tip = tip[:-1] + '\n'
+
+        else:
+            if not pkm['alive']:
+                tip += '(faint)\n'
+            tip += gen_type_str()
+            tip += gen_ability_str()
+            tip += gen_item_str()
+            tip += 'HP: ' + str(pkm['hp_perc'] * 100) + '%\n'
+            for key in stat_lv:
+                tip += gen_lv_str(key)
+            tip += gen_move_str()
+            if pkm['status']:
+                tip += 'Status:' + pkm['status'] + '\n'
+            if pkm['vstatus']:
+                tip += 'VStatus: '
+                for key, turn in pkm['vstatus'].items():
+                    tip += key + ','
+                tip = tip[:-1] + '\n'
+
+        return tip[:-1]
+
+    def get_dead_pkm(self, pixmap, opacity=75):
         pMap = pixmap
         temp = QPixmap(pMap.size())
         temp.fill(Qt.transparent)
@@ -257,5 +382,5 @@ class UI(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ui = UI()
-    sys.exit(app.exec_())
+    app.exec_()
     ui.game.force_end()

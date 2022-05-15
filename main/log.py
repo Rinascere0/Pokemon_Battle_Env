@@ -508,7 +508,7 @@ class BattleLog:
                 log = 'But it failed!'
 
             elif event == 'round':
-                log = '\nRound ' + str(val)
+                log = '\nRound ' + str(val) + '\n'
 
             # attr berry
             elif event in attr_berry:

@@ -54,7 +54,10 @@ from PIL import Image
 def get_pic():
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0'}
     fail = []
+    last=pokedex['victini']['num']
     for idx, (_, pkm) in enumerate(pokedex.items()):
+        if pkm['num']<=494:
+            continue
         name = pkm['name'].replace(' ', '-').lower()
         if 'gmax' in name:
             continue
@@ -77,4 +80,5 @@ def get_pic():
     return fail
 
 
-print(get_pic())
+#print(get_pic())
+print(get_move('synthesis'))

@@ -33,7 +33,7 @@ Z_MOVES = {
 }
 protect_moves = ['protect', 'detect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']
 vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion',
-                'partiallytrapped','lockon','embargo','healblock','telekinesis']
+                'partiallytrapped', 'lockon', 'embargo', 'healblock', 'telekinesis']
 
 z_crystals = {'Buginium Z': 'Bug', 'Darkinium Z': 'Dark', 'Dragonium Z': 'Dragon', 'Electrium Z': 'Electric',
               'Fairium Z': 'Fairy', 'Fightinium Z': 'Fighting', 'Firium Z': 'Fire', 'Flyinium Z': 'Flying',
@@ -101,7 +101,19 @@ full_stat = {
     'spe': 'Spe',
     'evasion': 'Evasion',
     'accuracy': 'Accuracy',
-    'ct': 'Critical Rate'
+    'ct': 'Crit. Rate'
+}
+
+upper_stat = {
+    'atk': 'Atk',
+    'def': 'Def',
+    'spa': 'SpA',
+    'spd': 'SpD',
+    'spe': 'Spe',
+    'evasion': 'Eva',
+    'accuracy': 'Acc',
+    'ct': 'Crit'
+
 }
 
 sound_move = ['Boomburst ', 'Bug Buzz ', 'Chatter ', 'Clanging Scales ', 'Clangorous Soul ', 'Clangorous Soulblaze ',

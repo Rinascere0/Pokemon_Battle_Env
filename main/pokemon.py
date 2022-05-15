@@ -388,12 +388,18 @@ class Pokemon:
         if status == 'slp' and self.ability in ['Insomnia', 'Vital Spirit', 'Sweet Veil']:
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
-        if status == 'brn' and self.ability in ['Water Bubble', 'Water Veil']:
-            self.log.add(actor=self, event=self.ability, type=logType.ability)
-            return False
-        if status in ['psn', 'tox'] and self.ability == 'Immunity':
-            self.log.add(actor=self, event=self.ability, type=logType.ability)
-            return False
+        if status == 'brn':
+            if self.ability in ['Water Bubble', 'Water Veil']:
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                return False
+            if 'Fire' in self.attr:
+                return False
+        if status in ['psn', 'tox']:
+            if self.ability == 'Immunity':
+                self.log.add(actor=self, event=self.ability, type=logType.ability)
+                return False
+            if {'Poison', 'Steel'}.intersection(self.attr):
+                return False
         if status == 'frz' and self.ability == 'Magma Armor':
             self.log.add(actor=self, event=self.ability, type=logType.ability)
             return False
@@ -514,7 +520,7 @@ class Pokemon:
         target: the source of the heal, deal with Liquid Ooze
     '''
 
-    def heal(self, val=0, perc=0, target=None, move=True):
+    def heal(self, val=0, perc=0, target=None, move=False):
         def handle_heal(val, perc, target):
             if not self.alive:
                 return True
@@ -753,6 +759,7 @@ class Pokemon:
         self.protect_move = None
         self.used_move = False
         self.retalitate = False
+        self.can_switch = True
 
         if self.item == 'Leftovers':
             if self.HP < self.maxHP:
@@ -844,7 +851,7 @@ class Pokemon:
             target.heal(dmg)
 
         if self.vstatus['partiallytrapped'] and self.alive:
-            if not target.alive or target != self.trap_user:
+            if not target.alive or target is not self.trap_user:
                 self.trap_move = None
                 self.trap_user = None
             else:
@@ -1044,6 +1051,12 @@ class Pokemon:
             self.weight *= 2
         if self.ability == 'Light Metal':
             self.weight /= 2
+
+        self.Atk = int(self.Atk)
+        self.Def = int(self.Def)
+        self.Satk = int(self.Satk)
+        self.Sdef = int(self.Sdef)
+        self.Spe = int(self.Spe)
 
     def reset_stat_lv(self, nega=False):
         for stat in self.stat_lv:

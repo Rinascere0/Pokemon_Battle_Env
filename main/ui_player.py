@@ -25,6 +25,7 @@ class UI_Player:
         self.env = None
         self.mega = np.zeros(6)
         self.zmove = np.zeros((6, 4))
+        self.ui = None
 
     def set_ui(self, ui):
         self.ui = ui
@@ -60,9 +61,6 @@ class UI_Player:
     def start(self):
         thread = Thread(target=self.mainloop, args=())
         thread.start()
-
-    def signal(self, sign):
-        self.status = sign
 
     def get_pivot(self):
         return self.pkms[self.pivot]
@@ -146,6 +144,8 @@ class UI_Player:
 
     def gen_valid_action(self):
         action = self.gen_action()
+        if self.status == Signal.End:
+            return
         if self.check_valid_action(action):
             return action
         else:
@@ -153,16 +153,26 @@ class UI_Player:
 
     def gen_valid_switch(self):
         action = self.gen_switch()
+        if self.status == Signal.End:
+            return
         if self.check_valid_switch(action):
             return action
         else:
             self.game.force_end()
 
+    def signal(self, sign):
+        self.status = sign
+        if self.ui:
+            while not self.ui.inited:
+                time.sleep(0.1)
+                if self.status == Signal.End:
+                    return
+            self.ui.setText(self.status)
+
     def mainloop(self):
         while True:
             time.sleep(0.1)
-            if self.status != Signal.Wait and self.ui.inited:
-                self.ui.setText(self.status)
+            if self.status != Signal.Wait:
                 if self.status == Signal.Move:
                     self.status = Signal.Wait
                     self.game.send(self.pid, self.gen_valid_action())
@@ -231,7 +241,7 @@ class myPlayer(UI_Player):
         self.action = None
 
     def set_team(self):
-        self.load_team(read_team(tid=0))
+        self.load_team(read_team(tid=11))
         # for test
         for pkm in self.pkms:
             pkm.calc_stat(self.env)
@@ -242,6 +252,8 @@ class myPlayer(UI_Player):
     def gen_action(self):
         while not self.action:
             time.sleep(0.1)
+            if self.status == Signal.End:
+                return
         temp = copy.deepcopy(self.action)
         self.action = None
         return temp
@@ -249,6 +261,8 @@ class myPlayer(UI_Player):
     def gen_switch(self):
         while not self.action:
             time.sleep(0.1)
+            if self.status == Signal.End:
+                return
         temp = copy.deepcopy(self.action)
         self.action = None
         return temp

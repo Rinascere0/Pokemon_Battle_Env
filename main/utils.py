@@ -363,6 +363,7 @@ class Utils:
                 self.log.add(actor=user, event='-frz')
             if random.uniform(0, 1) <= 0.2:
                 self.log.add(actor=user, event='-frz')
+                user.status = None
             else:
                 self.log.add(actor=user, event='+frz')
                 return
@@ -893,9 +894,9 @@ class Utils:
             if move['name'] == 'Topsy-Turvy':
                 for stat in target.stat_lv:
                     target.stat_lv[stat] = -target.stat_lv[stat]
-            
-            if move['name']=='Psych Up':
-                user.stat_lv=copy.deepcopy(target.stat_lv)
+
+            if move['name'] == 'Psych Up':
+                user.stat_lv = copy.deepcopy(target.stat_lv)
 
             if move['name'] == 'Defog':
                 target.boost('evasion', -1)
@@ -954,7 +955,7 @@ class Utils:
                 self.log.add(event='aromatherapy')
                 user.player.cure_all()
 
-            if 'heal' in move:
+            if 'heal' in move or 'heal' in move['flags']:
                 if move['name'] in ['Sunlight', 'Moonlight', 'Synthesis']:
                     if env.weather == 'sunnyday':
                         perc = 2 / 3
@@ -1141,7 +1142,7 @@ class Utils:
                 target.boost('atk', 1)
                 return NoEffect
 
-        if sk_type == 'Ground' and move['target'] == 'common':
+        if sk_type == 'Ground' and sk_ctg != 'Status':
             if imm_ground(target, env):
                 return NoEffect
 
@@ -1246,7 +1247,7 @@ class Utils:
         if sk_name == 'Avalanche' and (user.round_dmg['Physical'] or user.round_dmg['Special']):
             power *= 2
 
-        if sk_name in ['Revenge','Payback'] and last and target.used_move:
+        if sk_name in ['Revenge', 'Payback'] and last and target.used_move:
             power *= 2
 
         if sk_name == 'Earthquake' and target.off_field == 'Dig':

@@ -1,3 +1,4 @@
+
 import time
 
 from main.env import Env
@@ -63,6 +64,7 @@ class Game:
     def send(self, pid, move, in_turn=False):
         if not move:
             self.end = True
+            return
         if move['type'] == ActionType.Switch:
             # in turn switch
             if in_turn:
@@ -112,7 +114,7 @@ class Game:
             self.players[0].signal(Signal.Switch)
             self.players[1].signal(Signal.Switch)
             while len(self.moves) < 2:
-                time.sleep(0.01)
+                time.sleep(0.1)
                 if self.end:
                     return
             done = self.utils.match_up(self.env, self.round_players, self.moves)
@@ -125,7 +127,9 @@ class Game:
                 self.players[0].signal(Signal.Move)
                 self.players[1].signal(Signal.Move)
                 while len(self.moves) < 2:
-                    time.sleep(0.01)
+                    time.sleep(0.1)
+                    if self.end:
+                        return
                 done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
                 self.reset_round()
 
@@ -134,7 +138,7 @@ class Game:
                     for player in to_switch:
                         player.signal(Signal.Switch)
                     while len(self.moves) < len(to_switch):
-                        time.sleep(0.01)
+                        time.sleep(0.1)
                         if self.end:
                             return
 
@@ -179,7 +183,8 @@ class Game:
                         'alive': pkm.alive}
             moves = []
             for move_id, move in enumerate(pkm.moves):
-                moves.append({'name': move, 'pp': pkm.pp[move_id], 'maxpp': pkm.maxpp[move_id]})
+                moves.append(
+                    {'name': move, 'pp': pkm.pp[move_id], 'maxpp': pkm.maxpp[move_id]})
             pkm_info['moves'] = moves
             total_vstatus = {}
             for vstatus, turn in pkm.vstatus.items():
@@ -214,20 +219,28 @@ class Game:
             pkm_info = {'name': pkm.name,
                         'id': pkm_id,
                         'type': pkm.attr,
-                        'hp_perc': pkm.HP / pkm.maxHP,
+                        'hp_perc': round(pkm.HP / pkm.maxHP, 2),
                         'status': pkm.status,
                         'status_turn': pkm.status_turn,
                         'stat_lv': pkm.stat_lv,
                         'alive': pkm.alive}
+            if True:
+                pkm_info['item'] = 'unrevealed'
+
             if pkm.ability_revealed:
                 pkm_info['ability'] = pkm.ability
             else:
                 pkm_info['ability'] = 'unrevealed'
+
+            moves = []
             for move_id, (move, pp, maxpp) in enumerate(zip(pkm.moves, pkm.pp, pkm.maxpp)):
                 if pp < maxpp:
-                    pkm_info['move' + str(move_id + 1)] = {'name': move, 'pp': pkm.pp[move_id]}
+                    moves.append({'name': move, 'pp': pkm.pp[move_id], 'maxpp': pkm.maxpp[move_id]})
                 else:
-                    pkm_info['move' + str(move_id + 1)] = {'name': 'unrevealed'}
+                    moves.append({'name': 'unrevealed'})
+            pkm_info['moves'] = moves
+
+            total_vstatus={}
             for vstatus, turn in pkm.vstatus.items():
                 if turn:
                     total_vstatus[vstatus] = turn

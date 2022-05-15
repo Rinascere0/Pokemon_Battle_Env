@@ -223,7 +223,7 @@ class RandomPlayer(Player):
         super(RandomPlayer, self).__init__()
 
     def set_team(self):
-        self.load_team(read_team(tid=0))
+        self.load_team(read_team(tid=27))
         # for test
         for pkm in self.pkms:
             pkm.calc_stat(self.env)

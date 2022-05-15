@@ -3,13 +3,22 @@
 ## About it
 
 It's an alpha version of Pokemon Gen7 6v6 battle env, implementing most mechanism of OU and UU tier.\
+It provides both human-vs-AI battle GUI for playing, and AI-vs-AI automatic battle for training!\
 More features will continue to be updated, and any reports of bugs and unimplemented mechanisms are always welcome!
 
 Thanks to Pokemon Showdown for providing pokemon and move data.\
 Thanks to BJK for providing battle teams.
+
+
 ## How to use?
 
-Run `game.py`, and built-in AI will automatically perform a 6v6 battle!
+For GUI:
+Run `ui.py`, and battle with the built-in AI!
+
+For non-GUI:
+Run `game.py`, and built-in AI will automatically perform a battle!
+
+Note:Change the player class in `Game.py` to switch between the two modes!
 
 ## How to create my own AI?
 
@@ -18,7 +27,10 @@ Run `game.py`, and built-in AI will automatically perform a 6v6 battle!
 3. Import your own team into 'team' directory, and edit according parameters in your class (Of course you can just use
    built-in teams!).
 
-
+<details>
+<summary>GUI Example</summary>
+![image](https://github.com/Rinascere0/Pokemon_Battle_Env/tree/GUI/docs/ui.png)
+</details>
 
 <details>
 <summary>Battle Log Example</summary>
