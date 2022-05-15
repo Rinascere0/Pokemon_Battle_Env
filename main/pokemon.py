@@ -263,7 +263,7 @@ class Pokemon:
     def bond_evolve(self):
         if self.name == 'Greninja':
             self.log.add(actor=self, event='Battle Bond', type=logType.ability)
-            self.log.add(actor=self, event='transform', val='Greninja-Ash')
+            self.log.add(actor=self, event='self_transform', val='Greninja-Ash')
             self.name = 'Greninja-Ash'
             self.base_name = self.name
             pkm_info = pokedex['greninjaash']
@@ -1141,7 +1141,7 @@ class Pokemon:
                 slotcond['heal'] = 0
 
             if not old_pivot.alive:
-                self.retalitate=True
+                self.retalitate = True
 
         if self.ability == 'Illusion':
             self.name = self.player.get_last_alive().name

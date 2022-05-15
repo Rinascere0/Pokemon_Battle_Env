@@ -162,7 +162,7 @@ class UI_Player:
         while True:
             time.sleep(0.1)
             if self.status != Signal.Wait and self.ui.inited:
-                self.ui.setText()
+                self.ui.setText(self.status)
                 if self.status == Signal.Move:
                     self.status = Signal.Wait
                     self.game.send(self.pid, self.gen_valid_action())
@@ -174,7 +174,6 @@ class UI_Player:
                     self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
                 elif self.status == Signal.End:
                     return
-
 
     def switch(self, env, pivot, foe=None, withdraw=False):
         if withdraw:
@@ -237,8 +236,8 @@ class myPlayer(UI_Player):
         for pkm in self.pkms:
             pkm.calc_stat(self.env)
 
-    def set_action(self, action_type):
-        self.action = action_type
+    def set_action(self, action_type, item):
+        self.action = {'type': action_type, 'item': item}
 
     def gen_action(self):
         while not self.action:

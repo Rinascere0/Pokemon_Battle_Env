@@ -11,7 +11,7 @@ from lib.functions import *
 from threading import Thread
 
 # set total game nums
-game_nums = 5
+game_nums = 1
 
 # whether show log in terminal or save log in file
 save_log = False
@@ -20,7 +20,7 @@ save_log = False
 class Game:
     def __init__(self):
         self.env = Env()
-        self.log = BattleLog(save_log)
+        self.log = BattleLog(self, save_log)
         self.utils = Utils(self.log)
         self.players = []
         self.moves = []
@@ -29,20 +29,32 @@ class Game:
         self.Round = 0
         self.end = False
 
+        # if use ui
+        self.ui = None
+
         # change to your own player class!
         self.add_player(RandomPlayer())
+        # self.add_player(RandomPlayer())
         self.add_player(myPlayer())
 
     def add_player(self, player):
         player.set_game(self, len(self.players), self.env, self.log)
         self.players.append(player)
 
+    def set_ui(self, ui):
+        self.ui = ui
+
     def get_ui_player(self):
         return self.players[1]
+
+    def send_log(self, log):
+        if self.ui:
+            self.ui.send_log(log)
 
     def force_end(self):
         for player in self.players:
             player.signal(Signal.End)
+        self.end = True
 
     def force_wait(self):
         for player in self.players:
@@ -101,13 +113,15 @@ class Game:
             self.players[1].signal(Signal.Switch)
             while len(self.moves) < 2:
                 time.sleep(0.01)
+                if self.end:
+                    return
             done = self.utils.match_up(self.env, self.round_players, self.moves)
             self.reset_round()
 
             # Mainloop
             self.Round = 1
             while not done:
-                print('Round', self.Round)
+                self.log.add(event='round', val=self.Round)
                 self.players[0].signal(Signal.Move)
                 self.players[1].signal(Signal.Move)
                 while len(self.moves) < 2:
@@ -121,6 +135,8 @@ class Game:
                         player.signal(Signal.Switch)
                     while len(self.moves) < len(to_switch):
                         time.sleep(0.01)
+                        if self.end:
+                            return
 
                     if len(to_switch) < 2:
                         self.round_players.append(self.players[1 - self.round_players[0].pid])
@@ -151,6 +167,7 @@ class Game:
                         'weight': pkm.weight,
                         'hp': pkm.HP,
                         'maxhp': pkm.maxHP,
+                        'hp_perc': pkm.HP / pkm.maxHP,
                         'atk': pkm.Atk,
                         'def': pkm.Def,
                         'spa': pkm.Satk,
@@ -181,10 +198,15 @@ class Game:
             if turn:
                 slotconds[slotcond] = turn
 
+        my_pivot_id = player.pivot
+        my_pivot = player.get_pivot()
+        masks = {'switch': my_pivot.can_switch, 'move': my_pivot.move_mask,
+                 'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask}
         my_team['pkms'] = pkms
         my_team['pivot'] = player.pivot
         my_team['sidecond'] = sideconds
         my_team['slotcond'] = slotconds
+        my_team['masks'] = masks
 
         foe_team = {}
         foe_pkms = []
@@ -192,6 +214,7 @@ class Game:
             pkm_info = {'name': pkm.name,
                         'id': pkm_id,
                         'type': pkm.attr,
+                        'hp_perc': pkm.HP / pkm.maxHP,
                         'status': pkm.status,
                         'status_turn': pkm.status_turn,
                         'stat_lv': pkm.stat_lv,

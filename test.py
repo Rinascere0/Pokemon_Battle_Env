@@ -1,4 +1,5 @@
 import time
+from io import StringIO
 
 import numpy as np
 
@@ -44,27 +45,36 @@ def get_move(name):
 
 
 import wget
+import requests
+from PIL import Image
 
+
+# from StringIO import StringIO
 
 def get_pic():
-    last_stop = 'pikachuworld'
-
-    for idx, (key, pkm) in enumerate(pokedex.items()):
-        if key == last_stop:
-            last_idx = idx
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0'}
+    fail = []
     for idx, (_, pkm) in enumerate(pokedex.items()):
-        if idx <= last_idx:
-            continue
-        name = pkm['name'].lower()
+        name = pkm['name'].replace(' ', '-').lower()
         if 'gmax' in name:
             continue
-        url = 'https://www.smogon.com/dex/media/sprites/xy/' + name + '.gif'
-        print(url)
-        path = 'D:/resource/' + name + '.gif'
+        url = 'https://play.pokemonshowdown.com/sprites/ani-back/' + name + '.gif'
         try:
-            wget.download(url, path)  # 下载
+            response = requests.get(url, headers=headers)
+            print(url)
+            path = 'D:/resource/back/' + name + '.gif'
+            with open(path, 'wb') as f:
+                f.write(response.content)
         except:
-            continue
+            print('fail:', name)
+            fail.append(name)
+    #   try:
+    #       wget.download(url, path)  # 下载
+    #   except Exception as e:
+    #       print(repr(e))
+    #
+
+    return fail
 
 
-get_pic()
+print(get_pic())

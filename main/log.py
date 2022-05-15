@@ -5,13 +5,14 @@ import os
 
 
 class BattleLog:
-    def __init__(self, save_log=False):
+    def __init__(self, game, save_log=False):
         self.total_logs = []
         self.log = []
         self.total_log_texts = []
         self.log_text = []
         self.save_log = save_log
         self.loser = None
+        self.game = game
 
     def step(self):
         self.total_logs.append(self.log)
@@ -35,6 +36,9 @@ class BattleLog:
             for pkm in player.pkms:
                 pkm_str += pkm.name + '/'
             self.log_text.append(player.name + '\'s pokemons: ' + pkm_str[:-1])
+
+        for log in self.log_text:
+            self.game.send_log(log)
 
         self.step_print()
 
@@ -503,6 +507,9 @@ class BattleLog:
             elif event == 'fail':
                 log = 'But it failed!'
 
+            elif event == 'round':
+                log = '\nRound ' + str(val)
+
             # attr berry
             elif event in attr_berry:
                 log = 'The ' + event + ' weakened the damage to ' + actor + '!'
@@ -522,6 +529,9 @@ class BattleLog:
 
             elif event == 'transform':
                 log = 'transformed into ' + target + '!'
+
+            elif event == 'self_transform':
+                log = 'transformed into ' + val + '!'
 
             elif event == 'knockoff':
                 log = 'knocked off ' + target + '\'s ' + val + '!'
@@ -620,3 +630,4 @@ class BattleLog:
         log = {'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type}
         self.log.append(log)
         self.log_text.append(self.translate(log))
+        self.game.send_log(self.translate(log))
