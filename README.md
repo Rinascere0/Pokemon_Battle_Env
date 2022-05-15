@@ -20,7 +20,8 @@ Run `ui.py`, and battle with the built-in AI!
 For non-GUI:
 Run `game.py`, and built-in AI will automatically perform a battle!
 
-Note:Change the player class in `Game.py` to switch between the two modes!
+Note:
+Change the player class in `Game.py` to switch between the two modes!
 
 ## How to create my own AI?
 
