@@ -31,9 +31,7 @@ Note:Change the player class in `Game.py` to switch between the two modes!
 
 <details>
 <summary>GUI Example</summary>
-![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/ui.png)
-
-https://i.imgur.com/H1UFKHS.png
+![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/gui.png)
 </details>
 
 <details>
