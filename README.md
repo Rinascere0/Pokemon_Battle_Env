@@ -29,10 +29,9 @@ Note:Change the player class in `Game.py` to switch between the two modes!
 3. Import your own team into 'team' directory, and edit according parameters in your class (Of course you can just use
    built-in teams!).
 
-<details>
-<summary>GUI Example</summary>
+
+## GUI Example
 ![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/gui.png)
-</details>
 
 <details>
 <summary>Battle Log Example</summary>
