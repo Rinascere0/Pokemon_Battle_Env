@@ -167,7 +167,7 @@ class UI_Player:
                 time.sleep(0.1)
                 if self.status == Signal.End:
                     return
-            self.ui.setText(self.status)
+            self.ui.update(self.status)
 
     def mainloop(self):
         while True:
@@ -241,7 +241,8 @@ class myPlayer(UI_Player):
         self.action = None
 
     def set_team(self):
-        self.load_team(read_team(tid=11))
+        # 11 victini
+        self.load_team(read_team(tid=0))
         # for test
         for pkm in self.pkms:
             pkm.calc_stat(self.env)

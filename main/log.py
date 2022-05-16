@@ -146,7 +146,7 @@ class BattleLog:
                 log = 'was removed ' + val + ' types!'
 
             elif event == 'lose':
-                log = 'lost!'
+                log = '\nlost!'
                 if not self.loser:
                     self.loser = actor[:-1]
 
@@ -628,6 +628,7 @@ class BattleLog:
 
     def add(self, actor=None, event=None, target=None, val=0, type=logType.common):
         log = {'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type}
-        self.log.append(log)
-        self.log_text.append(self.translate(log))
-        self.game.send_log(self.translate(log))
+        if not self.loser:
+            self.log.append(log)
+            self.log_text.append(self.translate(log))
+            self.game.send_log(self.translate(log))
