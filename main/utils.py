@@ -75,6 +75,8 @@ class Utils:
             else:
                 return
 
+        pkms[first].last_move = 'switch'
+
         # perform preparations after switching on, e.g. abilities
         self.switch_on(players, env)
 
@@ -558,7 +560,7 @@ class Utils:
 
         for i in range(count):
             # avoid multi move continuing on dead pkm
-            if not target.alive:
+            if not target.alive and move['target'] in ['allAdjacent', 'allAdjacentFoes', 'normal']:
                 if i == 0:
                     self.log.add(event='fail')
                 break
@@ -576,13 +578,14 @@ class Utils:
                 # handle switch after move effect
                 if target.item == 'Eject Button':
                     target.use_item()
-                    game.call_switch(target.player)
+                    if target.alive:
+                        game.call_switch(target.player)
 
                 # switch if not opponent eject button
                 # TODO: Actually could only switch when opponent didn't switch during the move
                 elif target.item == 'Red Card':
                     target.use_item()
-                    if user.can_force_switch():
+                    if user.can_force_switch() and user.alive:
                         game.call_switch(user.player)
 
                 elif move['name'] in ['U-turn', 'Volt Switch', 'Boton Pass']:
@@ -592,7 +595,7 @@ class Utils:
                         game.call_switch(user.player)
 
                 elif move['name'] in ['Dragon Tail', 'Circle Throw']:
-                    if user.can_force_switch():
+                    if target.can_force_switch() and target.alive:
                         game.call_switch(target.player)
 
             elif useful == Miss:
@@ -709,8 +712,11 @@ class Utils:
                                 target.add_status('psn', env, user)
 
                     if move['name'] in ['Thousand Waves', 'Anchor Shot', 'Spirit Shackle']:
-                        target.add_vstate('cantescape'
-                                          )
+                        target.add_vstate('cantescape')
+
+                    if move['name'] in ['Scald', 'Steam Eruption', 'Hidden Power [Fire]']:
+                        target.cure_status('frz')
+
                     if move['name'] == 'Knock Off' and target and target.alive and target.base_item:
                         item = target.lose_item()
                         if item:
@@ -840,6 +846,7 @@ class Utils:
         else:
             # includes info, e.g.duration
             cond = move['condition'] if 'condition' in move else None
+            foe = target
             if move['target'] == 'self':
                 target = user
 
@@ -860,7 +867,7 @@ class Utils:
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
-                if not target.add_vstate(vstatus, cond, user):
+                if not target.add_vstate(vstatus, cond, user, foe=target):
                     self.log.add(event='fail')
 
             if 'weather' in move:
@@ -956,6 +963,7 @@ class Utils:
                 user.player.cure_all()
 
             if 'heal' in move or 'heal' in move['flags']:
+                perc = 0
                 if move['name'] in ['Sunlight', 'Moonlight', 'Synthesis']:
                     if env.weather == 'sunnyday':
                         perc = 2 / 3
@@ -968,9 +976,10 @@ class Utils:
                         perc = 2 / 3
                     else:
                         perc = 1 / 2
-                else:
+                elif 'heal' in move:
                     perc = move['heal'][0] / move['heal'][1]
-                target.heal(perc=perc, move=True)
+                if perc:
+                    target.heal(perc=perc, move=True)
 
             if move['name'] == 'Rest':
                 if user.HP == user.maxHP:
@@ -1053,7 +1062,7 @@ class Utils:
                     self.log.add(actor=user, event='zprotect')
                 else:
                     self.log.add(actor=target, event='+protect')
-                    # TODO: add log
+                    user.off_field = None
                     if 'contact' in move['flags']:
                         if target.protect_move == 'banefulbunker':
                             user.add_status('psn')
@@ -1105,10 +1114,10 @@ class Utils:
         if sk_type == 'Water':
             if target.ability == 'Water Absorb':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
-                target.heal(1 / 4, perc=Hit)
+                target.heal(perc=1 / 4)
                 return NoEffect
             if target.ability == 'Dry Skin':
-                target.heal(1 / 4, perc=Hit)
+                target.heal(perc=1 / 4)
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
                 return NoEffect
             if target.ability == 'Storm Drain':
@@ -1133,7 +1142,7 @@ class Utils:
                 return NoEffect
             if target.ability == 'Volt Absorb':
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
-                target.heal(1 / 4, perc=Hit)
+                target.heal(perc=1 / 4)
                 return NoEffect
 
         if sk_type == 'Grass':

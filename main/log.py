@@ -5,12 +5,13 @@ import os
 
 
 class BattleLog:
-    def __init__(self, game, save_log=False):
+    def __init__(self, game, save_log=False, mode='train'):
         self.total_logs = []
         self.log = []
         self.total_log_texts = []
         self.log_text = []
         self.save_log = save_log
+        self.print_log = mode == 'test'
         self.loser = None
         self.game = game
 
@@ -43,6 +44,8 @@ class BattleLog:
         self.step_print()
 
     def step_print(self):
+        if not self.print_log:
+            return
         self.total_logs.append(self.log)
         self.total_log_texts.append(self.log_text)
         if self.save_log:
@@ -146,7 +149,7 @@ class BattleLog:
                 log = 'was removed ' + val + ' types!'
 
             elif event == 'lose':
-                log = '\nlost!'
+                log = 'lost!'
                 if not self.loser:
                     self.loser = actor[:-1]
 
@@ -231,6 +234,9 @@ class BattleLog:
 
             elif event == 'confusion':
                 log = 'is confused!'
+
+            elif event == '+confusion':
+                log = 'hit itself in confusion!'
 
             elif event == '+nightmare':
                 log = 'was tortured by nightmare!'
@@ -459,10 +465,10 @@ class BattleLog:
                 log = actor + '\'s team became shrouded in mist!'
 
             elif event == 'lightscreen':
-                log = 'Light Screen made' + actor + '\'s team stronger against special moves!'
+                log = 'Light Screen made ' + actor + '\'s team stronger against special moves!'
 
             elif event == 'reflect':
-                log = 'Reflect made' + actor + '\'s team stronger against physical moves!'
+                log = 'Reflect made ' + actor + '\'s team stronger against physical moves!'
 
             elif event == 'luckychant':
                 log = 'Lucky Chant shielded ' + actor + '\'s team from critical hits!'

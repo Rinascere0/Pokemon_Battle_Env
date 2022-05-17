@@ -27,7 +27,7 @@ class UI(QWidget):
     def __init__(self):
         super(UI, self).__init__()
         self.inited = False
-        self.game = Game()
+        self.game = Game(mode='play')
         self.game.set_ui(self)
         self.game.start()
 
@@ -149,7 +149,7 @@ class UI(QWidget):
     def set_zable_move(self):
         if self.z_move.isChecked():
             for i, move in enumerate(self.moves):
-                move.setEnabled(self.z_mask[i]*self.move_mask[i])
+                move.setEnabled(self.z_mask[i] * self.move_mask[i])
         else:
             for i, move in enumerate(self.moves):
                 move.setEnabled(self.move_mask[i])
@@ -198,7 +198,10 @@ class UI(QWidget):
         if my_pivot_exist:
             self.z_mask = z_mask
             self.move_mask = move_mask
-            self.myPivot.setPixmap(QPixmap(pkm_path + 'back/' + pivot['name'].replace(' ', '-').lower() + '.gif'))
+            if pivot['vstatus']['substitute']:
+                self.myPivot.setPixmap(QPixmap(pkm_path + 'back/substitute.png'))
+            else:
+                self.myPivot.setPixmap(QPixmap(pkm_path + 'back/' + pivot['name'].replace(' ', '-').lower() + '.gif'))
             self.myPivot.setToolTip(self.pkm_to_tip(pivot))
             set_HP_bar(self.myPivotHP, pivot['hp_perc'])
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
@@ -211,7 +214,10 @@ class UI(QWidget):
         foe_pivot = foe_pkms[foe_team['pivot']]
         foe_pivot_exist = foe_team['pivot'] != -1 and foe_pivot['alive']
         if foe_pivot_exist:
-            self.foePivot.setPixmap(QPixmap(pkm_path + foe_pivot['name'].replace(' ', '-').lower() + '.gif'))
+            if foe_pivot['vstatus']['substitute']:
+                self.myPivot.setPixmap(QPixmap(pkm_path + 'substitute.png'))
+            else:
+                self.foePivot.setPixmap(QPixmap(pkm_path + foe_pivot['name'].replace(' ', '-').lower() + '.gif'))
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
             set_HP_bar(self.foePivotHP, foe_pivot['hp_perc'])
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
@@ -237,7 +243,8 @@ class UI(QWidget):
         self.mega.setEnabled(mega_mask and my_pivot_exist)
 
         for pkm_switch, pkm in zip(self.pkm_switch, my_pkms):
-            pkm_switch.setEnabled(switch_mask and pkm['alive'])
+            pkm_switch.setEnabled(
+                (switch_mask or action_required in [Signal.Switch, Signal.Switch_in_turn]) and pkm['alive'])
             pkm_switch.setToolTip(self.pkm_to_tip(pkm))
 
         if my_pivot_exist:
@@ -339,11 +346,14 @@ class UI(QWidget):
             tip += gen_move_str()
             if pkm['status']:
                 tip += 'Status: ' + pkm['status'] + '\n'
-            if pkm['vstatus']:
-                tip += 'VStatus: '
-                for key, turn in pkm['vstatus'].items():
-                    tip += key + ','
-                tip = tip[:-1] + '\n'
+
+            vstatus = ""
+            for key, turn in pkm['vstatus'].items():
+                if turn:
+                    vstatus += key + ','
+            if vstatus:
+                tip += 'VStatus: ' + vstatus[:-1] + '\n'
+
 
         else:
             if not pkm['alive']:
@@ -357,11 +367,12 @@ class UI(QWidget):
             tip += gen_move_str()
             if pkm['status']:
                 tip += 'Status:' + pkm['status'] + '\n'
-            if pkm['vstatus']:
-                tip += 'VStatus: '
-                for key, turn in pkm['vstatus'].items():
-                    tip += key + ','
-                tip = tip[:-1] + '\n'
+            vstatus = ""
+            for key, turn in pkm['vstatus'].items():
+                if turn:
+                    vstatus += key + ','
+            if vstatus:
+                tip += 'VStatus: ' + vstatus[:-1] + '\n'
 
         return tip[:-1]
 

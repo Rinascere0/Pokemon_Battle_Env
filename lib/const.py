@@ -3,6 +3,10 @@ import numpy as np
 names = ['Satoshi', 'BJK']
 
 
+class SwitchType:
+    Common, In_turn, End_turn = range(3)
+
+
 class Signal:
     Wait, Move, Switch, End, Switch_in_turn = range(5)
 
@@ -31,7 +35,7 @@ Z_MOVES = {
     'Dark': 'Black Hole Eclipse',
     'Fairy': 'Twinkle Tackle'
 }
-protect_moves = ['protect', 'detect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']
+protect_moves = ['Protect', 'Detect', 'Spike Shield', 'King\'s Shield', 'Baneful Bunker', 'Endure']
 vstatus_turn = ['taunt', 'encore', 'flinch', 'followme', 'roost', 'protect', 'disable', 'magiccoat', 'confusion',
                 'partiallytrapped', 'lockon', 'embargo', 'healblock', 'telekinesis']
 

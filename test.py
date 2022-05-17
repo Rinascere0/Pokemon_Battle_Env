@@ -81,4 +81,4 @@ def get_pic():
 
 
 #print(get_pic())
-print(get_move('synthesis'))
+print(get_move('knockoff'))

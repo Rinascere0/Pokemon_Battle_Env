@@ -61,6 +61,8 @@ def calc_type_buff(move, target):
     sk_name, sk_type = move['name'], move['type']
     type_buff = 1
     for attr in target.attr:
+        if target.vstatus['roost'] and attr == 'Flying':
+            continue
         type_buff *= get_attr_fac(sk_type, attr)
 
     if sk_name == 'Flying Press':
@@ -82,7 +84,7 @@ def imm_poison(pkm):
 
 def imm_ground(pkm, env):
     return not pkm.vstatus[
-        'smackdown'] and 'Flying' in pkm.attr or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' or pkm.vstatus[
+        'smackdown'] and 'Flying' in pkm.attr and not pkm.vstatus['roost'] or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' or pkm.vstatus[
                'magnetrise'] or pkm.vstatus['telekinesis'] or env.pseudo_weather['gravity']
 
 
@@ -122,6 +124,10 @@ def calc_stat_lv(lv):
 
 def move_to_key(move):
     return move.replace(' ', '').replace('-', '').replace('[', '').replace(']', '').replace('\'', '').lower()
+
+
+def pkm_to_key(pkm):
+    return pkm.replace(' ', '').replace('-', '').lower()
 
 
 def None2Zero(x):

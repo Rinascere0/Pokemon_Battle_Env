@@ -6,6 +6,7 @@ from data.moves import Moves
 from lib.const import *
 from threading import Thread
 from lib.read_team import read_team
+from lib.tool import gen_action, gen_switch
 
 Common, Mega, Z_Move = range(3)
 
@@ -127,10 +128,11 @@ class Player:
                 raise ValueError('Invalid switch action type!')
             elif not 0 <= action['item'] < 6:
                 raise ValueError('Invalid switch action index!')
+            elif not self.alive[action['item']] and self.alive.sum() > 0:
+                print(self.alive.sum())
+                raise ValueError('Cannot switch to exhausted pokemon! (' + self.pkms[pivot].name + ')')
             elif action['item'] == self.pivot and self.alive.sum() > 1:
                 raise ValueError('Cannot switch to the pokemon on field!')
-            elif not self.alive[action['item']]:
-                raise ValueError('Cannot switch to exhausted pokemon!(' + self.pkms[pivot].name + ')')
             elif not self.get_pivot().can_switch and common_action:
                 raise ValueError(self.get_pivot().name + ' cannot switch now！')
         except ValueError as e:
@@ -146,8 +148,8 @@ class Player:
         else:
             self.game.force_end()
 
-    def gen_valid_switch(self):
-        action = self.gen_switch()
+    def gen_valid_switch(self, switch_type):
+        action = self.gen_switch(switch_type)
         if self.check_valid_switch(action):
             return action
         else:
@@ -155,16 +157,16 @@ class Player:
 
     def mainloop(self):
         while True:
-            time.sleep(0.1)
+            time.sleep(0.01)
             if self.status == Signal.Move:
                 self.status = Signal.Wait
                 self.game.send(self.pid, self.gen_valid_action())
             elif self.status == Signal.Switch:
                 self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_valid_switch())
+                self.game.send(self.pid, self.gen_valid_switch(SwitchType.End_turn))
             elif self.status == Signal.Switch_in_turn:
                 self.status = Signal.Wait
-                self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
+                self.game.send(self.pid, self.gen_valid_switch(SwitchType.In_turn), in_turn=True)
             elif self.status == Signal.End:
                 return
 
@@ -185,7 +187,7 @@ class Player:
     @abstractmethod
     # You should return a dict:{'type':ActionType.Switch,'item':pivot}
     # where pivot represents the index of pkm in team you want to switch: range (0,6), type Int
-    def gen_switch(self):
+    def gen_switch(self, switch_type):
         # TODO
         return
 
@@ -218,12 +220,30 @@ class Player:
         }
 
 
+class AlphaPlayer(Player):
+    def __init__(self):
+        super(AlphaPlayer, self).__init__()
+
+    def set_team(self):
+        self.load_team(read_team(tid=0))
+        for pkm in self.pkms:
+            pkm.calc_stat(self.env)
+
+    def gen_action(self):
+        state = self.game.get_state(self.pid)
+        return gen_action(state)
+
+    def gen_switch(self, switch_type):
+        state = self.game.get_state(self.pid)
+        return gen_switch(state, switch_type)
+
+
 class RandomPlayer(Player):
     def __init__(self):
         super(RandomPlayer, self).__init__()
 
     def set_team(self):
-        self.load_team(read_team(tid=27))
+        self.load_team(read_team(tid=0))
         # for test
         for pkm in self.pkms:
             pkm.calc_stat(self.env)
@@ -231,11 +251,11 @@ class RandomPlayer(Player):
     def gen_action(self):
         rnd = random.uniform(0, 1)
         if rnd >= 0.9 and self.alive.sum() > 1 and self.get_pivot().can_switch:
-            return self.gen_switch()
+            return self.gen_switch(SwitchType.Common)
         else:
             return self.gen_move()
 
-    def gen_switch(self):
+    def gen_switch(self, switch_type):
         p = np.copy(self.alive)
         if self.pivot != -1:
             p[self.pivot] = 0

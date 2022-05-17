@@ -344,6 +344,7 @@ class Pokemon:
 
     def faint(self):
         self.log.add(actor=self, event='faint')
+        self.can_switch = True
         self.player.faint(self.pkm_id)
         self.alive = False
         self.turn = False
@@ -360,8 +361,8 @@ class Pokemon:
         else:
             self.lock_round += 1
 
-    def cure_status(self):
-        if self.status:
+    def cure_status(self, status=None):
+        if not status or self.status == status:
             self.log.add(actor=self, event='-status', val=self.status)
             self.status = None
 
@@ -428,7 +429,7 @@ class Pokemon:
 
         return True
 
-    def add_vstate(self, vstatus, cond=None, user=None):
+    def add_vstate(self, vstatus, cond=None, user=None, foe=None):
         # fail if already dead
         if not self.alive:
             return False
@@ -476,13 +477,15 @@ class Pokemon:
                 return False
         elif vstatus in ['protect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']:
             # TODO: Quick Guard etc. are also influenced by chance, but don't count up
-            if random.uniform(0, 1) <= math.pow(1 / 3, self.protect_turn):
+            if random.uniform(0, 1) >= math.pow(1 / 3, self.protect_turn) or foe and foe.last_move=='switch':
+                self.protect_turn = 0
+                self.log.add(event='fail')
+                return True
+            else:
                 self.protect_turn += 1
                 if vstatus != 'endure':
                     self.protect_move = vstatus
-            else:
-                self.protect_turn = 0
-                return True
+
         elif vstatus == 'partiallytrapped':
             turn = random.randint(4, 5)
             trap_move = user.next_move['name']
@@ -561,7 +564,7 @@ class Pokemon:
         def lv_log(stat, lv):
             if 3 < lv < 6:
                 lv = 3
-            elif lv >= 6:
+            elif lv >= 6 and lv != 7:
                 lv = 6
             elif -6 <= lv < -3:
                 lv = -3
@@ -1033,8 +1036,6 @@ class Pokemon:
 
         # Status Buff
 
-        if env.get_sidecond(self)['stickyweb']:
-            self.Spe *= 0.5
         if self.status == 'par' and self.ability != 'Quick Feet':
             self.Spe *= 0.5
 

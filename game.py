@@ -1,9 +1,8 @@
-
 import time
 
 from main.env import Env
 # import your own player class
-from main.player import RandomPlayer
+from main.player import RandomPlayer, AlphaPlayer
 from main.ui_player import myPlayer
 from main.log import BattleLog
 from main.utils import Utils
@@ -14,14 +13,15 @@ from threading import Thread
 # set total game nums
 game_nums = 1
 
+
 # whether show log in terminal or save log in file
 save_log = False
 
 
 class Game:
-    def __init__(self):
+    def __init__(self, mode='test'):
         self.env = Env()
-        self.log = BattleLog(self, save_log)
+        self.log = BattleLog(self, save_log, mode)
         self.utils = Utils(self.log)
         self.players = []
         self.moves = []
@@ -34,9 +34,14 @@ class Game:
         self.ui = None
 
         # change to your own player class!
-        self.add_player(RandomPlayer())
+        self.add_player(AlphaPlayer())
         # self.add_player(RandomPlayer())
-        self.add_player(myPlayer())
+        if mode == 'play':
+            self.add_player(myPlayer())
+            self.game_nums = 1
+        else:
+            self.add_player(AlphaPlayer())
+            self.game_nums = game_nums
 
     def add_player(self, player):
         player.set_game(self, len(self.players), self.env, self.log)
@@ -101,9 +106,12 @@ class Game:
     def mainloop(self):
         for player in self.players:
             player.start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
-        for game_id in range(game_nums):
+        win_loss = [0, 0]
+
+        for game_id in range(self.game_nums):
+            print('Game', game_id)
             for player in self.players:
                 player.set_team()
             self.log.reset(self.players)
@@ -114,7 +122,7 @@ class Game:
             self.players[0].signal(Signal.Switch)
             self.players[1].signal(Signal.Switch)
             while len(self.moves) < 2:
-                time.sleep(0.1)
+                time.sleep(0.01)
                 if self.end:
                     return
             done = self.utils.match_up(self.env, self.round_players, self.moves)
@@ -127,7 +135,7 @@ class Game:
                 self.players[0].signal(Signal.Move)
                 self.players[1].signal(Signal.Move)
                 while len(self.moves) < 2:
-                    time.sleep(0.1)
+                    time.sleep(0.01)
                     if self.end:
                         return
                 done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
@@ -138,7 +146,7 @@ class Game:
                     for player in to_switch:
                         player.signal(Signal.Switch)
                     while len(self.moves) < len(to_switch):
-                        time.sleep(0.1)
+                        time.sleep(0.01)
                         if self.end:
                             return
 
@@ -152,7 +160,13 @@ class Game:
                 self.log.step_print()
                 self.Round += 1
 
+            if self.log.loser == 'BJK':
+                win_loss[0] += 1
+            else:
+                win_loss[1] += 1
+
         self.force_end()
+        print(win_loss)
 
     def get_state(self, pid):
         player = self.players[pid]
@@ -163,6 +177,7 @@ class Game:
         for pkm_id, pkm in enumerate(player.pkms):
             pkm_info = {'name': pkm.name,
                         'id': pkm_id,
+                        'lv': pkm.lv,
                         'type': pkm.attr,
                         'gender': pkm.gender,
                         'nature': pkm.nature,
@@ -180,17 +195,19 @@ class Game:
                         'status': pkm.status,
                         'status_turn': pkm.status_turn,
                         'stat_lv': pkm.stat_lv,
-                        'alive': pkm.alive}
+                        'alive': pkm.alive,
+                        'belong': pid,
+                        'is_pivot': player.pivot == pkm_id}
             moves = []
             for move_id, move in enumerate(pkm.moves):
                 moves.append(
-                    {'name': move, 'pp': pkm.pp[move_id], 'maxpp': pkm.maxpp[move_id]})
+                    {'move_id': move_id, 'name': move, 'pp': pkm.pp[move_id], 'maxpp': pkm.maxpp[move_id]})
             pkm_info['moves'] = moves
-            total_vstatus = {}
-            for vstatus, turn in pkm.vstatus.items():
-                if turn:
-                    total_vstatus[vstatus] = turn
-            pkm_info['vstatus'] = total_vstatus
+            #    total_vstatus = {}
+            #    for vstatus, turn in pkm.vstatus.items():
+            #        if turn:
+            #            total_vstatus[vstatus] = turn
+            pkm_info['vstatus'] = pkm.vstatus
             pkms.append(pkm_info)
 
         sideconds = {}
@@ -209,21 +226,23 @@ class Game:
                  'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask}
         my_team['pkms'] = pkms
         my_team['pivot'] = player.pivot
-        my_team['sidecond'] = sideconds
-        my_team['slotcond'] = slotconds
         my_team['masks'] = masks
 
         foe_team = {}
         foe_pkms = []
         for pkm_id, pkm in enumerate(foe.pkms):
             pkm_info = {'name': pkm.name,
+                        'gender': pkm.gender,
                         'id': pkm_id,
                         'type': pkm.attr,
+                        'lv': pkm.lv,
                         'hp_perc': round(pkm.HP / pkm.maxHP, 2),
                         'status': pkm.status,
                         'status_turn': pkm.status_turn,
                         'stat_lv': pkm.stat_lv,
-                        'alive': pkm.alive}
+                        'weight': pkm.weight,
+                        'alive': pkm.alive,
+                        'belong': 1 - pid}
             if True:
                 pkm_info['item'] = 'unrevealed'
 
@@ -240,36 +259,27 @@ class Game:
                     moves.append({'name': 'unrevealed'})
             pkm_info['moves'] = moves
 
-            total_vstatus={}
-            for vstatus, turn in pkm.vstatus.items():
-                if turn:
-                    total_vstatus[vstatus] = turn
-            pkm_info['vstatus'] = total_vstatus
+            pkm_info['vstatus'] = pkm.vstatus
             foe_pkms.append(pkm_info)
 
-        sideconds = {}
+        foe_sideconds = {}
         for sidecond, turn in self.env.side_condition[1 - pid].items():
             if turn > 0:
-                sideconds[sidecond] = turn
+                foe_sideconds[sidecond] = turn
 
-        slotconds = {}
+        foe_slotconds = {}
         for slotcond, turn in self.env.slot_condition[1 - pid].items():
             if turn:
-                slotconds[slotcond] = turn
+                foe_slotconds[slotcond] = turn
 
         foe_team['pkms'] = foe_pkms
         foe_team['pivot'] = foe.pivot
-        foe_team['sidecond'] = sideconds
-        foe_team['slotcond'] = slotconds
 
         env = {'weather': {'name': self.env.weather, 'remain': self.env.weather_turn},
-               'terrain': {'name': self.env.terrain, 'remain': self.env.terrain_turn}}
-
-        pseudo_weather = {}
-        for pd_weather, turn in self.env.pseudo_weather.items():
-            if turn:
-                pseudo_weather[pd_weather] = turn
-        env['pseudo_weather'] = pseudo_weather
+               'terrain': {'name': self.env.terrain, 'remain': self.env.terrain_turn},
+               'slotcond': self.env.slot_condition,
+               'sidecond': self.env.side_condition,
+               'pseudo_weather': self.env.pseudo_weather}
 
         state['round'] = self.Round
         state['my_team'] = my_team
