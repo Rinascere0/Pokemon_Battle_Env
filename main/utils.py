@@ -75,7 +75,9 @@ class Utils:
             else:
                 return
 
-        pkms[first].last_move = 'switch'
+        # foe protect fail
+        if moves[last]['type'] != ActionType.Switch and moves[last]['item']['name'] in protect_moves:
+            pkms[last].protect_turn = 10000
 
         # perform preparations after switching on, e.g. abilities
         self.switch_on(players, env)
@@ -275,12 +277,12 @@ class Utils:
                 if user.item is 'Air Balloon':
                     self.log.add(actor=user, event='balloon')
 
-                if user.item == 'Electric Seed' and env.pseudo_weather == 'electricterrain' or user.item == 'Grassy Seed' and env.pseudo_weather == 'grassyterrain':
+                if user.item == 'Electric Seed' and env.terrain == 'electricterrain' or user.item == 'Grassy Seed' and env.terrain == 'grassyterrain':
                     self.log.add(actor=user, event='use item')
                     user.use_item()
                     user.boost('def', 1)
 
-                if user.item == 'Psychic Seed' and env.pseudo_weather == 'psychicterrain' or user.item == 'Misty Seed' and env.pseudo_weather == 'mistyterrain':
+                if user.item == 'Psychic Seed' and env.terrain == 'psychicterrain' or user.item == 'Misty Seed' and env.terrain == 'mistyterrain':
                     self.log.add(actor=user, event='use item')
                     user.use_item()
                     user.boost('spd', 1)
@@ -328,8 +330,8 @@ class Utils:
         user.ability = user.current_ability
         moldbreak = user.ability in ['Mold Breaker', 'Teravolt', 'Turboblaze']
         raw = user.ability == 'Unaware'
-        target.calc_stat(env, raw=raw, moldbreak=moldbreak)
 
+        target.calc_stat(env, raw=raw, moldbreak=moldbreak)
         user.calc_stat(env, raw=target.ability == 'Unaware')
 
         # check if pkm is flinched
@@ -391,7 +393,7 @@ class Utils:
                 self.log.add(actor=user, event='+taunt', val=move['name'])
                 return
 
-        target.used_move = True
+        user.used_move = True
 
         # lose pp
         if target.ability == 'Pressure':
@@ -469,6 +471,7 @@ class Utils:
         else:
             user.metronome = 0
             user.last_move = move['name']
+            print(user.last_move)
 
         # activate effects for z-status-move
         if z_move and 'zMove' in move:
@@ -508,7 +511,7 @@ class Utils:
             self.log.add(actor=target, event='+craftyshield')
             return
 
-        if move['priority'] > 0:
+        if move['priority'] and move['target'] not in ['self', 'allySide']:
             if env.terrain == 'psychicterrain':
                 self.log.add(actor=target, event='+psychicterrain')
                 return
@@ -555,7 +558,7 @@ class Utils:
         target.calc_stat(env, user)
 
         # check the move target
-        if move['target'] == 'self':
+        if move['target'] in ['self', 'allySide']:
             target = user
 
         for i in range(count):
@@ -602,9 +605,6 @@ class Utils:
                 self.log.add(actor=target, event='avoid')
                 # attack miss penalty
                 user.multi_count = 0
-                if move['name'] in ['Jump Kick', 'High Jump Kick']:
-                    self.log.add(actor=user, event='drop')
-                    user.damage(0, 1 / 2)
 
             elif useful == NoEffect:
                 self.log.add(actor=target, event='0effect')
@@ -615,6 +615,11 @@ class Utils:
             elif useful == NoLog:
                 user.set_lock()
                 break
+
+            if useful != Hit:
+                if move['name'] in ['Jump Kick', 'High Jump Kick']:
+                    self.log.add(actor=user, event='drop')
+                    user.damage(0, 1 / 2)
 
     def effect_move(self, user: Pokemon, target: Pokemon, move, game, env, last):
         ctg = move['category']
@@ -846,9 +851,6 @@ class Utils:
         else:
             # includes info, e.g.duration
             cond = move['condition'] if 'condition' in move else None
-            foe = target
-            if move['target'] == 'self':
-                target = user
 
             if 'boosts' in move:
                 boosts = move['boosts']
@@ -867,7 +869,7 @@ class Utils:
 
             if 'volatileStatus' in move:
                 vstatus = move['volatileStatus']
-                if not target.add_vstate(vstatus, cond, user, foe=target):
+                if not target.add_vstate(vstatus, cond, user):
                     self.log.add(event='fail')
 
             if 'weather' in move:
@@ -885,6 +887,10 @@ class Utils:
             if 'sideCondition' in move:
                 sidecond = move['sideCondition']
                 if not env.add_sidecond(sidecond, target, cond, self.log):
+                    self.log.add(event='fail')
+
+            if 'slotCondition' in move:
+                if not env.add_slotcond(move['slotCondition'], user):
                     self.log.add(event='fail')
 
             # other types of effects
@@ -934,11 +940,8 @@ class Utils:
             if move['name'] == 'Pain Split':
                 self.log.add(actor=user, event='painsplit', target=target)
                 avg_hp = (user.HP + target.HP) / 2
-                user.HP = avg_hp
-                target.HP = avg_hp
-
-            if 'slotCondition' in move:
-                env.add_slotcond(move['slotCondition'], user)
+                user.HP = min(user.maxHP, avg_hp)
+                target.HP = min(target.maxHP, avg_hp)
 
             if move['name'] == 'Haze':
                 self.log.add(event='haze')
@@ -979,7 +982,8 @@ class Utils:
                 elif 'heal' in move:
                     perc = move['heal'][0] / move['heal'][1]
                 if perc:
-                    target.heal(perc=perc, move=True)
+                    if target.heal(perc=perc, move=True) and move['name'] == 'Roost':
+                        target.add_vstate('roost')
 
             if move['name'] == 'Rest':
                 if user.HP == user.maxHP:
@@ -1047,7 +1051,7 @@ class Utils:
 
         # check off field
         if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig', 'Bounce']:
-            if user.off_field:
+            if user.off_field in sk_name:
                 user.off_field = None
             else:
                 user.off_field = sk_name

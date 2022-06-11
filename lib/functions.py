@@ -69,7 +69,7 @@ def calc_type_buff(move, target):
         for attr in target.attr:
             type_buff *= get_attr_fac(Attr.Flying, attr)
 
-    if sk_name == 'Freeze Dry' and target.attr:
+    if sk_name == 'Freeze Dry' and 'Water' in target.attr:
         type_buff *= 4
     return type_buff
 
@@ -92,11 +92,13 @@ def imm_ground(pkm, env):
 
 def gen_stats(sp, evs, ivs, lv, nature):
     stats = {}
-    stats['HP'] = int((sp['hp'] * 2 + ivs['HP'] + evs['HP'] / 4) * lv / 100 + 10 + lv)
-    for ID in ['Atk', 'Def', 'SpA', 'SpD', 'Spe']:
-        stats[ID] = int((sp[ID.lower()] * 2 + ivs[ID] + evs[ID] / 4) * lv / 100 + 5)
+    stats['hp'] = int((sp['hp'] * 2 + ivs['hp'] + evs['hp'] / 4) * lv / 100 + 10 + lv)
+    for ID in ['atk', 'def', 'spa', 'spd', 'spe']:
+        stats[ID] = int((sp[ID] * 2 + ivs[ID] + evs[ID] / 4) * lv / 100 + 5)
     if nature in Nature:
         buf, deb = Nature[nature]
+        buf=buf.lower()
+        deb=deb.lower()
         stats[buf] = int(stats[buf] * 1.1)
         stats[deb] = int(stats[deb] * 0.9)
     return stats

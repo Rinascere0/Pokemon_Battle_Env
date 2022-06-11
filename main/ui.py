@@ -215,7 +215,7 @@ class UI(QWidget):
         foe_pivot_exist = foe_team['pivot'] != -1 and foe_pivot['alive']
         if foe_pivot_exist:
             if foe_pivot['vstatus']['substitute']:
-                self.myPivot.setPixmap(QPixmap(pkm_path + 'substitute.png'))
+                self.foePivot.setPixmap(QPixmap(pkm_path + 'substitute.png'))
             else:
                 self.foePivot.setPixmap(QPixmap(pkm_path + foe_pivot['name'].replace(' ', '-').lower() + '.gif'))
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))

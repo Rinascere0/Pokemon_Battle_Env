@@ -242,7 +242,7 @@ class myPlayer(UI_Player):
 
     def set_team(self):
         # 11 victini
-        self.load_team(read_team(tid=0))
+        self.load_team(read_team(tid=1))
         # for test
         for pkm in self.pkms:
             pkm.calc_stat(self.env)

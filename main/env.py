@@ -23,8 +23,8 @@ class Env:
                                     'stickyweb': 0, 'tailwind': 0, 'toxicspikes': 0,
                                     'wideguard': 0})
 
-        self.slot_condition = [{'healingwish': 0, 'wish': None, 'lunardance': 0, 'heal': 0},
-                               {'healingwish': 0, 'wish': None, 'lunardance': 0, 'heal': 0}]
+        self.slot_condition = [{'healingwish': 0, 'Wish': None, 'lunardance': 0, 'heal': 0},
+                               {'healingwish': 0, 'Wish': None, 'lunardance': 0, 'heal': 0}]
 
         self.weather = None
         self.weather_turn = 0
@@ -44,11 +44,12 @@ class Env:
         else:
             turn = 5
         if self.weather == weather:
-            pass
+            return False
         else:
             self.weather = weather
             self.weather_turn = turn
             log.add(event=weather)
+        return True
 
     def set_terrain(self, terrain, item, log):
         if item == 'Terrain Extender':
@@ -56,11 +57,12 @@ class Env:
         else:
             turn = 5
         if self.terrain == terrain:
-            pass
+            return False
         else:
             self.terrain = terrain
             self.terrain_turn = turn
             log.add(event=terrain)
+        return True
 
     def get_sidecond(self, pkm):
         return self.side_condition[pkm.player.pid]
@@ -69,11 +71,14 @@ class Env:
         return self.slot_condition[pkm.player.pid]
 
     def add_slotcond(self, slotcond, pkm):
-        pid = pkm.player.pid
-        if slotcond == 'wish':
-            self.slot_condition[pid]['wish'] = {'turn': 2, 'val': pkm.maxHP / 2}
+        mySlotcond = self.get_slotcond(pkm)
+        if mySlotcond[slotcond]:
+            return False
+        if slotcond == 'Wish':
+            mySlotcond['Wish'] = {'turn': 2, 'val': pkm.maxHP / 2}
         else:
-            self.slot_condition[pid][slotcond] = 1
+            mySlotcond[slotcond] = 1
+        return  True
 
     def add_sidecond(self, sidecond, pkm, cond, log):
         my_sidecond = self.get_sidecond(pkm)
@@ -112,13 +117,13 @@ class Env:
                     if sidecond[cond] == 0:
                         log.add(actor=player, event='-' + cond)
 
-            wish = self.slot_condition[pid]['wish']
-            if wish:
-                wish['turn'] -= 1
-                if wish['turn'] == 0:
-                    log.add(actor=wish['val'], event='+wish')
-                    player.get_pivot().heal(wish['val'])
-                    wish = None
+            slotcond = self.slot_condition[pid]
+            if slotcond['Wish']:
+                slotcond['Wish']['turn'] -= 1
+                if slotcond['Wish']['turn'] == 0:
+                    log.add(actor=player.get_pivot(), event='+wish')
+                    player.get_pivot().heal(slotcond['Wish']['val'])
+                    slotcond['Wish'] = None
 
         if self.weather_turn > 0:
             self.weather_turn -= 1

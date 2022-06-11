@@ -2,7 +2,7 @@ import time
 
 from main.env import Env
 # import your own player class
-from main.player import RandomPlayer, AlphaPlayer
+from main.player import RandomPlayer, AlphaPlayer, BetaPlayer
 from main.ui_player import myPlayer
 from main.log import BattleLog
 from main.utils import Utils
@@ -12,7 +12,6 @@ from threading import Thread
 
 # set total game nums
 game_nums = 1
-
 
 # whether show log in terminal or save log in file
 save_log = False
@@ -40,7 +39,7 @@ class Game:
             self.add_player(myPlayer())
             self.game_nums = 1
         else:
-            self.add_player(AlphaPlayer())
+            self.add_player(BetaPlayer())
             self.game_nums = game_nums
 
     def add_player(self, player):
@@ -127,7 +126,6 @@ class Game:
                     return
             done = self.utils.match_up(self.env, self.round_players, self.moves)
             self.reset_round()
-
             # Mainloop
             self.Round = 1
             while not done:
@@ -242,7 +240,9 @@ class Game:
                         'stat_lv': pkm.stat_lv,
                         'weight': pkm.weight,
                         'alive': pkm.alive,
-                        'belong': 1 - pid}
+                        'belong': 1 - pid,
+                        'is_pivot': player.pivot == pkm_id
+                        }
             if True:
                 pkm_info['item'] = 'unrevealed'
 

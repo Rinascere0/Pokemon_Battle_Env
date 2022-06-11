@@ -13,8 +13,8 @@ def read_set():
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
     ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 \-]+))'
     shiny = '(\nShiny:\s(?P<Shiny>[a-zA-Z]+))?'
-    evs = '(\nEVs:\s((?P<HP>[0-9]+)\sHP)?(\s\/\s)?((?P<Atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<Def>[0-9]+)\sDef)?(\s\/\s)?((?P<SpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<SpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<Spe>[0-9]+)\sSpe)?)?'
-    ivs = '(\nIVs:\s((?P<iHP>[0-9]+)\sHP)?(\s\/\s)?((?P<iAtk>[0-9]+)\sAtk)?(\s\/\s)?((?P<iDef>[0-9]+)\sDef)?(\s\/\s)?((?P<iSpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<iSpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<iSpe>[0-9]+)\sSpe)?)?'
+    evs = '(\nEVs:\s((?P<hp>[0-9]+)\sHP)?(\s\/\s)?((?P<atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<def>[0-9]+)\sDef)?(\s\/\s)?((?P<spa>[0-9]+)\sSpA)?(\s\/\s)?((?P<spd>[0-9]+)\sSpD)?(\s\/\s)?((?P<spe>[0-9]+)\sSpe)?)?'
+    ivs = '(\nIVs:\s((?P<ihp>[0-9]+)\sHP)?(\s\/\s)?((?P<iatk>[0-9]+)\sAtk)?(\s\/\s)?((?P<idef>[0-9]+)\sDef)?(\s\/\s)?((?P<ispa>[0-9]+)\sSpA)?(\s\/\s)?((?P<ispd>[0-9]+)\sSpD)?(\s\/\s)?((?P<ispe>[0-9]+)\sSpe)?)?'
     nature = '(\n(?P<Nature>[a-zA-Z]+)\sNature)?'
     move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-\[\]]+))'
     move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-\[\]]+))?'
@@ -51,11 +51,12 @@ def read_team(tid=0):
     with open(path+'/../../team/' + str(tid), 'r') as f:
         s = f.read()
 
+    print(tid)
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
     ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 \-]+))'
     shiny = '(\nShiny:\s(?P<Shiny>[a-zA-Z]+))?'
-    evs = '(\nEVs:\s((?P<HP>[0-9]+)\sHP)?(\s\/\s)?((?P<Atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<Def>[0-9]+)\sDef)?(\s\/\s)?((?P<SpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<SpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<Spe>[0-9]+)\sSpe)?)?'
-    ivs = '(\nIVs:\s((?P<iHP>[0-9]+)\sHP)?(\s\/\s)?((?P<iAtk>[0-9]+)\sAtk)?(\s\/\s)?((?P<iDef>[0-9]+)\sDef)?(\s\/\s)?((?P<iSpA>[0-9]+)\sSpA)?(\s\/\s)?((?P<iSpD>[0-9]+)\sSpD)?(\s\/\s)?((?P<iSpe>[0-9]+)\sSpe)?)?'
+    evs = '(\nEVs:\s((?P<hp>[0-9]+)\sHP)?(\s\/\s)?((?P<atk>[0-9]+)\sAtk)?(\s\/\s)?((?P<def>[0-9]+)\sDef)?(\s\/\s)?((?P<spa>[0-9]+)\sSpA)?(\s\/\s)?((?P<spd>[0-9]+)\sSpD)?(\s\/\s)?((?P<spe>[0-9]+)\sSpe)?)?'
+    ivs = '(\nIVs:\s((?P<ihp>[0-9]+)\sHP)?(\s\/\s)?((?P<iatk>[0-9]+)\sAtk)?(\s\/\s)?((?P<idef>[0-9]+)\sDef)?(\s\/\s)?((?P<ispa>[0-9]+)\sSpA)?(\s\/\s)?((?P<ispd>[0-9]+)\sSpD)?(\s\/\s)?((?P<ispe>[0-9]+)\sSpe)?)?'
     nature = '(\n(?P<Nature>[a-zA-Z]+)\sNature)?'
     move1 = '(\n\-\s(?P<Move1>[a-zA-Z0-9 \-\[\]\']+))'
     move2 = '(\n\-\s(?P<Move2>[a-zA-Z0-9 \-\[\]\']+))?'
@@ -69,15 +70,6 @@ def read_team(tid=0):
         res = re.search(total, pm).groupdict()
         if 'Lv' not in res:
             res['Lv'] = 100
-        #   res['Name'] = (res['Name'].split('-Mega')[0]).split('-Ash')[0]
-        #   if '-Mega-X' in res['Name']:
-        #       res['Name'] = res['Name'].replace('-Mega-X', '')
-        #   if '-Mega-X' in res['Name']:
-        #       res['Name'] = res['Name'].replace('-Mega-Y', '')
-        #   if '-Ash' in res['Name']:
-        #       res['Name'] = res['Name'].replace('-Ash', '')
-        #   if '-Mega' in res['Name']:
-        #       res['Name'] = res['Name'].replace('-Mega', '')
         pkms.append(Pokemon(res))
 
     return pkms

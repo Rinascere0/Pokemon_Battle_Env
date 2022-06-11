@@ -520,13 +520,13 @@ class BattleLog:
             elif event in attr_berry:
                 log = 'The ' + event + ' weakened the damage to ' + actor + '!'
 
-            elif event == 'healingwish':
+            elif event == '+healingwish':
                 log = 'A healing wish came true for ' + actor + '!'
 
-            elif event == 'wish':
+            elif event == '+wish':
                 log = 'A wish came true for ' + actor + '!'
 
-            elif event == 'lunardance':
+            elif event == '+lunardance':
                 log = actor + 'became cloaked in mystical moonlight!'
             if log:
                 return log

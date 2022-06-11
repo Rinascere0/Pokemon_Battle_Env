@@ -21,13 +21,18 @@ class Pokemon:
 
         self.gender = info['Gender']
         self.evs = {key: None2Zero(value) for key, value in info.items() if
-                    key in ['Atk', 'Def', 'SpA', 'SpD', 'Spe', 'HP']}
+                    key in ['atk', 'def', 'spa', 'spd', 'spe', 'hp']}
         self.ivs = {key[1:]: None2Zero(value) for key, value in info.items() if
-                    key in ['iAtk', 'iDef', 'iSpA', 'iSpD', 'iSpe', 'iHP']}
+                    key in ['iatk', 'idef', 'ispa', 'ispd', 'ispe', 'ihp']}
         self.nature = info['Nature']
 
         # move names
-        self.moves = [info['Move1'], info['Move2'], info['Move3'], info['Move4']]
+        self.moves = []
+        for i in range(4):
+            key = 'Move' + str(i + 1)
+            if key in info:
+                self.moves.append(info[key].replace('[', '').replace(']', ''))
+
         # move infos
         self.move_infos = [Moves[move_to_key(move)] for move in self.moves]
 
@@ -79,8 +84,8 @@ class Pokemon:
         self.stats = copy.deepcopy(self.base_stats)
 
         # HP
-        self.maxHP = self.stats['HP']
-        self.HP = self.stats['HP']
+        self.maxHP = self.stats['hp']
+        self.HP = self.stats['hp']
 
         # stat levels
         self.stat_lv = {
@@ -362,7 +367,7 @@ class Pokemon:
             self.lock_round += 1
 
     def cure_status(self, status=None):
-        if not status or self.status == status:
+        if self.status and (not status or self.status == status):
             self.log.add(actor=self, event='-status', val=self.status)
             self.status = None
 
@@ -429,8 +434,9 @@ class Pokemon:
 
         return True
 
-    def add_vstate(self, vstatus, cond=None, user=None, foe=None):
+    def add_vstate(self, vstatus, cond=None, user=None):
         # fail if already dead
+        print(vstatus)
         if not self.alive:
             return False
 
@@ -477,10 +483,9 @@ class Pokemon:
                 return False
         elif vstatus in ['protect', 'spikeshield', 'kingsshield', 'banefulbunker', 'endure']:
             # TODO: Quick Guard etc. are also influenced by chance, but don't count up
-            if random.uniform(0, 1) >= math.pow(1 / 3, self.protect_turn) or foe and foe.last_move=='switch':
+            if random.uniform(0, 1) >= math.pow(1 / 3, self.protect_turn):
                 self.protect_turn = 0
-                self.log.add(event='fail')
-                return True
+                return False
             else:
                 self.protect_turn += 1
                 if vstatus != 'endure':
@@ -493,10 +498,9 @@ class Pokemon:
             self.trap_user = user
             val = trap_move
 
-        elif vstatus == 'roost':
-            pass
         elif vstatus == 'substitute':
             if self.HP > self.maxHP / 4:
+                self.damage(perc=1 / 4)
                 turn = self.maxHP / 4
             else:
                 self.log.add(actor=self, event='--substitute')
@@ -507,6 +511,8 @@ class Pokemon:
 
         self.log.add(actor=self, event=vstatus, val=val)
         self.vstatus[vstatus] = turn
+
+        print(vstatus, self.vstatus[vstatus])
 
         # remove bad v-status
         if self.item == 'Mental Herb' and vstatus in ['attract', 'disable', 'encore', 'healblock', 'taunt', 'torment']:
@@ -544,6 +550,8 @@ class Pokemon:
 
         if not handle_heal(val, perc, target) and move:
             self.log.add(actor=self, event='0heal')
+            return False
+        return True
 
     # pkm boost stats
     '''
@@ -676,14 +684,14 @@ class Pokemon:
                         self.log.add(actor=user, event='Moxie', type=logType.ability)
                         user.boost('atk', 1)
                     if user.ability == 'Beast Boost':
-                        max_stat = 'Atk'
+                        max_stat = 'atk'
                         max_val = 0
                         for stat, val in user.base_stats.items():
-                            if stat != 'HP' and val > max_val:
+                            if stat != 'hp' and val > max_val:
                                 max_stat = stat
                                 max_val = val
                         self.log.add(actor=user, event='Beast Boost', type=logType.ability)
-                        user.boost(max_stat.lower(), 1)
+                        user.boost(max_stat, 1)
                 foe_pivot = self.player.get_opponent_pivot()
                 if foe_pivot.alive and foe_pivot.ability == 'Soul-Heart':
                     self.log.add(actor=foe_pivot, event='Soul Heart', type=logType.ability)
@@ -1042,11 +1050,6 @@ class Pokemon:
         if env.pseudo_weather['wonderroom']:
             self.Def, self.Sdef = self.Sdef, self.Def
 
-        if self.vstatus['roost'] and 'Flying' in self.attr:
-            self.attr.remove('Flying')
-            if not self.attr:
-                self.attr = ['Normal']
-
         self.weight = self.base_weight
         if self.ability == 'Heavy Metal':
             self.weight *= 2
@@ -1141,12 +1144,12 @@ class Pokemon:
 
             slotcond = env.get_slotcond(self)
             if slotcond['healingwish']:
-                self.log.add(actor=self, event='healingwish')
+                self.log.add(actor=self, event='+healingwish')
                 self.heal(self.maxHP)
                 self.cure_status()
                 slotcond['healingwish'] = 0
             elif slotcond['lunardance']:
-                self.log.add(actor=self, event='lunardance')
+                self.log.add(actor=self, event='+lunardance')
                 self.heal(self.maxHP)
                 self.cure_status()
                 slotcond['lunardance'] = 0
@@ -1165,6 +1168,7 @@ class Pokemon:
         self.switch_on = True
         self.activate = True
         self.turn = False
+        self.last_move = None
 
         sidecond = env.get_sidecond(self)
         if not imm_ground(self, env):
