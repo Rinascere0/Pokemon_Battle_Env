@@ -12,7 +12,8 @@ from lib.read_team import read_team
 Common, Mega, Z_Move = range(3)
 
 # test_team=25
-test_team = 1
+# test_team = 1
+test_team = 15
 
 
 class UI_Player:

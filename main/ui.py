@@ -11,7 +11,7 @@ path = os.path.abspath(__file__) + '/../../resource/'
 pkm_path = path + 'pkm/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox
+from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox
 from PyQt5.QtCore import pyqtSignal, QRect, Qt
 
 from threading import Thread
@@ -25,17 +25,22 @@ class UI(QWidget):
     add_signal = pyqtSignal(str)
     chg_pivot_signal = pyqtSignal(bool, str)
 
+    def change_latency(self):
+        self.game.log.set_latency(float(self.latency.currentText()))
+
     def change_movie(self, back, name):
         mv_name = name.replace(' ', '-').lower() + '.gif'
         if back:
             movie = self.myPivot.movie()
-            movie.setFileName(pkm_path + 'back/' + mv_name)
+            file_name = pkm_path + 'back/' + mv_name
         else:
             movie = self.foePivot.movie()
-            movie.setFileName(pkm_path + mv_name)
+            file_name = pkm_path + mv_name
 
-        movie.stop()
-        movie.start()
+        if file_name.split('/')[-1] != movie.fileName().split('/')[-1]:
+            movie.setFileName(file_name)
+            movie.stop()
+            movie.start()
 
     def __init__(self):
         super(UI, self).__init__()
@@ -50,6 +55,8 @@ class UI(QWidget):
         self.z_mask = np.zeros(4)
         self.move_mask = np.zeros(4)
 
+        self.action_required = False
+
         self.init_ui()
         self.inited = True
 
@@ -57,6 +64,17 @@ class UI(QWidget):
         self.setFixedSize(1130, 720)
         self.move(300, 300)
         self.setWindowTitle('Pokémon Battle Env')
+
+        self.latency = QComboBox(self)
+        self.latency.setFont(QFont("Microsoft YaHei", 10, 30))
+        self.latency.move(90, 585)
+        self.latency.addItems(['0', '0.1', '0.15', '0.2', '0.3', '0.5'])
+        self.latency.currentIndexChanged.connect(self.change_latency)
+
+        self.latency_label = QLabel(self)
+        self.latency_label.setText('Latency')
+        self.latency_label.setFont(QFont("Microsoft YaHei", 10, 30))
+        self.latency_label.setGeometry(20, 585, 70, 30)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -129,11 +147,11 @@ class UI(QWidget):
 
         self.mega = QCheckBox('Mega', self)
         self.mega.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.mega.move(160, 585)
+        self.mega.move(200, 585)
 
         self.z_move = QCheckBox('Z-Move', self)
         self.z_move.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.z_move.move(340, 585)
+        self.z_move.move(360, 585)
         self.z_move.clicked.connect(self.set_zable_move)
 
         self.label = QLabel('Switch:', self)
@@ -171,7 +189,12 @@ class UI(QWidget):
             for i, move in enumerate(self.moves):
                 move.setEnabled(self.move_mask[i])
 
-    def update(self, action_required):
+    def update(self, action_required=None):
+        if action_required:
+            self.action_required = action_required
+        else:
+            action_required = self.action_required
+
         state = self.game.get_state(1)
         Round = state['round']
         self.round_label.setText('Round ' + str(Round))
@@ -180,19 +203,19 @@ class UI(QWidget):
             env_tip = ""
             weather = env['weather']
             if weather['name']:
-                env_tip += WeatherNames[weather['name']] + '(' + str(weather['remain']) + ')'
+                env_tip += WeatherNames[weather['name']] + '(' + str(weather['remain']) + ')\n'
 
             terrain = env['terrain']
             if terrain['name']:
-                env_tip += WeatherNames[terrain['name']] + '(' + str(terrain['remain']) + ')'
+                env_tip += WeatherNames[terrain['name']] + '(' + str(terrain['remain']) + ')\n'
 
             pd_weathers = env['pseudo_weather']
             for pd_weather, round in pd_weathers.items():
                 if round:
-                    env_tip += pd_weather + '(' + str(round) + ')'
+                    pd_name = WeatherNames[pd_weather] if pd_weather in WeatherNames else pd_weather
+                    env_tip += pd_weather + '(' + str(round) + ')\n'
 
-            print('env', env_tip)
-            return env_tip
+            return env_tip[:-1]
 
         self.round_label.setToolTip(env_to_tip(state['env']))
 
@@ -273,7 +296,8 @@ class UI(QWidget):
             else:
                 self.moves[i].setText(move['name'] + '\n' + str(move['pp']) + '/' + str(move['maxpp']))
                 self.moves[i].setToolTip(move_to_tip(Moves[move_to_key(move['name'])]))
-                self.moves[i].setEnabled(move_mask[i])
+                if action_required is not None:
+                    self.moves[i].setEnabled(move_mask[i])
 
         self.z_move.setChecked(False)
         self.z_move.setEnabled(z_mask.any() and my_pivot_exist)
@@ -283,7 +307,8 @@ class UI(QWidget):
 
         for pkm_switch, pkm in zip(self.pkm_switch, my_pkms):
             pkm_switch.setEnabled(
-                (switch_mask or action_required in [Signal.Switch, Signal.Switch_in_turn]) and pkm['alive'])
+                (action_required is not None and (
+                        switch_mask or action_required in [Signal.Switch, Signal.Switch_in_turn]) and pkm['alive']))
             pkm_switch.setToolTip(self.pkm_to_tip(pkm))
 
         if my_pivot_exist:
@@ -378,7 +403,7 @@ class UI(QWidget):
             tip += gen_type_str()
             tip += gen_ability_str()
             tip += gen_item_str()
-            tip += 'HP: ' + str(round(pkm['hp']) + '/' + str(pkm['maxhp'],2)) + '\n'
+            tip += 'HP: ' + str(pkm['hp']) + '/' + str(pkm['maxhp']) + '\n'
 
             for key in pkm['stat_lv']:
                 tip += gen_stat_str(key)
@@ -400,7 +425,7 @@ class UI(QWidget):
             tip += gen_type_str()
             tip += gen_ability_str()
             tip += gen_item_str()
-            tip += 'HP: ' + str(pkm['hp_perc'] * 100) + '%\n'
+            tip += 'HP: ' + str(round(pkm['hp_perc'] * 100, 2)) + '%\n'
             for key in stat_lv:
                 tip += gen_lv_str(key)
             tip += gen_move_str()
@@ -437,6 +462,7 @@ class UI(QWidget):
     def add_log(self, x):
         self.log.setText(self.log.toPlainText() + x + '\n')
         self.log.moveCursor(QTextCursor.End)
+        self.update()
 
     # generate action_type by mega and z check_box
     def gen_action_type(self):
@@ -449,6 +475,7 @@ class UI(QWidget):
 
     # send action to Player
     def send_action(self, action_type, item):
+        self.action_required = None
         self.player.set_action(action_type, item)
 
 

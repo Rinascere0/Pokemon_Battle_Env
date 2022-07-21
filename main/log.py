@@ -15,6 +15,9 @@ class BattleLog:
         self.loser = None
         self.game = game
 
+        # interval between two logs
+        self.latency = 0
+
     def step(self):
         self.total_logs.append(self.log)
         self.log = []
@@ -632,9 +635,13 @@ class BattleLog:
             log = '(' + log + ')'
         return log
 
+    def set_latency(self, latency):
+        self.latency = latency
+
     def add(self, actor=None, event=None, target=None, val=0, type=logType.common):
         log = {'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type}
         if not self.loser:
             self.log.append(log)
             self.log_text.append(self.translate(log))
             self.game.send_log(self.translate(log))
+            time.sleep(self.latency)

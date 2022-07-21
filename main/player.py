@@ -10,9 +10,9 @@ from lib import tool, tool2
 
 Common, Mega, Z_Move = range(3)
 
-#test_team = 5
+# test_team = 5
 
-test_team=0
+test_team = 26
 
 
 class Player:

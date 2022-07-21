@@ -17,7 +17,7 @@ class ActionType:
 
 WeatherNames = {
     'psychicterrain': 'Psychic Terrain',
-    'electric': 'Electric Terrain',
+    'electricterrain': 'Electric Terrain',
     'mistyterrain': 'Misty Terrain',
     'grassyterrain': 'Grassy Terrain',
     'sunnyday': 'Harsh',
