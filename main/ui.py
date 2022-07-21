@@ -10,7 +10,7 @@ from lib.functions import move_to_key
 path = os.path.abspath(__file__) + '/../../resource/'
 pkm_path = path + 'pkm/'
 
-from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor
+from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox
 from PyQt5.QtCore import pyqtSignal, QRect, Qt
 
@@ -23,6 +23,19 @@ from lib.const import *
 
 class UI(QWidget):
     add_signal = pyqtSignal(str)
+    chg_pivot_signal = pyqtSignal(bool, str)
+
+    def change_movie(self, back, name):
+        mv_name = name.replace(' ', '-').lower() + '.gif'
+        if back:
+            movie = self.myPivot.movie()
+            movie.setFileName(pkm_path + 'back/' + mv_name)
+        else:
+            movie = self.foePivot.movie()
+            movie.setFileName(pkm_path + mv_name)
+
+        movie.stop()
+        movie.start()
 
     def __init__(self):
         super(UI, self).__init__()
@@ -62,6 +75,7 @@ class UI(QWidget):
 
         self.myPivot = QLabel(self)
         self.myPivot.setGeometry(100, 130, 250, 250)
+        self.myPivot.setMovie(QMovie())
 
         self.myPivotMaxHP = QLabel(self)
         self.myPivotMaxHP.setGeometry(90, 180, 150, 15)
@@ -72,6 +86,7 @@ class UI(QWidget):
 
         self.foePivot = QLabel(self)
         self.foePivot.setGeometry(370, 10, 250, 250)
+        self.foePivot.setMovie(QMovie())
 
         self.foePivotMaxHP = QLabel(self)
         self.foePivotMaxHP.setGeometry(350, 60, 150, 15)
@@ -144,6 +159,8 @@ class UI(QWidget):
         self.pkm_switch[5].clicked.connect(lambda: self.send_action(ActionType.Switch, 5))
 
         self.add_signal.connect(lambda x: self.add_log(x))
+        self.chg_pivot_signal.connect(lambda x, y: self.change_movie(x, y))
+
         self.show()
 
     def set_zable_move(self):
@@ -199,15 +216,16 @@ class UI(QWidget):
             self.z_mask = z_mask
             self.move_mask = move_mask
             if pivot['vstatus']['substitute']:
-                self.myPivot.setPixmap(QPixmap(pkm_path + 'back/substitute.png'))
+                self.chg_pivot_signal.emit(True, 'substitute')
             else:
-                self.myPivot.setPixmap(QPixmap(pkm_path + 'back/' + pivot['name'].replace(' ', '-').lower() + '.gif'))
+                self.chg_pivot_signal.emit(True, pivot['name'])
+
             self.myPivot.setToolTip(self.pkm_to_tip(pivot))
             set_HP_bar(self.myPivotHP, pivot['hp_perc'])
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
             self.z_mask = np.zeros(4)
-            self.myPivot.setPixmap(QPixmap())
+            self.chg_pivot_signal.emit(True, 'none')
             self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 
@@ -215,14 +233,15 @@ class UI(QWidget):
         foe_pivot_exist = foe_team['pivot'] != -1 and foe_pivot['alive']
         if foe_pivot_exist:
             if foe_pivot['vstatus']['substitute']:
-                self.foePivot.setPixmap(QPixmap(pkm_path + 'substitute.png'))
+                self.chg_pivot_signal.emit(False, 'substitute')
             else:
-                self.foePivot.setPixmap(QPixmap(pkm_path + foe_pivot['name'].replace(' ', '-').lower() + '.gif'))
+                self.chg_pivot_signal.emit(False, foe_pivot['name'])
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
             set_HP_bar(self.foePivotHP, foe_pivot['hp_perc'])
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
-            self.foePivot.setPixmap(QPixmap())
+            self.chg_pivot_signal.emit(False, 'none')
+
             self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 

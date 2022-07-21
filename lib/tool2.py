@@ -1,6 +1,6 @@
 from data.moves import Moves
 from data.pokedex import pokedex
-from docs.obs import obs
+#from docs.obs import obs
 from docs.moveset import Moveset
 import numpy as np
 from lib.functions import move_to_key, pkm_to_key, get_attr_fac, calc_stat_lv, get_ct

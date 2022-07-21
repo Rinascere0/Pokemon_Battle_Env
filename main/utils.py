@@ -170,7 +170,7 @@ class Utils:
                     continue
                 player.switch(env, pivot, foe, not check)
 
-            # if pkm on field fainted, check if the side loses, or need to switch on another pokemon
+            # if pkm on field fainted, check if the side loses, otherwise need to switch on another pokemon
             if check:
                 if not player.get_pivot().alive:
                     if player.lose():
@@ -192,8 +192,11 @@ class Utils:
         for pid, player in enumerate(players):
             user = player.get_pivot()
             target = players[1 - pid].get_pivot()
+
+            print('switch_on', user.name, user.activate)
             # activate abilities
             if user.activate:
+                print(user.ability,user.ability=='trace')
                 if user.ability == 'Transposer':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
                     user.transpose(target)

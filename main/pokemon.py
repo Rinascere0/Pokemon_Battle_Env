@@ -1072,7 +1072,7 @@ class Pokemon:
             self.reset_stat_lv()
             for vstatus in self.vstatus:
                 self.vstatus[vstatus] = 0
-            self.current_ability = self.base_ability
+
             self.attr = self.base_attr
 
             if self.status == 'tox':
@@ -1119,6 +1119,9 @@ class Pokemon:
                 if self.HP < self.maxHP:
                     self.log.add(actor=self, event=self.ability, type=logType.ability)
                     self.heal(perc=1 / 3)
+
+            self.current_ability = self.base_ability
+            self.ability = self.base_ability
 
     def switch(self, env, old_pivot=None, foe=None, boton=False):
         if old_pivot:

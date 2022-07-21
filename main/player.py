@@ -6,9 +6,13 @@ from data.moves import Moves
 from lib.const import *
 from threading import Thread
 from lib.read_team import read_team
-from lib import tool,tool2
+from lib import tool, tool2
 
 Common, Mega, Z_Move = range(3)
+
+#test_team = 5
+
+test_team=0
 
 
 class Player:
@@ -225,7 +229,7 @@ class AlphaPlayer(Player):
         super(AlphaPlayer, self).__init__()
 
     def set_team(self):
-        self.load_team(read_team(tid=0))
+        self.load_team(read_team(tid=test_team))
         for pkm in self.pkms:
             pkm.calc_stat(self.env)
 
@@ -236,6 +240,7 @@ class AlphaPlayer(Player):
     def gen_switch(self, switch_type):
         state = self.game.get_state(self.pid)
         return tool.gen_switch(state, switch_type)
+
 
 class BetaPlayer(Player):
     def __init__(self):

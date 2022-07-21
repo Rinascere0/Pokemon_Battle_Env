@@ -11,6 +11,9 @@ from lib.read_team import read_team
 
 Common, Mega, Z_Move = range(3)
 
+# test_team=25
+test_team = 1
+
 
 class UI_Player:
     def __init__(self):
@@ -242,7 +245,7 @@ class myPlayer(UI_Player):
 
     def set_team(self):
         # 11 victini
-        self.load_team(read_team(tid=1))
+        self.load_team(read_team(tid=test_team))
         # for test
         for pkm in self.pkms:
             pkm.calc_stat(self.env)

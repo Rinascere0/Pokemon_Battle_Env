@@ -706,7 +706,7 @@ def imm_ground(pkm, env):
            env['pseudo_weather']['gravity']
 
 
-from docs.obs import obs
 
 if __name__ == '__main__':
-    print(gen_action(obs))
+   print(gen_action(obs))
+
