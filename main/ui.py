@@ -98,7 +98,7 @@ class UI(QWidget):
         # round info
         self.round_label = QLabel(self)
         self.round_label.setGeometry(85, 25, 120, 50)
-        self.round_label.setStyleSheet("color:rgb(255,228,181,100)")
+        self.round_label.setStyleSheet("QLabel{color:rgb(255,228,181,100)}QToolTip{color:black}")
         self.round_label.setFont(QFont("Microsoft YaHei", 15, 75))
 
         self.left_margin = QLabel(self)
@@ -175,6 +175,26 @@ class UI(QWidget):
         state = self.game.get_state(1)
         Round = state['round']
         self.round_label.setText('Round ' + str(Round))
+
+        def env_to_tip(env):
+            env_tip = ""
+            weather = env['weather']
+            if weather['name']:
+                env_tip += WeatherNames[weather['name']] + '(' + str(weather['remain']) + ')'
+
+            terrain = env['terrain']
+            if terrain['name']:
+                env_tip += WeatherNames[terrain['name']] + '(' + str(terrain['remain']) + ')'
+
+            pd_weathers = env['pseudo_weather']
+            for pd_weather, round in pd_weathers.items():
+                if round:
+                    env_tip += pd_weather + '(' + str(round) + ')'
+
+            print('env', env_tip)
+            return env_tip
+
+        self.round_label.setToolTip(env_to_tip(state['env']))
 
         my_team = state['my_team']
         my_pkms = my_team['pkms']
@@ -358,7 +378,7 @@ class UI(QWidget):
             tip += gen_type_str()
             tip += gen_ability_str()
             tip += gen_item_str()
-            tip += 'HP: ' + str(pkm['hp']) + '/' + str(pkm['maxhp']) + '\n'
+            tip += 'HP: ' + str(round(pkm['hp']) + '/' + str(pkm['maxhp'],2)) + '\n'
 
             for key in pkm['stat_lv']:
                 tip += gen_stat_str(key)

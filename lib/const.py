@@ -15,6 +15,20 @@ class ActionType:
     Common, Mega, Z_Move, Switch, Pass = range(5)
 
 
+WeatherNames = {
+    'psychicterrain': 'Psychic Terrain',
+    'electric': 'Electric Terrain',
+    'mistyterrain': 'Misty Terrain',
+    'grassyterrain': 'Grassy Terrain',
+    'sunnyday': 'Harsh',
+    'RainDance': 'Rain',
+    'hail': 'Hail',
+    'Sandstorm': 'Sandstorm',
+    'trickroom': 'Trick Room',
+    'magicroom': 'Magic Room',
+    'wonderroom': 'Wonder Room'
+}
+
 Z_MOVES = {
     'Normal': 'Breakneck Blitz',
     'Fighting': 'All-Out Pummeling',
