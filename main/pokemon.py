@@ -22,7 +22,7 @@ class Pokemon:
         self.gender = info['Gender']
         self.evs = {key: None2Zero(value) for key, value in info.items() if
                     key in ['atk', 'def', 'spa', 'spd', 'spe', 'hp']}
-        self.ivs = {key[1:]: None2Zero(value) for key, value in info.items() if
+        self.ivs = {key[1:]: None2Zero(value, 31) for key, value in info.items() if
                     key in ['iatk', 'idef', 'ispa', 'ispd', 'ispe', 'ihp']}
         self.nature = info['Nature']
 
@@ -958,6 +958,8 @@ class Pokemon:
 
     def calc_stat(self, env, target=None, raw=False, moldbreak=False):
         _, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe = self.stats.values()
+        # print(self.name, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe)
+
         Atk_lv, Def_lv, Satk_lv, Sdef_lv, Spe_lv, Eva_lv, Acc_lv, _ = self.stat_lv.values()
 
         if not raw:

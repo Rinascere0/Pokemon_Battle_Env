@@ -318,7 +318,7 @@ class UI(QWidget):
             if hp_perc > 0.5:
                 hp_color = '83,121,28'  # green
             elif hp_perc > 0.25:
-                hp_color = '144,131,31'  # yellow
+                hp_color = '164,161,31'  # yellow
             elif hp_perc > 0:
                 hp_color = '255,0,0'
             else:

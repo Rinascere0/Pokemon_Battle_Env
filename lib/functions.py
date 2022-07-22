@@ -84,7 +84,8 @@ def imm_poison(pkm):
 
 def imm_ground(pkm, env):
     return not pkm.vstatus[
-        'smackdown'] and 'Flying' in pkm.attr and not pkm.vstatus['roost'] or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' or pkm.vstatus[
+        'smackdown'] and 'Flying' in pkm.attr and not pkm.vstatus[
+        'roost'] or pkm.ability == 'Levitate' or pkm.item is 'Air Balloon' or pkm.vstatus[
                'magnetrise'] or pkm.vstatus['telekinesis'] or env.pseudo_weather['gravity']
 
 
@@ -97,8 +98,8 @@ def gen_stats(sp, evs, ivs, lv, nature):
         stats[ID] = int((sp[ID] * 2 + ivs[ID] + evs[ID] / 4) * lv / 100 + 5)
     if nature in Nature:
         buf, deb = Nature[nature]
-        buf=buf.lower()
-        deb=deb.lower()
+        buf = buf.lower()
+        deb = deb.lower()
         stats[buf] = int(stats[buf] * 1.1)
         stats[deb] = int(stats[deb] * 0.9)
     return stats
@@ -132,8 +133,8 @@ def pkm_to_key(pkm):
     return pkm.replace(' ', '').replace('-', '').lower()
 
 
-def None2Zero(x):
-    return 0 if x is None else float(x)
+def None2Zero(x, target=0):
+    return target if x is None else float(x)
 
 
 def gen_def_type(attr):

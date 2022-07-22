@@ -71,7 +71,6 @@ def read_team(tid=0):
         if 'Lv' not in res:
             res['Lv'] = 100
         pkms.append(Pokemon(res))
-
     return pkms
 
 
