@@ -535,6 +535,8 @@ class BattleLog:
                 return log
 
             # skill
+            elif event == '+substitute_block':
+                log = '\'s substitute prevented ' + target + '\'s ' + val + '!'
 
             elif event == 'transform':
                 log = 'transformed into ' + target + '!'

@@ -13,7 +13,8 @@ Common, Mega, Z_Move = range(3)
 
 # test_team=25
 # test_team = 1
-test_team = 15
+#test_team = 15 # rain
+test_team=0
 
 
 class UI_Player:

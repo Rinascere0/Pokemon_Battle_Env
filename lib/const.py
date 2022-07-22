@@ -15,6 +15,27 @@ class ActionType:
     Common, Mega, Z_Move, Switch, Pass = range(5)
 
 
+Color = {'normal': '145,153,161',
+         'flying': '142,168,222',
+         'fire': '254,156,84',
+         'psychic': '249,113,120',
+         'water': '79,144,213',
+         'bug': '145,192,46',
+         'electric': '244,210,60',
+         'rock': '197,183,139',
+         'grass': '98,187,90',
+         'ghost': '82,105,172',
+         'ice': '115,206,191',
+         'dragon': '10,109,194',
+         'fighting': '205,64,106',
+         'dark': '90,83,101',
+         'poison': '169,106,200',
+         'steel': '90,141,161',
+         'ground': '216,120,68',
+         'fairy': '235,143,230',
+         '???': '68,104,94'
+         }
+
 WeatherNames = {
     'psychicterrain': 'Psychic Terrain',
     'electricterrain': 'Electric Terrain',

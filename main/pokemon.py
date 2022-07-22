@@ -561,8 +561,12 @@ class Pokemon:
         src: the pkm  the boost
     '''
 
-    def boost(self, stat, lv, src=None, z_move=False):
+    def boost(self, stat, lv, src=None, z_move=False, val=None):
         if not self.alive:
+            return
+
+        if self.vstatus['substitute'] and src is not self:
+            self.log.add(actor=self, event='+substitute_block', target=src, val=val)
             return
 
         def ability_log(stat):
@@ -579,10 +583,11 @@ class Pokemon:
             lv = '+' + str(lv) if lv > 0 else str(lv)
             self.log.add(actor=self, event=lv, val=full_stat[stat])
 
-        def handle_boost(stat, lv, src=src):
+        def handle_boost(stat, lv, src=src, val=None):
             if self.ability == 'Contrary':
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 lv = -lv
+
             if self.ability == 'Simple':
                 self.log.add(actor=self, event=self.ability, type=logType.ability)
                 lv = 2 * lv
@@ -655,6 +660,7 @@ class Pokemon:
             if attr == 'Fire' and self.ability == 'Heatproof':
                 val *= 0.5
 
+        val = int(val)
         # substitute block damage
         if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:
             self.vstatus['substitute'] = max(0, self.vstatus['substitute'] - val)
@@ -865,6 +871,7 @@ class Pokemon:
             if not target.alive or target is not self.trap_user:
                 self.trap_move = None
                 self.trap_user = None
+                self.vstatus['partiallytrapped'] = 0
             else:
                 self.log.add(actor=self, event='+partiallytrapped', val=self.trap_move)
                 self.damage(perc=1 / 8)

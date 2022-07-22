@@ -294,8 +294,11 @@ class UI(QWidget):
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
             else:
+                move_info = Moves[move_to_key(move['name'])]
+                attr_key = move_info['type'].lower()
                 self.moves[i].setText(move['name'] + '\n' + str(move['pp']) + '/' + str(move['maxpp']))
-                self.moves[i].setToolTip(move_to_tip(Moves[move_to_key(move['name'])]))
+                self.moves[i].setToolTip(move_to_tip(move_info))
+                self.moves[i].setStyleSheet("background-color:rgb(" + Color[attr_key] + ',120)')
                 if action_required is not None:
                     self.moves[i].setEnabled(move_mask[i])
 
@@ -310,6 +313,22 @@ class UI(QWidget):
                 (action_required is not None and (
                         switch_mask or action_required in [Signal.Switch, Signal.Switch_in_turn]) and pkm['alive']))
             pkm_switch.setToolTip(self.pkm_to_tip(pkm))
+            hp_perc = pkm['hp'] / pkm['maxhp'] if 'hp' in pkm else pkm['hp_perc']
+
+            if hp_perc > 0.5:
+                hp_color = '83,121,28'  # green
+            elif hp_perc > 0.25:
+                hp_color = '144,131,31'  # yellow
+            elif hp_perc > 0:
+                hp_color = '255,0,0'
+            else:
+                hp_color = '145,153,161'
+            # seems not displaying well
+            # pkm_switch.setStyleSheet("background-color:rgb(" + hp_color + ',50)')
+
+            pkm_switch.setStyleSheet("QPushButton{color:rgb(" + hp_color + ',250);}')
+        #    pkm_switch.setStyleSheet("QPushButton{}")
+
 
         if my_pivot_exist:
             self.pkm_switch[my_team['pivot']].setEnabled(False)
