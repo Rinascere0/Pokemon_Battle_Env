@@ -32,7 +32,7 @@ Change the player class in `Game.py` to switch between the two modes!
 
 
 ## GUI Example
-![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/gui_new.png)
+![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/RoundPrint/docs/gui_new.png)
 
 <details>
 <summary>Battle Log Example</summary>
