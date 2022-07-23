@@ -39,7 +39,7 @@ class Game:
             self.add_player(myPlayer())
             self.game_nums = 1
         else:
-            self.add_player(BetaPlayer())
+            self.add_player(AlphaPlayer())
             self.game_nums = game_nums
 
     def add_player(self, player):
@@ -290,6 +290,10 @@ class Game:
         return state
 
 
-if __name__ == '__main__':
+def run():
     game = Game()
     game.start()
+
+
+if __name__ == '__main__':
+    run()

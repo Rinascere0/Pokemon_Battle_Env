@@ -534,9 +534,10 @@ class Pokemon:
             if not self.alive:
                 return True
             if perc:  # 百分比治疗
-                val = int(self.maxHP * perc)
+                val = self.maxHP * perc
             if self.item == 'Big Root':
-                val = int(val * 1.3)
+                val = val * 1.3
+            val = int(val)
             if target and target.ability == 'Liquid Ooze':
                 self.log.add(actor=self, event='ooze', type=logType.ability)
                 self.damage(val)
@@ -1181,6 +1182,8 @@ class Pokemon:
         self.activate = True
         self.turn = False
         self.last_move = None
+
+        self.stats = copy.deepcopy(self.base_stats)
 
         sidecond = env.get_sidecond(self)
         if not imm_ground(self, env):

@@ -550,6 +550,18 @@ class BattleLog:
             elif event == 'trick':
                 log = 'switched its item with ' + target + '!'
 
+            elif event == 'heartswap':
+                log = 'swapped its stat changes with ' + target + '!'
+
+            elif event == 'powerswap':
+                log = 'swapped its Atk. and Spa. stat changes with ' + target + '!'
+
+            elif event == 'guardswap':
+                log = 'swapped its Def. and Spd. stat changes with ' + target + '!'
+
+            elif event == 'speedswap':
+                log = 'swapped its Spd. stat with ' + target + '!'
+
             elif event == 'obtain':
                 log = 'obtained ' + val + '!'
 

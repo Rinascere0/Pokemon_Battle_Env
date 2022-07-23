@@ -17,7 +17,7 @@ from PyQt5.QtCore import pyqtSignal, QRect, Qt
 from threading import Thread
 
 from data.moves import Moves
-from game import Game
+from main.game import Game
 from lib.const import *
 
 
@@ -155,13 +155,13 @@ class UI(QWidget):
         self.z_move.clicked.connect(self.set_zable_move)
 
         self.label = QLabel('Switch:', self)
-        self.label.setGeometry(20, 630, 100, 50)
+        self.label.setGeometry(20, 635, 100, 50)
         self.label.setFont(QFont("Microsoft YaHei", 14, 75))
 
         self.pkm_switch = [QPushButton(self) for _ in range(6)]
         for i, pkm in enumerate(self.pkm_switch):
             pkm.setFont(QFont("Consolas", 10, 30))
-            pkm.setGeometry(120 + 170 * i, 630, 150, 60)
+            pkm.setGeometry(120 + 170 * i, 633, 150, 60)
 
         # connect
         self.moves[0].clicked.connect(lambda: self.send_action(self.gen_action_type(), 0))
@@ -328,7 +328,6 @@ class UI(QWidget):
 
             pkm_switch.setStyleSheet("QPushButton{color:rgb(" + hp_color + ',250);}')
         #    pkm_switch.setStyleSheet("QPushButton{}")
-
 
         if my_pivot_exist:
             self.pkm_switch[my_team['pivot']].setEnabled(False)
@@ -498,8 +497,12 @@ class UI(QWidget):
         self.player.set_action(action_type, item)
 
 
-if __name__ == '__main__':
+def run():
     app = QApplication(sys.argv)
     ui = UI()
     app.exec_()
     ui.game.force_end()
+
+
+if __name__ == '__main__':
+    run()

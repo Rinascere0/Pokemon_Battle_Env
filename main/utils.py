@@ -140,6 +140,7 @@ class Utils:
         # check if any side needs to switch
         done, to_switch = self.check_switch(env, players)
 
+        print('end turn')
         return done, to_switch
 
     # gen action masks for next turn
@@ -196,7 +197,7 @@ class Utils:
             print('switch_on', user.name, user.activate)
             # activate abilities
             if user.activate:
-                print(user.ability,user.ability=='trace')
+                print(user.ability, user.ability == 'trace')
                 if user.ability == 'Transposer':
                     self.log.add(actor=user, event=user.ability, type=logType.ability)
                     user.transpose(target)
@@ -927,6 +928,24 @@ class Utils:
                     target.lose_item(item)
                 else:
                     self.log.add(event='fail')
+
+            if move['name'] == 'Heart Swap':
+                self.log.add(actor=user, event='heartswap', target=target)
+                user.stat_lv, target.stat_lv = target.stat_lv, user.stat_lv
+
+            if move['name'] == 'Power Swap':
+                self.log.add(actor=user, event='powerswap', target=target)
+                user.stat_lv['atk'], target.stat_lv['atk'] = target.stat_lv['atk'], user.stat_lv['atk']
+                user.stat_lv['spa'], target.stat_lv['spa'] = target.stat_lv['spa'], user.stat_lv['spa']
+
+            if move['name'] == 'Guard Swap':
+                self.log.add(actor=user, event='guardswap', target=target)
+                user.stat_lv['def'], target.stat_lv['def'] = target.stat_lv['def'], user.stat_lv['def']
+                user.stat_lv['spd'], target.stat_lv['spd'] = target.stat_lv['spd'], user.stat_lv['spd']
+
+            if move['name'] == 'Speed Swap':
+                self.log.add(actor=user, event='speedswap', target=target)
+                user.stats['spe'], target.stats['spe'] = target.stats['spe'], user.stats['spe']
 
             if move['name'] == 'Conversion':
                 user.change_type(attr=user.move_infos[0]['type'])

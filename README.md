@@ -15,10 +15,10 @@ Thanks to BJK for providing battle teams.
 ## How to use?
 
 For GUI:
-Run `ui.py`, and battle with the built-in AI!
+Run `run_ui.py`, and battle with the built-in AI!
 
 For non-GUI:
-Run `game.py`, and built-in AI will automatically perform a battle!
+Run `run_log.py`, and built-in AI will automatically perform a battle!
 
 Note:
 Change the player class in `Game.py` to switch between the two modes!
@@ -32,7 +32,7 @@ Change the player class in `Game.py` to switch between the two modes!
 
 
 ## GUI Example
-![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/gui.png)
+![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/GUI/docs/gui_new.png)
 
 <details>
 <summary>Battle Log Example</summary>
@@ -541,6 +541,16 @@ subsitute judge->whether damaged dealt to true body
 
 【Todo】\
 Cloud Nine
+
+2022.7.23
+【Add】\
+heartswap
+powerswap
+guardswap
+speedswap
+
+【ToFix】\
+landorus switch on bug
 
 </details>
 
