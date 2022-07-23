@@ -863,7 +863,7 @@ class Pokemon:
                 self.log.add(actor=self, event='Hydration', type=logType.ability)
                 self.cure_status()
 
-        if self.vstatus['leechseed'] and self.alive:
+        if self.vstatus['leechseed'] and self.alive and target.alive:
             self.log.add(actor=self, event='+leechseed')
             dmg = self.damage(val=0, perc=1 / 8)
             target.heal(dmg)

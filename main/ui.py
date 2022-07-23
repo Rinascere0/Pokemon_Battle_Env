@@ -4,6 +4,7 @@ import time
 import os
 
 import numpy as np
+from PyQt5 import QtWidgets
 
 from lib.functions import move_to_key
 
@@ -97,7 +98,10 @@ class UI(QWidget):
 
         self.myPivotMaxHP = QLabel(self)
         self.myPivotMaxHP.setGeometry(90, 180, 150, 15)
-        self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,0)")
+        self.myPivotMaxHP.setFrameShape(QtWidgets.QFrame.Box)
+        self.myPivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.myPivotMaxHP.setStyleSheet(
+            "border-width: 5px;border-style: solid;border-color: (255,0,255,0);background-color:rgb(255,255,255,0)")
 
         self.myPivotHP = QLabel(self)
         self.myPivotHP.setGeometry(90, 180, 150, 15)
@@ -108,7 +112,10 @@ class UI(QWidget):
 
         self.foePivotMaxHP = QLabel(self)
         self.foePivotMaxHP.setGeometry(350, 60, 150, 15)
-        self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,0)")
+        self.foePivotMaxHP.setFrameShape(QtWidgets.QFrame.Box)
+        self.foePivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.foePivotMaxHP.setStyleSheet(
+            "border-width: 5px;border-style: solid;border-color:(255,255,255,0);background-color:rgb(255,255,255,0)")
 
         self.foePivotHP = QLabel(self)
         self.foePivotHP.setGeometry(350, 60, 150, 15)
