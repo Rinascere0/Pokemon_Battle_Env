@@ -130,7 +130,7 @@ def move_to_key(move):
 
 
 def pkm_to_key(pkm):
-    return pkm.replace(' ', '').replace('-', '').lower()
+    return pkm.replace(' ', '').replace('-', '').replace('’','').lower()
 
 
 def None2Zero(x, target=0):

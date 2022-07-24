@@ -6,12 +6,13 @@ import os
 import numpy as np
 from PyQt5 import QtWidgets
 
-from lib.functions import move_to_key
+from lib.functions import move_to_key, pkm_to_key
 
 path = os.path.abspath(__file__) + '/../../resource/'
 pkm_path = path + 'pkm/'
+icon_path = path + 'icon/'
 
-from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie
+from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox
 from PyQt5.QtCore import pyqtSignal, QRect, Qt
 
@@ -161,14 +162,14 @@ class UI(QWidget):
         self.z_move.move(360, 585)
         self.z_move.clicked.connect(self.set_zable_move)
 
-        self.label = QLabel('Switch:', self)
-        self.label.setGeometry(20, 635, 100, 50)
-        self.label.setFont(QFont("Microsoft YaHei", 14, 75))
+        self.label = QLabel('Switch', self)
+        self.label.setGeometry(18, 635, 100, 50)
+        self.label.setFont(QFont("Tahoma", 14, 75))
 
         self.pkm_switch = [QPushButton(self) for _ in range(6)]
         for i, pkm in enumerate(self.pkm_switch):
             pkm.setFont(QFont("Consolas", 10, 30))
-            pkm.setGeometry(120 + 170 * i, 633, 150, 60)
+            pkm.setGeometry(113 + 170 * i, 633, 150, 60)
 
         # connect
         self.moves[0].clicked.connect(lambda: self.send_action(self.gen_action_type(), 0))
@@ -332,9 +333,8 @@ class UI(QWidget):
                 hp_color = '145,153,161'
             # seems not displaying well
             # pkm_switch.setStyleSheet("background-color:rgb(" + hp_color + ',50)')
-
             pkm_switch.setStyleSheet("QPushButton{color:rgb(" + hp_color + ',250);}')
-        #    pkm_switch.setStyleSheet("QPushButton{}")
+            pkm_switch.setIcon(QIcon(icon_path + pkm_to_key(pkm['name']) + '.png'))
 
         if my_pivot_exist:
             self.pkm_switch[my_team['pivot']].setEnabled(False)
@@ -342,7 +342,7 @@ class UI(QWidget):
         # show my mini teams
         for i, pkm in enumerate(my_pkms):
             name = pkm['name']
-            self.pkm_switch[i].setText(name + '\n' + str(pkm['hp']) + '/' + str(pkm['maxhp']))
+            self.pkm_switch[i].setText(name[:10] + '\n' + str(pkm['hp']) + '/' + str(pkm['maxhp']))
             pixmap = QPixmap(pkm_path + name.replace(' ', '-').lower() + '.gif')
             if not pkm['alive']:
                 pixmap = self.get_faint_pkm_mini(pixmap)

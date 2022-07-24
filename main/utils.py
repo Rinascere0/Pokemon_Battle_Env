@@ -1073,10 +1073,10 @@ class Utils:
 
         # check off field
         if sk_name in ['Shadow Force', 'Phantom Force', 'Fly', 'Dig', 'Bounce']:
-            if user.off_field in sk_name:
-                user.off_field = None
-            else:
+            if not user.off_field:
                 user.off_field = sk_name
+            else:
+                user.off_field = None
 
         # check protect
         if target.protect_move:
