@@ -813,6 +813,9 @@ class Utils:
                     self.log.add(actor=user, event='recoil')
                     user.damage(recoil)
 
+            if user.item == 'Life Orb':
+                user.damage(perc=1 / 10)
+
             # lock round move
             if move['name'] in ['Outrage', 'Petal Dance', 'Thrash']:
                 if user.lock_round == 3:

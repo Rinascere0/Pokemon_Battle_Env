@@ -537,7 +537,7 @@ class Pokemon:
                 val = self.maxHP * perc
             if self.item == 'Big Root':
                 val = val * 1.3
-            val = int(val)
+            val = max(int(val), 1)
             if target and target.ability == 'Liquid Ooze':
                 self.log.add(actor=self, event='ooze', type=logType.ability)
                 self.damage(val)
@@ -648,8 +648,11 @@ class Pokemon:
             return False
         if perc:
             val = int(self.maxHP * perc)
+
         if const:
             val = const
+
+        val = max(val, 1)
 
         # judge where have substitute before this damage
         # stealth rock

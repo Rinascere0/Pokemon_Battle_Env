@@ -211,17 +211,17 @@ class UI(QWidget):
             env_tip = ""
             weather = env['weather']
             if weather['name']:
-                env_tip += WeatherNames[weather['name']] + '(' + str(weather['remain']) + ')\n'
+                env_tip += WeatherNames[weather['name']] + ' (' + str(weather['remain']) + ')\n'
 
             terrain = env['terrain']
             if terrain['name']:
-                env_tip += WeatherNames[terrain['name']] + '(' + str(terrain['remain']) + ')\n'
+                env_tip += WeatherNames[terrain['name']] + ' (' + str(terrain['remain']) + ')\n'
 
             pd_weathers = env['pseudo_weather']
             for pd_weather, round in pd_weathers.items():
                 if round:
                     pd_name = WeatherNames[pd_weather] if pd_weather in WeatherNames else pd_weather
-                    env_tip += pd_weather + '(' + str(round) + ')\n'
+                    env_tip += pd_weather + ' (' + str(round) + ')\n'
 
             return env_tip[:-1]
 
