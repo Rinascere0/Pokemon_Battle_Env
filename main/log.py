@@ -139,6 +139,9 @@ class BattleLog:
             elif event == 'protect':
                 log = 'protected itself!'
 
+            elif event == 'kingsshield':
+                log = 'protected itself with King\'s Shield!'
+
             elif event == '+protect':
                 log = 'protected itself from attack!'
 

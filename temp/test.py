@@ -45,7 +45,7 @@ def get_move(name):
     # get_move('spiritshackle')
 
 
-import wget
+#import wget
 import requests
 from PIL import Image
 
@@ -143,4 +143,4 @@ def gen_moveset():
         print('moveset=',movesets)
 
 
-print(get_move('hiddenpowerice'))
+print(get_move('spikyshield'))

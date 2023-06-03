@@ -10,6 +10,8 @@ from main.player import Player
 from main.env import Env
 from main.log import BattleLog
 
+import data.const as C
+
 import math
 
 Hit, Miss, NoEffect, Onhold, NoLog = 0, 1, 2, 3, 4
@@ -78,6 +80,7 @@ class Utils:
         # foe protect fail
         if moves[last]['type'] != ActionType.Switch and moves[last]['item']['name'] in protect_moves:
             pkms[last].protect_turn = 10000
+            print('switch')
 
         # perform preparations after switching on, e.g. abilities
         self.switch_on(players, env)
@@ -204,8 +207,7 @@ class Utils:
                 if user.ability == 'Trace':
                     self.log.add(actor=user, event='Trace', type=logType.ability)
                     self.log.add(actor=user, event='+trace', val=target.ability)
-                    user.current_ability = target.ability
-                    user.ability = target.ability
+                    user.set_ability(move=None, sub=target.ability)
 
                 if user.ability == 'Anticipation':
                     for move in target.move_infos:
@@ -275,6 +277,9 @@ class Utils:
                     if target.item == 'Adrenaline Orb':
                         target.use_item()
                         target.boost('spe', 1)
+
+                if user.ability in ('Cloud Nine', 'Air Lock', 'Fairy Aura', 'Dark Aura'):
+                    self.log.add(actor=user, event=user.ability, type=logType.ability)
 
             # show switch on prompts and use items
             if user.switch_on:
@@ -354,8 +359,8 @@ class Utils:
             if user.status_turn > 0:
                 self.log.add(actor=user, event='+slp')
                 user.status_turn -= 1
-                # TODO: check taunt?
                 if move['name'] == 'Sleep Talk':
+                    self.log.add(actor=user, event='use', val='Sleep Talk')
                     move = user.get_random_move(neq='Sleep Talk')
                 else:
                     return
@@ -446,6 +451,12 @@ class Utils:
                 if sk_type != 'Normal':
                     power = 100
 
+            if move['name'] == 'Nature Gift':
+                if user.item in C.nature_gift:
+                    real_move = C.nature_gift[user.item]
+                    sk_type = real_move['attr']
+                    power = real_move['pow']
+
             move = copy.deepcopy(move)
             move['type'] = sk_type
             move['basePower'] = power
@@ -465,6 +476,11 @@ class Utils:
                 self.log.add(actor=target, event=target.ability, type=logType.ability)
                 self.log.add(event='fail')
                 return
+
+        if user.ability == 'Stance Change' and (
+                move['name'] == 'King\'s Shield' and user.name == 'Aegislash-Blade' or move[
+            'category'] != 'Status' and user.name == 'Aegislash'):
+            user.stance_change()
 
         if user.ability == 'Protean':
             self.log.add(actor=user, event='Protean', type=logType.ability)
@@ -522,6 +538,12 @@ class Utils:
             if env.get_sidecond(target)['quickguard']:
                 self.log.add(actor=target, event='+quickguard')
                 return
+
+        if move['name'] == 'Natural Gift' and user.item not in C.nature_gift:
+            self.log.add(event='fail')
+
+        if move['name'] == 'Sleep Talk' and user.status != Status.Sleep:
+            self.log.add(event='fail')
 
         if move['name'] == 'Splash':
             self.log.add(event='splash')
@@ -1083,10 +1105,11 @@ class Utils:
 
         # check protect
         if target.protect_move:
+            print('move',target.protect_move)
             if target is not user and 'protect' in move['flags']:
                 if sk_name == 'Feint':
                     self.log.add(actor=user, event='feint', target=target)
-                    target.vstatus['protect'] = 0
+                    target.vstatus[target.protect_move] = 0
                 elif 'is_z_move' in move:
                     self.log.add(actor=user, event='zprotect')
                 else:
@@ -1266,6 +1289,9 @@ class Utils:
 
         if sk_name == 'Nature\'s Madness':
             return max(target.HP // 2, 1)
+
+        if sk_name == 'Guardian of Alola':
+            return max(target.HP * 3 // 4, 1)
 
         if 'ohko' in move:
             return target.HP

@@ -231,8 +231,32 @@ class Pokemon:
         self.ability = sub
         # TODO: Moldbreak?
 
+        # air lock
+        if temp in ('Air Lock', 'Cloud Nine'):
+            self.env.set_air_lock(-1)
+        if sub in ('Air Lock', 'Cloud Nine'):
+            self.env.set_air_lock(1)
         self.log.add(actor=self, event='change_ability', val=sub)
         return temp
+
+    # for aegislash
+    def stance_change(self):
+        if self.name == 'Aegislash':
+            target = 'Aegislash-Blade'
+        else:
+            target = 'Aegislash'
+        self.log.add(actor=self, event='Stance Change', type=logType.ability)
+        self.log.add(actor=self, event='self_transform', val=target)
+        self.name = target
+        pkm_info = pokedex[target.replace('-', '').lower()]
+        self.sp = pkm_info['baseStats']
+        self.base_attr = pkm_info['types']
+        self.attr = copy.deepcopy(self.base_attr)
+        self.base_weight = pkm_info['weightkg']
+
+        # state
+        self.base_stats = gen_stats(self.sp, self.evs, self.ivs, self.lv, self.nature)
+        self.stats = copy.deepcopy(self.base_stats)
 
     # for ditto
     def transpose(self, target):
@@ -255,8 +279,7 @@ class Pokemon:
         self.stats = copy.deepcopy(target.stats)
         self.stat_lv = copy.deepcopy(target.stat_lv)
         self.attr = target.attr
-        self.current_ability = target.current_ability
-        self.ability = self.current_ability
+        self.set_ability(move=None, sub=target.current_ability)
         self.lv = target.lv
         self.nature = target.nature
         self.base_weight = target.base_weight
@@ -436,7 +459,6 @@ class Pokemon:
 
     def add_vstate(self, vstatus, cond=None, user=None):
         # fail if already dead
-        print(vstatus)
         if not self.alive:
             return False
 
@@ -485,6 +507,7 @@ class Pokemon:
             # TODO: Quick Guard etc. are also influenced by chance, but don't count up
             if random.uniform(0, 1) >= math.pow(1 / 3, self.protect_turn):
                 self.protect_turn = 0
+                print('fail')
                 return False
             else:
                 self.protect_turn += 1
@@ -1142,6 +1165,8 @@ class Pokemon:
                 self.stat_lv = old_pivot.stat_lv
                 self.vstatus['substitute'] = copy.deepcopy(old_pivot['substitute'])
                 self.vstatus['leechseed'] = copy.deepcopy(old_pivot['leechseed'])
+            if old_pivot.ability in ['Cloud Nine', 'Air Lock']:
+                self.env.set_air_lock(-1)
             old_pivot.reset()
             if old_pivot.transform:
                 old_pivot.transform = False

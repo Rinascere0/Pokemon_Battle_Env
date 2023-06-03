@@ -25,7 +25,9 @@ class Env:
 
         self.slot_condition = [{'healingwish': 0, 'Wish': None, 'lunardance': 0, 'heal': 0},
                                {'healingwish': 0, 'Wish': None, 'lunardance': 0, 'heal': 0}]
-
+        # real weather
+        self.real_weather = None
+        # effect weather (None if air lock)
         self.weather = None
         self.weather_turn = 0
         # {'hail': 0, 'RainDance': 0, 'Sandstorm': 0, 'sunnyday': 0}
@@ -37,18 +39,22 @@ class Env:
         self.terrain_turn = 0
         # {'electricterrain': 0, 'grassyterrain': 0, 'mistyterrain': 0, 'psychicterrain': 0}
         self.uproar = False
+        self.air_lock = False
 
     def set_weather(self, weather, item, log):
         if weather == 'hail' and item == 'Icy Rock' or weather == 'sunnyday' and item == 'Heat Rock' or weather == 'Sandstorm' and item == 'Smooth Rock' or weather == 'RainDance' and item == 'Damp Rock':
             turn = 8
         else:
             turn = 5
-        if self.weather == weather:
+        if self.real_weather == weather:
             return False
         else:
-            self.weather = weather
+            self.real_weather = weather
             self.weather_turn = turn
             log.add(event=weather)
+        if not self.air_lock:
+            self.weather = weather
+
         return True
 
     def set_terrain(self, terrain, item, log):
@@ -78,7 +84,7 @@ class Env:
             mySlotcond['Wish'] = {'turn': 2, 'val': pkm.maxHP / 2}
         else:
             mySlotcond[slotcond] = 1
-        return  True
+        return True
 
     def add_sidecond(self, sidecond, pkm, cond, log):
         my_sidecond = self.get_sidecond(pkm)
@@ -86,7 +92,7 @@ class Env:
                 or sidecond == 'spikes' and my_sidecond[sidecond] > 2 \
                 or 'spikes' not in sidecond and my_sidecond[sidecond] > 0:
             return False
-        if sidecond == 'auroraveil' and self.weather['hail'] == 0:
+        if sidecond == 'auroraveil' and self.weather != 'hail':
             return False
 
         turn = 1
@@ -105,6 +111,13 @@ class Env:
                 self.pseudo_weather[pd] -= 1
                 if self.pseudo_weather[pd] == 0:
                     log.add(event='-' + pd)
+
+    def set_air_lock(self, flag):
+        self.air_lock += flag
+        if self.air_lock > 0:
+            self.weather = None
+        else:
+            self.weather = self.real_weather
 
     def step(self, players, log):
         for player in players:
@@ -128,10 +141,10 @@ class Env:
         if self.weather_turn > 0:
             self.weather_turn -= 1
             if self.weather_turn == 0:
-                log.add(event='-' + self.weather)
+                log.add(event='-' + self.real_weather)
                 self.weather = None
             else:
-                log.add(event='=' + self.weather)
+                log.add(event='=' + self.real_weather)
 
         if self.terrain_turn > 0:
             self.terrain_turn -= 1

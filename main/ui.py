@@ -123,7 +123,7 @@ class UI(QWidget):
 
         # round info
         self.round_label = QLabel(self)
-        self.round_label.setGeometry(85, 25, 120, 50)
+        self.round_label.setGeometry(85, 15, 120, 50)
         self.round_label.setStyleSheet("QLabel{color:rgb(255,228,181,100)}QToolTip{color:black}")
         self.round_label.setFont(QFont("Microsoft YaHei", 15, 75))
 

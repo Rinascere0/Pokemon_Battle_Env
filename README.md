@@ -365,6 +365,21 @@ Satoshi lost!
 <summary>Update Log</summary>
 
 
+2023.6.3
+【Add】\
+Guardian of Alola
+Dark Aura
+Fairy Aura
+Stance Change
+
+【Todo】\
+Primordial Sea
+Desolate Land
+Delta Stream
+
+2022.9.26
+【Todo】\
+end game upon vs/ut kill foe 
 
 2022.4.30
 
@@ -452,7 +467,7 @@ Mega
 ✔Ability log in utils\
 ✔Berry\
 ✔struggle\
-Ditto
+✔Ditto
 
 2022.5.5
 
@@ -469,8 +484,8 @@ brick break wall\
 nightmare
 
 【Todo】\
-Gravity [immue judge]\
-sleep talk
+✔Gravity [immue judge]\
+✔sleep talk
 
 2022.5.6
 
@@ -526,7 +541,7 @@ Emergency Exit
 Arranged code
 
 【Todo】\
-Natural Gift\
+✔Natural Gift\
 Soak etc.
 
 2022.5.11
@@ -540,7 +555,7 @@ subsitute judge->whether damaged dealt to true body
 2022.5.13
 
 【Todo】\
-Cloud Nine
+✔Cloud Nine
 
 2022.7.23
 【Add】\
@@ -551,6 +566,7 @@ speedswap
 
 【ToFix】\
 landorus switch on bug
+
 
 </details>
 
