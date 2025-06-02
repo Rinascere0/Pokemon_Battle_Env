@@ -16,7 +16,7 @@ class BattleLog:
         self.game = game
 
         # interval between two logs
-        self.latency = 0
+        self.latency = 0.2
 
     def step(self):
         self.total_logs.append(self.log)
@@ -148,11 +148,15 @@ class BattleLog:
             elif event == 'change_type':
                 log = '\'s type changed to ' + val + '!'
 
+
             elif event == 'add_type':
                 log = '\'s type was added ' + val + '!'
 
             elif event == 'add_type':
                 log = 'was removed ' + val + ' types!'
+
+            elif event == 'change_ability':
+                log = '\'s ability was changed to '+val+'!'
 
             elif event == 'lose':
                 log = 'lost!'
@@ -520,7 +524,7 @@ class BattleLog:
                 log = 'But it failed!'
 
             elif event == 'round':
-                log = '\nRound ' + str(val) + '\n'
+                log = '\nRound ' + str(val)
 
             # attr berry
             elif event in attr_berry:
@@ -539,7 +543,7 @@ class BattleLog:
 
             # skill
             elif event == '+substitute_block':
-                log = '\'s substitute prevented ' + target + '\'s ' + val + '!'
+                log = '\'s substitute prevented ' + target + '\'s ' + val + 'from being lowered!'
 
             elif event == 'transform':
                 log = 'transformed into ' + target + '!'
@@ -659,6 +663,10 @@ class BattleLog:
         log = {'actor': actor, 'event': event, 'target': target, 'val': val, 'logType': type}
         if not self.loser:
             self.log.append(log)
-            self.log_text.append(self.translate(log))
-            self.game.send_log(self.translate(log))
-            time.sleep(self.latency)
+            trans_log = self.translate(log)
+          #  print('org_log:',log)
+          #  print('trans_log:',trans_log)
+            self.log_text.append(trans_log)
+            self.game.send_log(trans_log)
+          #  time.sleep(self.latency)
+

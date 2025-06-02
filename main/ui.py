@@ -44,14 +44,14 @@ class UI(QWidget):
             movie.stop()
             movie.start()
 
-    def __init__(self):
+    def __init__(self,game,uid=1):
         super(UI, self).__init__()
         self.inited = False
-        self.game = Game(mode='play')
+        self.game = game
         self.game.set_ui(self)
-        self.game.start()
+        self.uid = uid
 
-        self.player = self.game.get_ui_player()
+        self.player = self.game.get_ui_player(uid)
         self.player.set_ui(self)
 
         self.z_mask = np.zeros(4)
@@ -197,13 +197,12 @@ class UI(QWidget):
             for i, move in enumerate(self.moves):
                 move.setEnabled(self.move_mask[i])
 
-    def update(self, action_required=None):
+    def update(self, state, action_required=None):
         if action_required:
             self.action_required = action_required
         else:
             action_required = self.action_required
 
-        state = self.game.get_state(1)
         Round = state['round']
         self.round_label.setText('Round ' + str(Round))
 
@@ -506,10 +505,21 @@ class UI(QWidget):
 
 def run():
     app = QApplication(sys.argv)
-    ui = UI()
+    game = Game(mode='1p')
+    game.start()
+    ui = UI(game)
     app.exec_()
     ui.game.force_end()
 
+def run_2p():
+    app = QApplication(sys.argv)
+    game = Game(mode='2p')
+    game.start()
+    ui_p0 = UI(game,0)
+    ui_p1= UI(game,1)
+    app.exec_()
+    ui_p0.game.force_end()
+    ui_p1.game.force_end()
 
 if __name__ == '__main__':
-    run()
+    run_2p()

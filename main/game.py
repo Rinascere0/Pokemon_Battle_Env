@@ -11,7 +11,7 @@ from lib.functions import *
 from threading import Thread
 
 # set total game nums
-game_nums = 1
+game_nums = 10
 
 # whether show log in terminal or save log in file
 save_log = False
@@ -30,31 +30,51 @@ class Game:
         self.end = False
 
         # if use ui
-        self.ui = None
+        # self.ui = []
+
+        self.client= []
 
         # change to your own player class!
-        self.add_player(AlphaPlayer())
-        # self.add_player(RandomPlayer())
-        if mode == 'play':
+        if mode == '2p':
+            self.add_player(myPlayer())
             self.add_player(myPlayer())
             self.game_nums = 1
         else:
             self.add_player(AlphaPlayer())
-            self.game_nums = game_nums
+            # self.add_player(RandomPlayer())
+            if mode == '1p':
+                self.add_player(myPlayer())
+                self.game_nums = 1
+            else:
+                self.add_player(AlphaPlayer())
+                self.game_nums = game_nums
+
+        print('player num:',len(self.players))
 
     def add_player(self, player):
         player.set_game(self, len(self.players), self.env, self.log)
         self.players.append(player)
 
+    # decprated
     def set_ui(self, ui):
-        self.ui = ui
+        self.ui.append(ui)
 
-    def get_ui_player(self):
-        return self.players[1]
+    def set_client(self,client):
+        self.client.append(client)
+        client.set_game(self)
+
+    def get_ui_player(self,uid=1):
+        # print('uid',uid)
+        # print('nums',len(self.players))
+        return self.players[uid]
 
     def send_log(self, log):
-        if self.ui:
-            self.ui.send_log(log)
+        for uid,client in enumerate(self.client):
+            # print('log:',log)
+            msg = {'state':self.get_state(uid),
+                   'log':log,
+                   'action_required':None}
+            client.recv_msg(msg)
 
     def force_end(self):
         for player in self.players:
@@ -64,6 +84,16 @@ class Game:
     def force_wait(self):
         for player in self.players:
             player.signal(Signal.Wait)
+
+    def send_action(self,uid,action):
+        self.players[uid].set_action(action['type'],action['item'])
+
+    def update(self,uid,status):
+        msg = {'state':self.get_state(uid),
+               'log':'',
+               'action_required':status}
+
+        self.client[uid].recv_msg(msg)
 
     def send(self, pid, move, in_turn=False):
         if not move:
@@ -102,6 +132,9 @@ class Game:
         self.thread = Thread(target=self.mainloop, args=())
         self.thread.start()
 
+    def ui_init(self,uid):
+        self.players[uid].ui_init()
+
     def mainloop(self):
         for player in self.players:
             player.start()
@@ -120,6 +153,7 @@ class Game:
             self.moves = []
             self.players[0].signal(Signal.Switch)
             self.players[1].signal(Signal.Switch)
+
             while len(self.moves) < 2:
                 time.sleep(0.01)
                 if self.end:

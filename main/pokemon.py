@@ -15,6 +15,7 @@ Burn, Sleep, Toxic, Poison, Paralyse, Frozen = range(6)
 class Pokemon:
     def __init__(self, info):
         # pokemon name
+        print(info)
         self.name = (info['Name'].split('-Mega')[0]).split('-Ash')[0]
         # revealed name, e.g. illusion
         self.base_name = self.name
@@ -230,7 +231,6 @@ class Pokemon:
         self.current_ability = sub
         self.ability = sub
         # TODO: Moldbreak?
-
         # air lock
         if temp in ('Air Lock', 'Cloud Nine'):
             self.env.set_air_lock(-1)
@@ -589,8 +589,8 @@ class Pokemon:
         if not self.alive:
             return
 
-        if self.vstatus['substitute'] and src is not self:
-            self.log.add(actor=self, event='+substitute_block', target=src, val=val)
+        if self.vstatus['substitute'] and src is not None:
+            self.log.add(actor=self, event='+substitute_block', target=src, val=stat)
             return
 
         def ability_log(stat):
@@ -704,8 +704,8 @@ class Pokemon:
         elif self.HP <= val:
             self.log.add(actor=self, event='lost', val=round(self.HP / self.maxHP * 100, 1))
             val = self.HP
-            self.HP = 0
             if self.to_faint():
+                self.HP=0
                 self.faint()
                 if user and user is not self and user.alive:
                     if self.vstatus['destinybond']:
@@ -1239,8 +1239,9 @@ class Pokemon:
                 self.damage(0, perc=1 / 8, attr='Rock')
 
     def to_faint(self):
+        print(self.HP,self.maxHP,self.item)
         if self.HP == self.maxHP and self.item == 'Focus Sash':
-            self.log.add(actor=self, event='sash')
+         #   self.log.add(actor=self, event='sash')
             self.use_item()
         elif self.vstatus['endure']:
             self.log.add(actor=self, event='endure')

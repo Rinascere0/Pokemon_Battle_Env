@@ -14,7 +14,7 @@ Common, Mega, Z_Move = range(3)
 # test_team=25
 # test_team = 1
 #test_team = 15 # rain
-test_team=51
+test_team=1
 
 
 class UI_Player:
@@ -30,10 +30,10 @@ class UI_Player:
         self.env = None
         self.mega = np.zeros(6)
         self.zmove = np.zeros((6, 4))
-        self.ui = None
+        self.ui_inited = False
 
-    def set_ui(self, ui):
-        self.ui = ui
+    def ui_init(self):
+        self.ui_inited = True
 
     def load_team(self, team):
         self.pkms = team
@@ -167,12 +167,11 @@ class UI_Player:
 
     def signal(self, sign):
         self.status = sign
-        if self.ui:
-            while not self.ui.inited:
-                time.sleep(0.1)
-                if self.status == Signal.End:
-                    return
-            self.ui.update(self.status)
+        while not self.ui_inited:
+            time.sleep(0.1)
+            if self.status == Signal.End:
+                return
+        self.game.update(self.pid, self.status)
 
     def mainloop(self):
         while True:

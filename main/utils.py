@@ -273,7 +273,7 @@ class Utils:
 
                 if user.ability == 'Intimidate':
                     self.log.add(actor=user, event='intimidate', type=logType.ability)
-                    target.boost('atk', -1, user)
+                    target.boost('atk', -1, src=user)
                     if target.item == 'Adrenaline Orb':
                         target.use_item()
                         target.boost('spe', 1)
