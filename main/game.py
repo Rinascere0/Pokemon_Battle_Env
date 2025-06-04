@@ -16,7 +16,7 @@ game_nums = 10
 # whether show log in terminal or save log in file
 save_log = False
 
-
+ONLINE, OFFLINE = 0,1
 class Game:
     def __init__(self, mode='test'):
         self.env = Env()
@@ -33,13 +33,13 @@ class Game:
         # self.ui = []
 
         self.client= []
-
+        self.server = None
         # change to your own player class!
         if mode == '2p':
             self.add_player(myPlayer())
             self.add_player(myPlayer())
             self.game_nums = 1
-        else:
+        elif mode!='online':
             self.add_player(AlphaPlayer())
             # self.add_player(RandomPlayer())
             if mode == '1p':
@@ -48,17 +48,34 @@ class Game:
             else:
                 self.add_player(AlphaPlayer())
                 self.game_nums = game_nums
-
+        else:
+            self.game_nums = 1
+        self.mode= ONLINE if mode == 'online' else OFFLINE
         print('player num:',len(self.players))
 
-    def add_player(self, player):
-        player.set_game(self, len(self.players), self.env, self.log)
+    def add_player(self, player=None):
+        # online mode
+        if player is None:
+            player = myPlayer()
+        uid = len(self.players)
+        player.set_game(self, uid , self.env, self.log)
+        print(f'add player {uid}')
         self.players.append(player)
+
+
+    def remove_player(self,uid):
+        del self.players[uid]
+        print(f'remove player {uid}')
 
     # decprated
     def set_ui(self, ui):
         self.ui.append(ui)
 
+    # used in online mode
+    def set_server(self,server):
+        self.server=server
+
+    # used in local mode
     def set_client(self,client):
         self.client.append(client)
         client.set_game(self)
@@ -69,12 +86,20 @@ class Game:
         return self.players[uid]
 
     def send_log(self, log):
-        for uid,client in enumerate(self.client):
-            # print('log:',log)
-            msg = {'state':self.get_state(uid),
-                   'log':log,
-                   'action_required':None}
-            client.recv_msg(msg)
+        if self.mode == OFFLINE:
+            for uid,client in enumerate(self.client):
+                # print('log:',log)
+                msg = {'state':self.get_state(uid),
+                       'log':log,
+                       'action_required':None}
+                client.recv_msg(msg)
+        else:
+            for uid in range(2):
+                # print('log:',log)
+                msg = {'state':self.get_state(uid),
+                       'log':log,
+                       'action_required':None}
+                self.server.send_message(str(msg),uid)
 
     def force_end(self):
         for player in self.players:
@@ -92,8 +117,10 @@ class Game:
         msg = {'state':self.get_state(uid),
                'log':'',
                'action_required':status}
-
-        self.client[uid].recv_msg(msg)
+        if self.mode == OFFLINE:
+            self.client[uid].recv_msg(msg)
+        else:
+            self.server.send_message(str(msg),uid)
 
     def send(self, pid, move, in_turn=False):
         if not move:
@@ -133,12 +160,20 @@ class Game:
         self.thread.start()
 
     def ui_init(self,uid):
-        self.players[uid].ui_init()
+        if hasattr(self.players[uid],'ui_init'):
+            self.players[uid].ui_init()
 
     def mainloop(self):
+        print(self.players)
+        while len(self.players)<2:
+            time.sleep(0.01)
+
         for player in self.players:
             player.start()
         time.sleep(0.01)
+
+        for uid in range(len(self.players)):
+            self.ui_init(uid)
 
         win_loss = [0, 0]
 
@@ -254,8 +289,8 @@ class Game:
 
         my_pivot_id = player.pivot
         my_pivot = player.get_pivot()
-        masks = {'switch': my_pivot.can_switch, 'move': my_pivot.move_mask,
-                 'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask}
+        masks = {'switch': my_pivot.can_switch, 'move': my_pivot.move_mask.tolist(),
+                 'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask.tolist()}
         my_team['pkms'] = pkms
         my_team['pivot'] = player.pivot
         my_team['masks'] = masks

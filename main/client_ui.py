@@ -1,10 +1,8 @@
 import sys
-import threading
-import time
 import os
 
-import numpy as np
 from PyQt5 import QtWidgets
+from PyQt5.QtNetwork import QTcpSocket
 
 from lib.functions import move_to_key, pkm_to_key
 
@@ -16,19 +14,25 @@ from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, 
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox
 from PyQt5.QtCore import pyqtSignal, QRect, Qt
 
-from threading import Thread
-
 from data.moves import Moves
-from main.game import Game
 from lib.const import *
 
+host='127.0.0.1'
+port= 12333
 
-class UI(QWidget):
-    add_signal = pyqtSignal(str)
+class Client_UI(QWidget):
+    add_signal = pyqtSignal(dict)
     chg_pivot_signal = pyqtSignal(bool, str)
 
-    def change_latency(self):
-        self.game.log.set_latency(float(self.latency.currentText()))
+    def toggle_connection(self):
+        """切换连接状态"""
+        if self.client.socket.state() != QTcpSocket.ConnectedState:
+            self.client.connect_to_server(host, port)
+            self.connect_button.setText("Disconnect")
+        else:
+            self.client.disconnect_from_server()
+            self.connect_button.setText("Connect")
+
 
     def change_movie(self, back, name):
         mv_name = name.replace(' ', '-').lower() + '.gif'
@@ -44,39 +48,42 @@ class UI(QWidget):
             movie.stop()
             movie.start()
 
-    def __init__(self,game,uid=1):
-        super(UI, self).__init__()
-        self.inited = False
-        self.game = game
-        self.game.set_ui(self)
-        self.uid = uid
+    def update_messages(self, message):
+        """更新消息显示"""
+        msg = eval(message)
+      #  if msg['type'] == 0:
+      #      self.log.append(f"Server:{msg['val']}")
+     #   else:
+        self.add_log(msg)
 
-        self.player = self.game.get_ui_player(uid)
-        self.player.set_ui(self)
+    def update_status(self, status):
+        """更新状态显示"""
+        self.log.append(f"[Status] {status}")
+
+    def __init__(self, client,uid=1):
+        super(Client_UI, self).__init__()
+        self.uid = uid
 
         self.z_mask = np.zeros(4)
         self.move_mask = np.zeros(4)
 
         self.action_required = False
+        self.client = client
+        self.client.set_ui(self)
+        self.client.signals.new_message.connect(self.update_messages)
+        self.client.signals.status_updated.connect(self.update_status)
 
         self.init_ui()
-        self.inited = True
 
     def init_ui(self):
         self.setFixedSize(1130, 720)
         self.move(300, 300)
         self.setWindowTitle('Pokémon Battle Env')
 
-        self.latency = QComboBox(self)
-        self.latency.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.latency.move(90, 585)
-        self.latency.addItems(['0', '0.1', '0.15', '0.2', '0.3', '0.5'])
-        self.latency.currentIndexChanged.connect(self.change_latency)
-
-        self.latency_label = QLabel(self)
-        self.latency_label.setText('Latency')
-        self.latency_label.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.latency_label.setGeometry(20, 585, 70, 30)
+        self.connect_button = QPushButton(self)
+        self.connect_button.setText('Connect')
+        self.connect_button.clicked.connect(self.toggle_connection)
+        self.connect_button.move(50, 585)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -103,6 +110,8 @@ class UI(QWidget):
         self.myPivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
         self.myPivotMaxHP.setStyleSheet(
             "border-width: 5px;border-style: solid;border-color: (255,0,255,0);background-color:rgb(255,255,255,0)")
+        self.myPivotMaxHP.setFont(QFont("Microsoft YaHei", 8, 75))
+        self.myPivotMaxHP.setAlignment(Qt.AlignCenter)
 
         self.myPivotHP = QLabel(self)
         self.myPivotHP.setGeometry(90, 180, 150, 15)
@@ -117,6 +126,8 @@ class UI(QWidget):
         self.foePivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
         self.foePivotMaxHP.setStyleSheet(
             "border-width: 5px;border-style: solid;border-color:(255,255,255,0);background-color:rgb(255,255,255,0)")
+        self.foePivotMaxHP.setFont(QFont("Microsoft YaHei", 8, 75))
+        self.foePivotMaxHP.setAlignment(Qt.AlignCenter)
 
         self.foePivotHP = QLabel(self)
         self.foePivotHP.setGeometry(350, 60, 150, 15)
@@ -124,8 +135,8 @@ class UI(QWidget):
         # round info
         self.round_label = QLabel(self)
         self.round_label.setGeometry(85, 15, 120, 50)
-        self.round_label.setStyleSheet("QLabel{color:rgb(255,228,181,100)}QToolTip{color:black}")
-        self.round_label.setFont(QFont("Microsoft YaHei", 15, 75))
+        self.round_label.setStyleSheet("QLabel{color:rgb(255,228,181,200)}QToolTip{color:black}")
+        self.round_label.setFont(QFont("Consolas", 15, 75))
 
         self.left_margin = QLabel(self)
         self.left_margin.setStyleSheet("background-color:rgb(0,0,0,50)")
@@ -238,7 +249,7 @@ class UI(QWidget):
         mega_mask = masks['mega']
         z_mask = masks['z']
 
-        def set_HP_bar(HP_bar, HP_perc):
+        def set_HP_bar(max_HP_bar,HP_bar, HP_perc):
             if HP_perc >= 1 / 2:
                 color = "background-color:rgb(0,255,50,150)"
             elif HP_perc >= 1 / 4:
@@ -247,6 +258,10 @@ class UI(QWidget):
                 color = "background-color:rgb(255,0,0,150)"
             HP_bar.setStyleSheet(color)
             HP_bar.setGeometry(HP_bar.x(), HP_bar.y(), HP_perc * 150, 15)
+            if HP_perc>0:
+                max_HP_bar.setText(str(round(HP_perc*100,2))+'%')
+            else:
+                max_HP_bar.setText('')
 
         def move_to_tip(move):
             s = ''
@@ -271,11 +286,13 @@ class UI(QWidget):
                 self.chg_pivot_signal.emit(True, pivot['name'])
 
             self.myPivot.setToolTip(self.pkm_to_tip(pivot))
-            set_HP_bar(self.myPivotHP, pivot['hp_perc'])
+            set_HP_bar(self.myPivotMaxHP, self.myPivotHP, pivot['hp_perc'])
+
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
             self.z_mask = np.zeros(4)
             self.chg_pivot_signal.emit(True, 'none')
+            self.myPivot.setToolTip('')
             self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 
@@ -287,11 +304,11 @@ class UI(QWidget):
             else:
                 self.chg_pivot_signal.emit(False, foe_pivot['name'])
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
-            set_HP_bar(self.foePivotHP, foe_pivot['hp_perc'])
+            set_HP_bar(self.foePivotMaxHP, self.foePivotHP, foe_pivot['hp_perc'])
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
             self.chg_pivot_signal.emit(False, 'none')
-
+            self.foePivot.setToolTip('')
             self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 
@@ -310,7 +327,7 @@ class UI(QWidget):
                     self.moves[i].setEnabled(move_mask[i])
 
         self.z_move.setChecked(False)
-        self.z_move.setEnabled(z_mask.any() and my_pivot_exist)
+        self.z_move.setEnabled(np.array(z_mask).any() and my_pivot_exist)
 
         self.mega.setChecked(False)
         self.mega.setEnabled(mega_mask and my_pivot_exist)
@@ -479,14 +496,15 @@ class UI(QWidget):
         return pMap
 
     # called by Log class, send log to gui display
-    def send_log(self, log):
-        self.add_signal.emit(log)
+    def send_log(self, msg):
+        self.add_signal.emit(msg)
 
     # add log to gui textbox
-    def add_log(self, x):
-        self.log.setText(self.log.toPlainText() + x + '\n')
+    def add_log(self, msg):
+        state, log, action_required = msg['state'],msg['log'], msg['action_required']
+        self.log.setText(self.log.toPlainText() + log + '\n')
         self.log.moveCursor(QTextCursor.End)
-        self.update()
+        self.update(state,action_required)
 
     # generate action_type by mega and z check_box
     def gen_action_type(self):
@@ -497,29 +515,16 @@ class UI(QWidget):
         else:
             return ActionType.Common
 
-    # send action to Player
+    # send action to Client
     def send_action(self, action_type, item):
         self.action_required = None
-        self.player.set_action(action_type, item)
+        print('action',action_type,item)
+        self.client.send_action(action_type, item)
 
 
 def run():
     app = QApplication(sys.argv)
-    game = Game(mode='1p')
-    game.start()
-    ui = UI(game)
-    app.exec_()
-    ui.game.force_end()
 
-def run_2p():
-    app = QApplication(sys.argv)
-    game = Game(mode='2p')
-    game.start()
-    ui_p0 = UI(game,0)
-    ui_p1= UI(game,1)
-    app.exec_()
-    ui_p0.game.force_end()
-    ui_p1.game.force_end()
 
 if __name__ == '__main__':
-    run_2p()
+    run()

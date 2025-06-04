@@ -4,7 +4,7 @@
 
 It's an alpha version of Pokémon Gen7 6v6 battle env, implementing most mechanism of OU and UU tier.
 
-It provides both human-vs-AI battle GUI for playing, and AI-vs-AI automatic battle for training.
+It provides human-vs-human(online) or human-vs-AI(offline) battle GUI for playing, and AI-vs-AI automatic battle for training.
 
 More features will continue to be updated, and any reports of bugs and unimplemented mechanisms are always welcome!
 
@@ -14,14 +14,26 @@ Thanks to BJK for providing battle teams.
 
 ## How to use?
 
-For GUI:
-Run `run_ui.py`, and battle with the built-in AI!
+### For offline mode:
+Run `run.py` and
 
-For non-GUI:
-Run `run_log.py`, and built-in AI will automatically perform a battle!
+#### For GUI: 
+
+set mode = '1p', and battle with the built-in AI!
+
+set mode = '2p', and battle with another offline players!
+
+#### For non-GUI:
+
+set mode = 'test', and built-in AI will automatically perform a battle!
 
 Note:
-Change the player class in `Game.py` to switch between the two modes!
+Change the player class in `Game.py` to switch between the three modes!
+
+### For online mode:
+Run one 'server.py' and each player runs one 'client.py', then battle online!
+
+
 
 ## How to create my own AI?
 
@@ -565,8 +577,19 @@ guardswap
 speedswap
 
 【ToFix】\
-landorus switch on bug
+landorus switch on bug(maybe alakazam trace bug?fixed)
 
+2025.6.2
+【Add】
+(new branch server)Split out client code which only interactive with game object
+Fix alakazam trace bug
+
+2025.6.5
+【Add】
+(new branch online)Built server and client for online gaming, compatible with current modes
+
+【ToFix】
+foe pivot still display when fainted
 
 </details>
 

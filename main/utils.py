@@ -10,8 +10,6 @@ from main.player import Player
 from main.env import Env
 from main.log import BattleLog
 
-import data.const as C
-
 import math
 
 Hit, Miss, NoEffect, Onhold, NoLog = 0, 1, 2, 3, 4
@@ -44,6 +42,7 @@ class Utils:
                 if move_set['type'] == ActionType.Switch:
                     continue
                 move = move_set['item']
+                print('moves',move_set,move)
                 prior[pkm_id] += move['priority']
                 if pkm.ability == 'Prankster' and move['category'] == 'Status':
                     prior[pkm_id] += 1
@@ -452,8 +451,8 @@ class Utils:
                     power = 100
 
             if move['name'] == 'Nature Gift':
-                if user.item in C.nature_gift:
-                    real_move = C.nature_gift[user.item]
+                if user.item in nature_gift:
+                    real_move = nature_gift[user.item]
                     sk_type = real_move['attr']
                     power = real_move['pow']
 
@@ -539,7 +538,7 @@ class Utils:
                 self.log.add(actor=target, event='+quickguard')
                 return
 
-        if move['name'] == 'Natural Gift' and user.item not in C.nature_gift:
+        if move['name'] == 'Natural Gift' and user.item not in nature_gift:
             self.log.add(event='fail')
 
         if move['name'] == 'Sleep Talk' and user.status != Status.Sleep:
