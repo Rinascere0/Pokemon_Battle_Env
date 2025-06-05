@@ -570,6 +570,7 @@ subsitute judge->whether damaged dealt to true body
 ✔Cloud Nine
 
 2022.7.23
+
 【Add】\
 heartswap
 powerswap
@@ -580,16 +581,27 @@ speedswap
 landorus switch on bug(maybe alakazam trace bug?fixed)
 
 2025.6.2
-【Add】
+
+【Add】\
 (new branch server)Split out client code which only interactive with game object
 Fix alakazam trace bug
 
 2025.6.5
-【Add】
+
+【Add】\
 (new branch online)Built server and client for online gaming, compatible with current modes
 
-【ToFix】
+【ToFix】\
 foe pivot still display when fainted
+
+2025.6.5
+
+【Add】\
+server support multi-games
+
+【ToFix】\
+client disconnect(socket peer port changes every connection)
+black HP bar before game start
 
 </details>
 

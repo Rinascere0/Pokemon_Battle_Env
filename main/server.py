@@ -1,5 +1,6 @@
 import sys
 import time
+from threading import Thread
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTextEdit, QLineEdit, QPushButton, QLabel)
@@ -8,57 +9,132 @@ from PyQt5.QtCore import pyqtSignal, QObject, Qt
 
 from main.game import Game
 
+WAIT,START,END=0,1,2
+DISCONNECT, READY = 0,1
 class ServerSignals(QObject):
-    """定义服务器信号"""
     new_message = pyqtSignal(str)
     status_updated = pyqtSignal(str)
 
 
 class Server(QTcpServer):
-    """TCP服务器类"""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.signals = ServerSignals()
         self.clients = []
-        self.game = Game('online')
-        self.game.set_server(self)
-        self.game.start()
+        # {game_id:game}
+        self.games = {}
+        # {game_id:[socket0,socket1]}
+        self.game_clients = {}
+        self.game_status = []
+        self.game_waiting = None
+        # {client_key:{'game_id':,'uid':,'status':}
+        self.game_players = {}
         print('server init')
+        self.game_id = 0
+
+    def create_game(self):
+        self.game_id +=1
+        game_id = self.game_id
+        game = Game(self.game_id,'online')
+        game.set_server(self)
+        game.start()
+        self.games[game_id] = game
+        self.game_clients[game_id]=[]
+        return game
+
+    def remove_game(self,game_id):
+        del self.games[game_id]
+        del self.game_clients[game_id]
+        print('remove game:',game_id)
+
+    def gen_client_key(self,socket):
+        client_key = socket.peerAddress().toString() + str(socket.peerPort())
+        return client_key
+
+    def remove_player_timeout(self,client_key):
+        # get game_id and uid
+        client_info = self.game_players[client_key]
+        game_id,uid=client_info['game_id'],client_info['uid']
+        print('remove!!')
+        # wait 300s to re-connect if game start
+        if self.games[game_id].get_status() == START:
+            print('remove!!!!')
+            print(self.game_players[client_key]['status'])
+            while self.game_players[client_key]['status'] == DISCONNECT:
+                time.sleep(1)
+                print(client_key,' disconnect')
+
+        # if client status DISCONNECT, delete client
+        if self.game_players[client_key]['status'] == DISCONNECT:
+            # remove player from game
+            self.games[game_id].remove_player(uid)
+            # delete client player info
+            del(self.game_players[client_key])
+
+    # if a player disconnect after a game start, wait 300s until deletion
+    # else, just remove player
+    def remove_player(self, socket):
+        # set client status DISCONNECT
+        client_key = self.gen_client_key(socket)
+        self.game_players[client_key]['status'] = DISCONNECT
+        print('start remove')
+        thread = Thread(target=self.remove_player_timeout, args=(client_key,))
+        thread.start()
+
 
     def incomingConnection(self, socketDescriptor):
-        """处理新的客户端连接"""
         client_socket = QTcpSocket(self)
         client_socket.setSocketDescriptor(socketDescriptor)
         self.clients.append(client_socket)
-        self.game.add_player()
+        if not self.game_waiting:
+            game = self.create_game()
+            self.game_waiting = game
+        else:
+            game = self.game_waiting
+            self.game_waiting = None
+        uid = game.add_player()
+        # check if exist client key
+        client_key = self.gen_client_key(client_socket)
+        print('new connect client_key',client_key)
+        if client_key in self.game_players:
+            print(client_key,'reconnect!!')
+            self.game_players[client_key]['status'] = READY
+        else:
+            self.game_players[client_key]={
+                'uid':uid,
+                'game_id':game.game_id,
+                'status':READY
+            }
+            self.game_clients[game.game_id].insert(uid, client_socket)
 
-        self.signals.status_updated.emit(f"新连接: {client_socket.peerAddress().toString()}:{client_socket.peerPort()}")
+        self.signals.status_updated.emit(f"New Connection: {client_socket.peerAddress().toString()}:{client_socket.peerPort()}")
 
         client_socket.readyRead.connect(lambda: self.read_client(client_socket))
         client_socket.disconnected.connect(lambda: self.client_disconnected(client_socket))
 
-    def read_client(self, socket):
-        """读取客户端发送的数据"""
-        while socket.bytesAvailable() > 0:
-            data = socket.readAll().data().decode('utf-8')
-            uid=self.clients.index(socket)
-            print(uid, data)
-            self.game.send_action(uid,eval(data))
-            # DFX: display on server UI
-            self.signals.new_message.emit(f"客户端: {data}")
-
     def client_disconnected(self, socket):
-        """处理客户端断开连接"""
-        self.signals.status_updated.emit(f"客户端断开: {socket.peerAddress().toString()}:{socket.peerPort()}")
-        if socket in self.clients:
-            self.game.remove_player(self.clients.index(socket))
-            self.clients.remove(socket)
+        self.signals.status_updated.emit(f"Client Disconnectd: {socket.peerAddress().toString()}:{socket.peerPort()}")
+        self.remove_player(socket)
+        self.clients.remove(socket)
         socket.deleteLater()
 
-    def send_message(self, message, uid=None):
-        """向所有客户端发送消息"""
-        target_clients = self.clients if uid is None else [self.clients[uid]]
+    def read_client(self, socket):
+        while socket.bytesAvailable() > 0:
+            data = socket.readAll().data().decode('utf-8')
+            # find game_id & uid according to socket key
+            client_key = self.gen_client_key(socket)
+            uid=self.game_players[client_key]['uid']
+            game_id = self.game_players[client_key]['game_id']
+            # send action to game
+            self.games[game_id].send_action(uid,eval(data))
+            # DFX: display on server UI
+            self.signals.new_message.emit(f"Client: {data}")
+
+    def send_message(self, message, game_id=0, uid=None):
+        # if uid is None, send to all clients of Game game_id
+        # else only send to client uid
+        print('send message game_id',game_id,'uid',uid)
+        target_clients = self.game_clients[game_id] if uid is None else [self.game_clients[game_id][uid]]
         for client in target_clients:
             if client.state() == QTcpSocket.ConnectedState:
                 client.write(message.encode('utf-8'))
@@ -67,8 +143,6 @@ class Server(QTcpServer):
         time.sleep(0.1)
 
 class ServerWindow(QMainWindow):
-    """服务器主窗口"""
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle("TCP服务器")

@@ -16,9 +16,12 @@ game_nums = 10
 # whether show log in terminal or save log in file
 save_log = False
 
-ONLINE, OFFLINE = 0,1
+ONLINE, OFFLINE = 0, 1
+WAIT, START,END = 0, 1, 2
+
+
 class Game:
-    def __init__(self, mode='test'):
+    def __init__(self, game_id=0,mode='test'):
         self.env = Env()
         self.log = BattleLog(self, save_log, mode)
         self.utils = Utils(self.log)
@@ -28,18 +31,21 @@ class Game:
         self.switch_in_turn = []
         self.Round = 0
         self.end = False
+        self.status = WAIT
+        self.game_id = game_id
+        self.uid = [0,0]
 
         # if use ui
         # self.ui = []
 
-        self.client= []
+        self.client = []
         self.server = None
         # change to your own player class!
         if mode == '2p':
             self.add_player(myPlayer())
             self.add_player(myPlayer())
             self.game_nums = 1
-        elif mode!='online':
+        elif mode != 'online':
             self.add_player(AlphaPlayer())
             # self.add_player(RandomPlayer())
             if mode == '1p':
@@ -50,77 +56,85 @@ class Game:
                 self.game_nums = game_nums
         else:
             self.game_nums = 1
-        self.mode= ONLINE if mode == 'online' else OFFLINE
-        print('player num:',len(self.players))
+        self.mode = ONLINE if mode == 'online' else OFFLINE
+        print('player num:', len(self.players))
+
+    def get_status(self):
+        return self.status
 
     def add_player(self, player=None):
         # online mode
         if player is None:
             player = myPlayer()
-        uid = len(self.players)
-        player.set_game(self, uid , self.env, self.log)
+        uid = 0 if self.uid[0] == 0 else 1
+        self.uid[uid] = 1
+        player.set_game(self, uid, self.env, self.log)
         print(f'add player {uid}')
-        self.players.append(player)
+        self.players.insert(uid,player)
+        return uid
 
-
-    def remove_player(self,uid):
+    def remove_player(self, uid):
         del self.players[uid]
         print(f'remove player {uid}')
+        if self.status == START:
+            self.force_end()
 
     # decprated
     def set_ui(self, ui):
         self.ui.append(ui)
 
     # used in online mode
-    def set_server(self,server):
-        self.server=server
+    def set_server(self, server):
+        self.server = server
 
     # used in local mode
-    def set_client(self,client):
+    def set_client(self, client):
         self.client.append(client)
         client.set_game(self)
 
-    def get_ui_player(self,uid=1):
+    def get_ui_player(self, uid=1):
         # print('uid',uid)
         # print('nums',len(self.players))
         return self.players[uid]
 
     def send_log(self, log):
         if self.mode == OFFLINE:
-            for uid,client in enumerate(self.client):
+            for uid, client in enumerate(self.client):
                 # print('log:',log)
-                msg = {'state':self.get_state(uid),
-                       'log':log,
-                       'action_required':None}
+                msg = {'state': self.get_state(uid),
+                       'log': log,
+                       'action_required': None}
                 client.recv_msg(msg)
         else:
             for uid in range(2):
                 # print('log:',log)
-                msg = {'state':self.get_state(uid),
-                       'log':log,
-                       'action_required':None}
-                self.server.send_message(str(msg),uid)
+                msg = {'state': self.get_state(uid),
+                       'log': log,
+                       'action_required': None}
+                self.server.send_message(str(msg), self.game_id, uid)
 
     def force_end(self):
         for player in self.players:
             player.signal(Signal.End)
+        self.status = END
         self.end = True
+        self.server.remove_game(self.game_id)
 
     def force_wait(self):
         for player in self.players:
             player.signal(Signal.Wait)
 
-    def send_action(self,uid,action):
-        self.players[uid].set_action(action['type'],action['item'])
+    def send_action(self, uid, action):
+        self.players[uid].set_action(action['type'], action['item'])
 
-    def update(self,uid,status):
-        msg = {'state':self.get_state(uid),
-               'log':'',
-               'action_required':status}
+    def update(self, uid, status):
+        msg = {'state': self.get_state(uid),
+               'log': '',
+               'action_required': status}
         if self.mode == OFFLINE:
             self.client[uid].recv_msg(msg)
         else:
-            self.server.send_message(str(msg),uid)
+            self.server.send_message(str(msg), self.game_id, uid)
 
     def send(self, pid, move, in_turn=False):
         if not move:
@@ -159,18 +173,19 @@ class Game:
         self.thread = Thread(target=self.mainloop, args=())
         self.thread.start()
 
-    def ui_init(self,uid):
-        if hasattr(self.players[uid],'ui_init'):
+    def ui_init(self, uid):
+        if hasattr(self.players[uid], 'ui_init'):
             self.players[uid].ui_init()
 
     def mainloop(self):
         print(self.players)
-        while len(self.players)<2:
+        while len(self.players) < 2:
             time.sleep(0.01)
 
         for player in self.players:
             player.start()
         time.sleep(0.01)
+        self.status = START
 
         for uid in range(len(self.players)):
             self.ui_init(uid)

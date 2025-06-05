@@ -1,3 +1,5 @@
+import random
+
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtNetwork import QTcpSocket
 from PyQt5.QtWidgets import QApplication
@@ -9,7 +11,6 @@ from main.game import Game
 LOG, STATE = 0, 1
 
 class ClientSignals(QObject):
-    """定义客户端信号"""
     new_message = pyqtSignal(str)
     status_updated = pyqtSignal(str)
 
@@ -24,6 +25,7 @@ class Client(QObject):
         self.game = None
 
         self.socket = QTcpSocket(self)
+        self.socket.setPeerPort(random.randint(a=10000,b=59999))
         self.signals = ClientSignals()
 
         self.socket.readyRead.connect(self.read_data)
@@ -32,38 +34,36 @@ class Client(QObject):
         self.socket.errorOccurred.connect(self.handle_error)
 
     def connect_to_server(self, host, port):
-        """连接到服务器"""
         self.socket.connectToHost(host, port)
 
     def disconnect_from_server(self):
-        """断开与服务器的连接"""
         self.socket.disconnectFromHost()
 
     def set_ui(self,ui):
         self.ui = ui
 
+    # send message to server
     def send_message(self, message):
-        """发送消息到服务器"""
         if self.socket.state() == QTcpSocket.ConnectedState:
             self.socket.write(message.encode('utf-8'))
             self.socket.flush()
 
+    # receive message from server
     def read_data(self):
-        """读取服务器发送的数据"""
         while self.socket.bytesAvailable() > 0:
             data = self.socket.readAll().data().decode('utf-8')
         #    self.signals.new_message.emit(f"Server: {data}")
             self.signals.new_message.emit(data)
 
     def handle_error(self, socket_error):
-        """处理套接字错误"""
         self.signals.status_updated.emit(f"Error: {self.socket.errorString()}")
 
-    # to throw
+    # used in local mode
     def set_game(self,game):
         self.game = game
 
-    # receive message from server, flush ui state or add log(or both?)
+    # used in local mode
+    # receive message from server, flush ui state or add log(or both)
     def recv_msg(self,msg):
         if self.ui:
             self.ui.send_log(msg)
