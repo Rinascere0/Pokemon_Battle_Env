@@ -17,8 +17,13 @@ from PyQt5.QtCore import pyqtSignal, QRect, Qt
 from data.moves import Moves
 from lib.const import *
 
-host='127.0.0.1'
-port= 12333
+remote = True
+if remote:
+    host='115.236.153.177'
+    port= 47121
+else:
+    host='127.0.0.1'
+    port= 12345
 
 class Client_UI(QWidget):
     add_signal = pyqtSignal(dict)
@@ -49,12 +54,27 @@ class Client_UI(QWidget):
             movie.start()
 
     def update_messages(self, message):
-        """更新消息显示"""
-        msg = eval(message)
-      #  if msg['type'] == 0:
-      #      self.log.append(f"Server:{msg['val']}")
-     #   else:
-        self.add_log(msg)
+        if message[0] == '~':
+            self.add_log(message[1:])
+        else:
+            # game message
+            msg_grp = message.split('^')
+            print('groups',len(msg_grp))
+            print(msg_grp)
+            if len(msg_grp) == 1:
+                self.msg_buf += msg_grp[0]
+            else:
+                msg = self.msg_buf + msg_grp[0]
+                self.add_log(eval(msg))
+                for msg in msg_grp[1:-1]:
+                    self.add_log(eval(msg))
+                self.msg_buf = msg_grp[-1]
+                # TO DELETE
+                #  self.msg_buf += msg['val']
+                #  if msg['end'] == 0:
+                #       return
+                #   msg= self.msg_buf
+                #  self.msg_buf = ''
 
     def update_status(self, status):
         """更新状态显示"""
@@ -66,6 +86,8 @@ class Client_UI(QWidget):
 
         self.z_mask = np.zeros(4)
         self.move_mask = np.zeros(4)
+
+        self.msg_buf = ''
 
         self.action_required = False
         self.client = client
@@ -501,10 +523,15 @@ class Client_UI(QWidget):
 
     # add log to gui textbox
     def add_log(self, msg):
-        state, log, action_required = msg['state'],msg['log'], msg['action_required']
-        self.log.setText(self.log.toPlainText() + log + '\n')
-        self.log.moveCursor(QTextCursor.End)
-        self.update(state,action_required)
+        # differs msg and log
+        if type(msg) is dict:
+            state, log, action_required = msg['state'],msg['log'], msg['action_required']
+            self.log.setText(self.log.toPlainText() + log + '\n')
+            self.log.moveCursor(QTextCursor.End)
+            self.update(state,action_required)
+        else:
+            self.log.setText(self.log.toPlainText() + '\nServer: ' + str(msg))
+            self.log.moveCursor(QTextCursor.End)
 
     # generate action_type by mega and z check_box
     def gen_action_type(self):

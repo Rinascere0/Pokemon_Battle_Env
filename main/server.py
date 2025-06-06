@@ -4,7 +4,7 @@ from threading import Thread
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTextEdit, QLineEdit, QPushButton, QLabel)
-from PyQt5.QtNetwork import QTcpServer, QTcpSocket, QHostAddress
+from PyQt5.QtNetwork import QTcpServer, QTcpSocket, QHostAddress, QAbstractSocket
 from PyQt5.QtCore import pyqtSignal, QObject, Qt
 
 from main.game import Game
@@ -21,6 +21,8 @@ class Server(QTcpServer):
         super().__init__(parent)
         self.signals = ServerSignals()
         self.clients = []
+        # {socket:client_key}
+        self.client_key = {}
         # {game_id:game}
         self.games = {}
         # {game_id:[socket0,socket1]}
@@ -49,6 +51,7 @@ class Server(QTcpServer):
 
     def gen_client_key(self,socket):
         client_key = socket.peerAddress().toString() + str(socket.peerPort())
+        #client_key = socket.socketDescriptor()
         return client_key
 
     def remove_player_timeout(self,client_key):
@@ -130,17 +133,35 @@ class Server(QTcpServer):
             # DFX: display on server UI
             self.signals.new_message.emit(f"Client: {data}")
 
-    def send_message(self, message, game_id=0, uid=None):
+    def send_message(self, message, game_id=1, uid=None):
         # if uid is None, send to all clients of Game game_id
         # else only send to client uid
         print('send message game_id',game_id,'uid',uid)
-        target_clients = self.game_clients[game_id] if uid is None else [self.game_clients[game_id][uid]]
+        print(self.game_clients)
+        # TO DELETE
+        # split message into pieces
+        # {'msg_id':,'val':}
+        # split_size = 993
+        #  split_num = int((len(message)-1)/split_size)+1
+        #  split_msg = []
+        #  for i in range(split_num):
+        #       split_msg.append({'id':f'{i:02d}','end':0,'val':message[i*split_size:(i+1)*split_size]})
+        #  split_msg[-1]['end']=1
+        #  target_clients = self.game_clients[game_id] if uid is None else [self.game_clients[game_id][uid]]
+        if uid is None:
+            target_clients = self.game_clients[game_id]
+        else :
+            target_clients = [self.game_clients[game_id][uid]]
         for client in target_clients:
             if client.state() == QTcpSocket.ConnectedState:
-                client.write(message.encode('utf-8'))
-                client.flush()
+             #   for msg in split_msg:
+                    msg = str(message)+'^'
+                    cell=msg.encode('utf-8')
+                    client.write(cell)
+                    client.flush()
+        # NO NEED since split with '^'
         # avoid two or more message in one time
-        time.sleep(0.1)
+        # time.sleep(0.1)
 
 class ServerWindow(QMainWindow):
     def __init__(self):
@@ -182,7 +203,7 @@ class ServerWindow(QMainWindow):
         self.server.signals.new_message.connect(self.update_messages)
         self.server.signals.status_updated.connect(self.update_status)
 
-        self.port = 12333  # 默认端口
+        self.port = 12345  # 默认端口
 
     def start_server(self):
         """启动服务器"""
@@ -201,7 +222,7 @@ class ServerWindow(QMainWindow):
         """发送消息"""
         message = self.message_input.text().strip()
         if message and self.server.isListening():
-            self.server.send_message(message)
+            self.server.send_message('~'+message)
             self.message_display.append(f"服务器: {message}")
             self.message_input.clear()
 

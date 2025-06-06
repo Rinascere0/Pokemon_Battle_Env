@@ -1,7 +1,7 @@
 import random
 
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtNetwork import QTcpSocket
+from PyQt5.QtNetwork import QTcpSocket, QHostAddress, QAbstractSocket
 from PyQt5.QtWidgets import QApplication
 import sys
 
@@ -10,6 +10,7 @@ from main.game import Game
 
 LOG, STATE = 0, 1
 
+
 class ClientSignals(QObject):
     new_message = pyqtSignal(str)
     status_updated = pyqtSignal(str)
@@ -17,6 +18,7 @@ class ClientSignals(QObject):
 class Client(QObject):
     def __init__(self, uid):
         super().__init__()
+        # plyaer id
         self.uid= uid
         self.inited = True
         self.ui = None
@@ -24,17 +26,22 @@ class Client(QObject):
         # offline
         self.game = None
 
+        # online
         self.socket = QTcpSocket(self)
-        self.socket.setPeerPort(random.randint(a=10000,b=59999))
         self.signals = ClientSignals()
-
+        # key of client socket in server
+        self.key_id = random.randint(1,10000)
         self.socket.readyRead.connect(self.read_data)
+        self.socket.connected.connect(self.on_connected)
         self.socket.connected.connect(lambda: self.signals.status_updated.emit("Connected to server!"))
         self.socket.disconnected.connect(lambda: self.signals.status_updated.emit("Disconnected from server!"))
         self.socket.errorOccurred.connect(self.handle_error)
 
     def connect_to_server(self, host, port):
         self.socket.connectToHost(host, port)
+
+    def on_connected(self):
+        self.socket.setSocketOption(QAbstractSocket.ReceiveBufferSizeSocketOption, 65536)
 
     def disconnect_from_server(self):
         self.socket.disconnectFromHost()
