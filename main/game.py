@@ -27,6 +27,7 @@ class Game:
         self.utils = Utils(self.log)
         self.players = []
         self.moves = []
+        self.move_exist_pid = -1
         self.round_players = []
         self.switch_in_turn = []
         self.Round = 0
@@ -67,7 +68,10 @@ class Game:
         if player is None:
             player = myPlayer()
         uid = 0 if self.uid[0] == 0 else 1
-        self.uid[uid] = 1
+        if sum(self.uid) == 1:
+            self.uid=[0,0]
+        else:
+            self.uid[uid] = 1
         player.set_game(self, uid, self.env, self.log)
         print(f'add player {uid}')
         self.players.insert(uid,player)
@@ -75,6 +79,7 @@ class Game:
 
     def remove_player(self, uid):
         del self.players[uid]
+        self.uid[uid] = 0
         print(f'remove player {uid}')
         if self.status == START:
             self.force_end()
@@ -113,12 +118,13 @@ class Game:
                        'action_required': None}
                 self.server.send_message(str(msg), self.game_id, uid)
 
-    def force_end(self):
+    def force_end(self,rmv=True):
+        self.status = END
         for player in self.players:
             player.signal(Signal.End)
-        self.status = END
         self.end = True
-        self.server.remove_game(self.game_id)
+        if rmv:
+            self.server.remove_game(self.game_id)
 
     def force_wait(self):
         for player in self.players:
@@ -136,7 +142,18 @@ class Game:
         else:
             self.server.send_message(str(msg), self.game_id, uid)
 
+    def append_move(self, pid, move):
+        if self.move_exist_pid == pid:
+            self.moves[0] = move
+        else:
+            self.moves.append(move)
+            self.round_players.append(self.players[pid])
+            self.move_exist_pid = pid
+        print('moves',len(self.moves))
+        print(self.moves)
+
     def send(self, pid, move, in_turn=False):
+        print(f'new move from {pid}:{move}')
         if not move:
             self.end = True
             return
@@ -144,19 +161,19 @@ class Game:
             # in turn switch
             if in_turn:
                 self.switch_in_turn.append(move)
+                print('in turn')
             else:
-                self.round_players.append(self.players[pid])
-                self.moves.append(move)
+                self.append_move(pid,move)
         else:
             # use move
-            self.round_players.append(self.players[pid])
             if move['type'] == ActionType.Z_Move:
                 move['item'] = gen_z_move(move['item'])
-            self.moves.append(move)
+            self.append_move(pid,move)
 
     def reset_round(self):
         self.round_players = []
         self.moves = []
+        self.move_exist_pid = -1
 
     def call_switch(self, player):
         if player.alive.sum() <= 1:
@@ -201,6 +218,7 @@ class Game:
 
             # Match-up
             self.moves = []
+            self.move_exist_pid = -1
             self.players[0].signal(Signal.Switch)
             self.players[1].signal(Signal.Switch)
 
@@ -212,7 +230,7 @@ class Game:
             self.reset_round()
             # Mainloop
             self.Round = 1
-            while not done:
+            while not done and self.status!= END:
                 self.log.add(event='round', val=self.Round)
                 self.players[0].signal(Signal.Move)
                 self.players[1].signal(Signal.Move)
@@ -247,6 +265,8 @@ class Game:
             else:
                 win_loss[1] += 1
 
+            if self.status==END:
+                break
         self.force_end()
         print(win_loss)
 

@@ -60,7 +60,6 @@ class Client_UI(QWidget):
             # game message
             msg_grp = message.split('^')
             print('groups',len(msg_grp))
-            print(msg_grp)
             if len(msg_grp) == 1:
                 self.msg_buf += msg_grp[0]
             else:
@@ -79,6 +78,11 @@ class Client_UI(QWidget):
     def update_status(self, status):
         """更新状态显示"""
         self.log.append(f"[Status] {status}")
+
+    def setBold(self,button,en):
+        font = button.font()
+        font.setBold(en)
+        button.setFont(font)
 
     def __init__(self, client,uid=1):
         super(Client_UI, self).__init__()
@@ -131,7 +135,7 @@ class Client_UI(QWidget):
         self.myPivotMaxHP.setFrameShape(QtWidgets.QFrame.Box)
         self.myPivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
         self.myPivotMaxHP.setStyleSheet(
-            "border-width: 5px;border-style: solid;border-color: (255,0,255,0);background-color:rgb(255,255,255,0)")
+            "border-width: 2px;border-style: solid;border-color: rgb(255,255,255,0);background-color:rgb(255,255,255,0)")
         self.myPivotMaxHP.setFont(QFont("Microsoft YaHei", 8, 75))
         self.myPivotMaxHP.setAlignment(Qt.AlignCenter)
 
@@ -147,7 +151,7 @@ class Client_UI(QWidget):
         self.foePivotMaxHP.setFrameShape(QtWidgets.QFrame.Box)
         self.foePivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
         self.foePivotMaxHP.setStyleSheet(
-            "border-width: 5px;border-style: solid;border-color:(255,255,255,0);background-color:rgb(255,255,255,0)")
+            "border-width: 2px;border-style: solid;border-color:rgb(255,255,255,0);background-color:rgb(255,255,255,0)")
         self.foePivotMaxHP.setFont(QFont("Microsoft YaHei", 8, 75))
         self.foePivotMaxHP.setAlignment(Qt.AlignCenter)
 
@@ -314,6 +318,7 @@ class Client_UI(QWidget):
         else:
             self.z_mask = np.zeros(4)
             self.chg_pivot_signal.emit(True, 'none')
+            self.myPivotMaxHP.setText('')
             self.myPivot.setToolTip('')
             self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
@@ -331,12 +336,14 @@ class Client_UI(QWidget):
         else:
             self.chg_pivot_signal.emit(False, 'none')
             self.foePivot.setToolTip('')
+            self.foePivotMaxHP.setText('')
             self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 
         # show my moves
         for i, move in enumerate(pivot['moves']):
-            if action_required in [Signal.Switch, Signal.Switch_in_turn]:
+            self.setBold(self.moves[i],False)
+            if action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_exist:
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
             else:
@@ -380,6 +387,7 @@ class Client_UI(QWidget):
         # show my mini teams
         for i, pkm in enumerate(my_pkms):
             name = pkm['name']
+            self.setBold(self.pkm_switch[i], False)
             self.pkm_switch[i].setText(name[:10] + '\n' + str(pkm['hp']) + '/' + str(pkm['maxhp']))
             pixmap = QPixmap(pkm_path + name.replace(' ', '-').lower() + '.gif')
             if not pkm['alive']:
@@ -542,8 +550,23 @@ class Client_UI(QWidget):
         else:
             return ActionType.Common
 
+    def disable_buttons(self):
+        for move in self.moves:
+            move.setEnabled(False)
+
+        for sw in self.pkm_switch:
+            sw.setEnabled(False)
+
+        self.z_move.setEnabled(False)
+        self.mega.setEnabled(False)
+
     # send action to Client
     def send_action(self, action_type, item):
+        if action_type==ActionType.Switch:
+            self.setBold(self.pkm_switch[item],True)
+        elif action_type in [ActionType.Common,ActionType.Z_Move]:
+            self.setBold(self.moves[item],True)
+        self.disable_buttons()
         self.action_required = None
         print('action',action_type,item)
         self.client.send_action(action_type, item)

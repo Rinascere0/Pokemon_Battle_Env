@@ -371,11 +371,11 @@ class Pokemon:
                 self.pp[i] -= pp
 
     def faint(self):
-        self.log.add(actor=self, event='faint')
         self.can_switch = True
         self.player.faint(self.pkm_id)
         self.alive = False
         self.turn = False
+        self.log.add(actor=self, event='faint')
 
     def add_cond(self, cond):
         if cond is not None:

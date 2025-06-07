@@ -42,6 +42,9 @@ class Client(QObject):
 
     def on_connected(self):
         self.socket.setSocketOption(QAbstractSocket.ReceiveBufferSizeSocketOption, 65536)
+        msg_key_id = f'${self.key_id}'
+        self.send_message(msg_key_id)
+
 
     def disconnect_from_server(self):
         self.socket.disconnectFromHost()
@@ -52,12 +55,14 @@ class Client(QObject):
     # send message to server
     def send_message(self, message):
         if self.socket.state() == QTcpSocket.ConnectedState:
+            print(f'sent {message}')
             self.socket.write(message.encode('utf-8'))
             self.socket.flush()
 
     # receive message from server
     def read_data(self):
         while self.socket.bytesAvailable() > 0:
+            print('read msg!')
             data = self.socket.readAll().data().decode('utf-8')
         #    self.signals.new_message.emit(f"Server: {data}")
             self.signals.new_message.emit(data)

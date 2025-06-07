@@ -17,12 +17,29 @@ class ServerSignals(QObject):
 
 
 class Server(QTcpServer):
+    def flush_server(self):
+        self.clients = []
+        self.client_key = {}
+        self.last_msg = {}
+        self.game_temp = self.games
+        for game in self.games.values():
+            game.force_end(False)
+        print('end')
+        self.games = {}
+        self.game_clients = {}
+        self.game_status = []
+        self.game_waiting = None
+        self.game_players = {}
+        self.game_id = 0
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.signals = ServerSignals()
         self.clients = []
         # {socket:client_key}
         self.client_key = {}
+        # {client_key:msg}
+        self.last_msg = {}
         # {game_id:game}
         self.games = {}
         # {game_id:[socket0,socket1]}
@@ -50,8 +67,9 @@ class Server(QTcpServer):
         print('remove game:',game_id)
 
     def gen_client_key(self,socket):
-        client_key = socket.peerAddress().toString() + str(socket.peerPort())
+        #client_key = socket.peerAddress().toString() + str(socket.peerPort())
         #client_key = socket.socketDescriptor()
+        client_key = self.client_key[socket]
         return client_key
 
     def remove_player_timeout(self,client_key):
@@ -65,7 +83,7 @@ class Server(QTcpServer):
             print(self.game_players[client_key]['status'])
             while self.game_players[client_key]['status'] == DISCONNECT:
                 time.sleep(1)
-                print(client_key,' disconnect')
+                print(client_key,' wait reconnect')
 
         # if client status DISCONNECT, delete client
         if self.game_players[client_key]['status'] == DISCONNECT:
@@ -89,20 +107,41 @@ class Server(QTcpServer):
         client_socket = QTcpSocket(self)
         client_socket.setSocketDescriptor(socketDescriptor)
         self.clients.append(client_socket)
-        if not self.game_waiting:
-            game = self.create_game()
-            self.game_waiting = game
-        else:
-            game = self.game_waiting
-            self.game_waiting = None
-        uid = game.add_player()
+
+        client_socket.readyRead.connect(lambda: self.read_client(client_socket))
+        client_socket.disconnected.connect(lambda: self.client_disconnected(client_socket))
+
+        print('connect')
+        thread = Thread(target=self.verify_client, args=(client_socket,))
+        thread.start()
+
+    def verify_client(self,client_socket):
+        while client_socket not in self.client_key:
+            time.sleep(0.1)
+            print('wait')
+
         # check if exist client key
         client_key = self.gen_client_key(client_socket)
         print('new connect client_key',client_key)
+
         if client_key in self.game_players:
+            # reconnect
             print(client_key,'reconnect!!')
             self.game_players[client_key]['status'] = READY
+            uid = self.game_players[client_key]['uid']
+            game_id = self.game_players[client_key]['game_id']
+            self.game_clients[game_id][uid]= client_socket
+            self.resend(client_socket)
         else:
+            # new client add into game
+            if not self.game_waiting:
+                game = self.create_game()
+                self.game_waiting = game
+            else:
+                game = self.game_waiting
+                self.game_waiting = None
+            uid = game.add_player()
+
             self.game_players[client_key]={
                 'uid':uid,
                 'game_id':game.game_id,
@@ -112,26 +151,40 @@ class Server(QTcpServer):
 
         self.signals.status_updated.emit(f"New Connection: {client_socket.peerAddress().toString()}:{client_socket.peerPort()}")
 
-        client_socket.readyRead.connect(lambda: self.read_client(client_socket))
-        client_socket.disconnected.connect(lambda: self.client_disconnected(client_socket))
-
     def client_disconnected(self, socket):
         self.signals.status_updated.emit(f"Client Disconnectd: {socket.peerAddress().toString()}:{socket.peerPort()}")
-        self.remove_player(socket)
         self.clients.remove(socket)
+        self.remove_player(socket)
         socket.deleteLater()
 
     def read_client(self, socket):
+        print('read client')
         while socket.bytesAvailable() > 0:
             data = socket.readAll().data().decode('utf-8')
-            # find game_id & uid according to socket key
-            client_key = self.gen_client_key(socket)
-            uid=self.game_players[client_key]['uid']
-            game_id = self.game_players[client_key]['game_id']
-            # send action to game
-            self.games[game_id].send_action(uid,eval(data))
-            # DFX: display on server UI
-            self.signals.new_message.emit(f"Client: {data}")
+            print('recieve data:', data)
+            # client key init
+            if data[0] == '$' and socket not in self.client_key:
+                # check if reconnect
+                client_key = eval(data[1:])
+                keys_to_update = [k for k, v in self.client_key.items() if v == client_key]
+                if len(keys_to_update)>0:
+                    # reconnect
+                    self.client_key.pop(keys_to_update[0])
+                self.client_key[socket] = client_key
+            else:
+                # find game_id & uid according to socket key
+                client_key = self.gen_client_key(socket)
+                uid= self.game_players[client_key]['uid']
+                game_id = self.game_players[client_key]['game_id']
+                # send action to game
+                self.games[game_id].send_action(uid,eval(data))
+                # DFX: display on server UI
+                self.signals.new_message.emit(f"Client: {data}")
+
+    def resend(self,client):
+        client_key = self.client_key[client]
+        client.write(self.last_msg[client_key])
+        client.flush()
 
     def send_message(self, message, game_id=1, uid=None):
         # if uid is None, send to all clients of Game game_id
@@ -153,10 +206,11 @@ class Server(QTcpServer):
         else :
             target_clients = [self.game_clients[game_id][uid]]
         for client in target_clients:
-            if client.state() == QTcpSocket.ConnectedState:
+            if client in self.clients and client.state() == QTcpSocket.ConnectedState:
              #   for msg in split_msg:
                     msg = str(message)+'^'
-                    cell=msg.encode('utf-8')
+                    cell = msg.encode('utf-8')
+                    self.last_msg[self.client_key[client]] = cell
                     client.write(cell)
                     client.flush()
         # NO NEED since split with '^'
@@ -215,8 +269,10 @@ class ServerWindow(QMainWindow):
                 self.status_label.setText(f"无法启动服务器: {self.server.errorString()}")
         else:
             self.server.close()
+            self.server.flush_server()
             self.status_label.setText("服务器已停止")
             self.start_button.setText("启动服务器")
+
 
     def send_message(self):
         """发送消息"""

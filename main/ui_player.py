@@ -14,7 +14,7 @@ Common, Mega, Z_Move = range(3)
 # test_team=25
 # test_team = 1
 #test_team = 15 # rain
-test_team=1
+test_team= 0
 
 
 class UI_Player:
@@ -23,6 +23,7 @@ class UI_Player:
         self.pivot = -1
         self.alive = np.ones(6)
         self.status = Signal.Wait
+        self.last_status = Signal.Wait
         self.name = None
         self.game = None
         self.pid = -1
@@ -166,6 +167,7 @@ class UI_Player:
             self.game.force_end()
 
     def signal(self, sign):
+        self.last_status = self.status
         self.status = sign
         while not self.ui_inited:
             time.sleep(0.1)
@@ -176,18 +178,20 @@ class UI_Player:
     def mainloop(self):
         while True:
             time.sleep(0.1)
-            if self.status != Signal.Wait:
-                if self.status == Signal.Move:
-                    self.status = Signal.Wait
-                    self.game.send(self.pid, self.gen_valid_action())
-                elif self.status == Signal.Switch:
-                    self.status = Signal.Wait
-                    self.game.send(self.pid, self.gen_valid_switch())
-                elif self.status == Signal.Switch_in_turn:
-                    self.status = Signal.Wait
-                    self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
-                elif self.status == Signal.End:
-                    return
+            if self.status == Signal.Move:
+                self.status = Signal.Wait
+                # self.last_status= Signal.Move
+                self.game.send(self.pid, self.gen_valid_action())
+            elif self.status == Signal.Switch:
+                self.status = Signal.Wait
+                # self.last_status = Signal.Switch
+                self.game.send(self.pid, self.gen_valid_switch())
+            elif self.status == Signal.Switch_in_turn:
+                self.status = Signal.Wait
+                # self.last_status = Signal.Switch_in_turn
+                self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
+            elif self.status == Signal.End:
+                return
 
     def switch(self, env, pivot, foe=None, withdraw=False):
         if withdraw:
@@ -261,6 +265,7 @@ class myPlayer(UI_Player):
                 return
         temp = copy.deepcopy(self.action)
         self.action = None
+        print(f'actrion{temp}')
         return temp
 
     def gen_switch(self):
