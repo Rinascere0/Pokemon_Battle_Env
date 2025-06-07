@@ -734,8 +734,8 @@ class Pokemon:
                 self.HP = 1
                 val -= 1
         else:
-            self.log.add(actor=self, event='lost', val=round(val / self.maxHP * 100, 1))
             self.HP = self.HP - val
+            self.log.add(actor=self, event='lost', val=round(val / self.maxHP * 100, 1))
 
         if self.item is 'Air Balloon':
             self.use_item()
