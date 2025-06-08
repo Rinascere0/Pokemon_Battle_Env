@@ -1,3 +1,4 @@
+import copy
 import random
 import time
 from abc import abstractmethod
@@ -16,22 +17,22 @@ class Player:
     def __init__(self):
         self.pkms = []
         self.pivot = -1
-        self.alive = np.ones(6)
+        self.alive = [1 for _ in range(6)]
         self.status = Signal.Wait
         self.name = None
         self.game = None
         self.pid = -1
         self.log = None
         self.env = None
-        self.mega = np.zeros(6)
-        self.zmove = np.zeros((6, 4))
+        self.mega = [0 for _ in range(6)]
+        self.zmove = [[0 for _ in range(4)] for _ in range(6)]
 
     def load_team(self, team):
         self.pkms = team
-        self.alive = np.ones(6)
+        self.alive = [1 for _ in range(6)]
         self.pivot = -1
-        self.mega = np.zeros(6)
-        self.zmove = np.zeros((6, 4))
+        self.mega = [0 for _ in range(6)]
+        self.zmove =[[0 for _ in range(4)] for _ in range(6)]
         for pkm_id, pkm in enumerate(self.pkms):
             pkm.setup(pkm_id, self, self.env, self.log)
             if pkm.item in mega_stones and pkm.name == mega_stones[pkm.item]:
@@ -65,7 +66,7 @@ class Player:
         return self.pkms[self.pivot]
 
     def lose(self):
-        return not self.alive.any()
+        return not any(self.alive)
 
     def get_opponent_pivot(self):
         return self.game.players[1 - self.pid].get_pivot()
@@ -74,11 +75,11 @@ class Player:
         self.alive[pkm_id] = False
 
     def use_mega(self):
-        self.mega = np.zeros(6)
+        self.mega = [0 for _ in range(6)]
 
     def use_z(self):
         for pkm in self.pkms:
-            pkm.z_mask = np.zeros(4)
+            pkm.z_mask = [0 for _ in range(4)]
 
     def cure_all(self):
         for pkm in self.pkms:
@@ -111,7 +112,7 @@ class Player:
 
                 # check valid move
                 if not pivot.move_mask[move_id]:
-                    if pivot.move_mask.sum() == 0:
+                    if sum(pivot.move_mask) == 0:
                         action['item'] = Moves['struggle']
                     else:
                         raise ValueError(pivot.name + ' cannot use ' + move['name'] + ' now!')
@@ -129,10 +130,10 @@ class Player:
                 raise ValueError('Invalid switch action type!')
             elif not 0 <= action['item'] < 6:
                 raise ValueError('Invalid switch action index!')
-            elif not self.alive[action['item']] and self.alive.sum() > 0:
-                print(self.alive.sum())
+            elif not self.alive[action['item']] and sum(self.alive) > 0:
+                print(sum(self.alive))
                 raise ValueError('Cannot switch to exhausted pokemon! (' + self.pkms[pivot].name + ')')
-            elif action['item'] == self.pivot and self.alive.sum() > 1:
+            elif action['item'] == self.pivot and sum(self.alive) > 1:
                 raise ValueError('Cannot switch to the pokemon on field!')
             elif not self.get_pivot().can_switch and common_action:
                 raise ValueError(self.get_pivot().name + ' cannot switch now！')
@@ -269,27 +270,27 @@ class RandomPlayer(Player):
 
     def gen_action(self):
         rnd = random.uniform(0, 1)
-        if rnd >= 0.9 and self.alive.sum() > 1 and self.get_pivot().can_switch:
+        if rnd >= 0.9 and sum(self.alive) > 1 and self.get_pivot().can_switch:
             return self.gen_switch(SwitchType.Common)
         else:
             return self.gen_move()
 
     def gen_switch(self, switch_type):
-        p = np.copy(self.alive)
+        p = copy.deepcopy(self.alive)
         if self.pivot != -1:
             p[self.pivot] = 0
-        if not p.any():
+        if not any(p):
             return {'type': ActionType.Switch, 'item': self.pivot}
         else:
-            return {'type': ActionType.Switch, 'item': int(np.random.choice(np.arange(0, 6), p=p / p.sum()))}
+            return {'type': ActionType.Switch, 'item': random.choices(list(range(6)), [pr/sum(p) for pr in p])[0]}
 
     def gen_move(self):
         pivot = self.pkms[self.pivot]
         use_z = False
-        if not pivot.move_mask.any():
+        if not any(pivot.move_mask):
             move_id = 0
         else:
-            move_id = np.random.choice(np.arange(4), p=pivot.move_mask / pivot.move_mask.sum())
+            move_id = random.choices(list(range(4)), [p/sum(pivot.move_mask) for p in pivot.move_mask])[0]
             if pivot.z_mask[move_id] and random.uniform(0, 1) < 0.5:
                 use_z = True
 

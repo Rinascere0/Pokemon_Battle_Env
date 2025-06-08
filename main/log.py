@@ -78,7 +78,7 @@ class BattleLog:
         logtype = raw_log['logType']
 
         def trans(actor, event, target, val, logtype):
-            log = None
+            log = ''
 
             if actor:
                 if type(actor) is Pokemon:
@@ -174,6 +174,9 @@ class BattleLog:
 
             elif event == 'avoid':
                 log = 'avoided the attack!'
+
+            elif event == 'pursuit':
+                log = 'was going to withdraw '+str(val)+'...'
 
             # stat_lv
             elif event == '+1':
@@ -286,6 +289,10 @@ class BattleLog:
 
             elif event == '+partiallytrapped':
                 log = 'was hurt by ' + val + '!'
+
+            # TODO: maybe not need?
+            elif event == '++partiallytrapped':
+                log = 'was already trapped!'
 
             elif event == '-partiallytrapped':
                 log = 'is no longer trapped!'
@@ -543,7 +550,7 @@ class BattleLog:
 
             # skill
             elif event == '+substitute_block':
-                log = '\'s substitute prevented ' + target + '\'s ' + val + 'from being lowered!'
+                log = '\'s substitute prevented ' + target + '\'s ' + val + ' from being lowered!'
 
             elif event == 'transform':
                 log = 'transformed into ' + target + '!'
@@ -654,6 +661,7 @@ class BattleLog:
         log = trans(actor, event, target, val, logtype)
         if event in ['lost', 'heal', 'use_item']:
             log = '(' + log + ')'
+
         return log
 
     def set_latency(self, latency):
@@ -664,8 +672,8 @@ class BattleLog:
         if not self.loser:
             self.log.append(log)
             trans_log = self.translate(log)
-          #  print('org_log:',log)
-          #  print('trans_log:',trans_log)
+            print('org_log:',log)
+            print('trans_log:',trans_log)
             self.log_text.append(trans_log)
             self.game.send_log(trans_log)
           #  time.sleep(self.latency)

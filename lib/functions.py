@@ -1,4 +1,6 @@
 import copy
+import random
+
 from lib.const import *
 
 
@@ -75,7 +77,7 @@ def calc_type_buff(move, target):
 
 
 def get_attr_fac(atk_type, def_type):
-    return Attr_Mat[Attr_dict[atk_type], Attr_dict[def_type]]
+    return Attr_Mat[Attr_dict[atk_type]][Attr_dict[def_type]]
 
 
 def imm_poison(pkm):
@@ -138,8 +140,8 @@ def None2Zero(x, target=0):
 
 
 def gen_def_type(attr):
-    type_prob = Attr_Mat[Attr_dict[attr]] < 1
-    type_id = np.random.choice(np.arange(0, 19), p=type_prob / type_prob.sum())
+    type_prob = [x<1 for x in Attr_Mat[Attr_dict[attr]]]
+    type_id = random.choices(list(range(19)), [p/sum(type_prob) for p in type_prob])[0]
     return list(Attr_dict.keys())[type_id]
 
 

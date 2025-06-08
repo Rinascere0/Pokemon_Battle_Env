@@ -21,7 +21,7 @@ class Utils:
 
     # checks the move priority
     def check_prior(self, env, pkms, moves=None):
-        prior = np.zeros(2)
+        prior = [0,0]
 
         # check speed first, if same speed then gen random
         if pkms[0].Spe > pkms[1].Spe:
@@ -33,7 +33,7 @@ class Utils:
 
         # trick room reverse speed
         if env.pseudo_weather['trickroom'] > 0:
-            prior = - prior
+            prior = [-p for p in prior]
 
         # check priority moves, items, abilities
         # TODO: Quick Claw ignores anti-prior, but it's always banned
@@ -62,6 +62,7 @@ class Utils:
             players[first].switch(env, moves[first]['item'], foe, withdraw=True)
         else:
             # if opponent use Pursuit, set 'to switch' to True for move handler to know
+            self.log.add(actor=players[first],event='pursuit',val=pkms[first].name)
             pkms[first].to_switch = True
             self.use_move(user=pkms[last], target=pkms[first], move=moves[last]['item'], env=env, game=game,
                           last=True)
@@ -302,7 +303,7 @@ class Utils:
         pkms[0].prep(env, pkms[1], moves[0])
         pkms[1].prep(env, pkms[0], moves[1])
         moves = [Moves[moves[0]], Moves[moves[1]]]
-        prior = np.zeros(2)
+        prior = [0,0]
         if pkms[0].Spe > pkms[1].Spe:
             prior[0] += 0.1
         elif pkms[0].Spe < pkms[1].Spe:
@@ -311,7 +312,7 @@ class Utils:
             prior[random.randint(0, 1)] += 0.1
 
         if env.pseudo_weather['trickroom'] > 0:
-            prior = 1 - prior
+            prior = [-p for p in prior]
 
         prior[0] += moves[0]['priority']
         prior[1] += moves[1]['priority']
@@ -664,7 +665,7 @@ class Utils:
                 if user.name == 'Greninja-Ash' and move['name'] == 'Water Shuriken':
                     count = 3
                 elif type(count) is list:
-                    count = np.random.choice([2, 3, 4, 5], p=[1 / 3, 1 / 3, 1 / 6, 1 / 6])
+                    count = random.choices([2, 3, 4, 5], [1 / 3, 1 / 3, 1 / 6, 1 / 6])[0]
 
             target_sidecond = env.get_sidecond(target)
             if move['name'] in ['Psychic Fangs', 'Brick Break']:
@@ -788,7 +789,7 @@ class Utils:
                     chance = effect['chance'] / 100 if 'chance' in effect else 1
                     if user.ability == 'Serene Grace':
                         chance = min(1, 2 * chance)
-                    hit = np.random.choice([True, False], p=[chance, 1 - chance])
+                    hit = random.choices([True, False], [chance, 1 - chance])[0]
                     if hit:
                         if 'self' in effect:
                             effect = effect['self']
@@ -1261,7 +1262,7 @@ class Utils:
         final_acc = acc * user_acc / target_eva * acc_buff / 100
         if final_acc >= 1:
             return Hit
-        hit = np.random.choice([0, 1], p=[final_acc, 1 - final_acc])
+        hit = random.choices([0, 1], [final_acc, 1 - final_acc])[0]
         return hit
 
     def calc_dmg(self, user, target, move, env, last):
@@ -1397,7 +1398,7 @@ class Utils:
             ct = 9 / 4
         else:
             ct = 1.5
-        ct_buff = np.random.choice([ct, 1], p=[ct_rate, 1 - ct_rate])
+        ct_buff = random.choices([ct, 1], [ct_rate, 1 - ct_rate])[0]
         if target.ability in ['Shell Armor', 'Battle Armor']:
             ct_buff = 1
 

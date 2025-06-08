@@ -1,6 +1,6 @@
 import random
 
-import numpy as np
+#import numpy as np
 
 from data.moves import Moves
 from data.pokedex import pokedex
@@ -196,8 +196,8 @@ class Pokemon:
         self.log = None
 
         # masks of the valid move and z-use
-        self.move_mask = np.ones(4)
-        self.z_mask = np.zeros(4)
+        self.move_mask = [1 for _ in range(4)]
+        self.z_mask = [0 for _ in range(4)]
         if self.item in z_crystals:
             sk_type = z_crystals[self.item]
             for move_id, move in enumerate(self.move_infos):
@@ -950,7 +950,7 @@ class Pokemon:
         # TODO: ADD bide
 
     def finish_turn(self, env, target):
-        self.move_mask = np.ones(4)
+        self.move_mask = [1 for _ in range(4)]
         for move_id, move in enumerate(self.moves):
             if self.lock_move and move != self.lock_move:
                 self.move_mask[move_id] = 0
@@ -982,6 +982,9 @@ class Pokemon:
             self.can_switch = True
         if self.lock_move or self.vstatus['mustrecharge']:
             self.can_switch = False
+
+        self.vstatus['roost'] = False
+        self.calc_stat(self.env)
 
     def calc_stat(self, env, target=None, raw=False, moldbreak=False):
         _, self.Atk, self.Def, self.Satk, self.Sdef, self.Spe = self.stats.values()
@@ -1263,11 +1266,11 @@ class Pokemon:
     # for sleep talk
     # TODO: Cat hand
     def get_random_move(self, neq=None):
-        p = np.ones(4)
+        p = [1 for _ in range(4)]
         for move_id, move in enumerate(self.moves):
             if move == neq:
                 p[move_id] = 0
-        return np.random.choice(self.move_infos, p=p / p.sum())
+        return random.choices(self.move_infos, [x/sum(p) for x in p])[0]
 
     def can_lose_item(self):
         return self.item and self.item not in mega_stones and self.item not in z_crystals and not (

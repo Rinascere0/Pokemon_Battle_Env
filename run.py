@@ -1,6 +1,6 @@
 from main.client import run_client_test,run_client_1p,run_client_2p
 
-game_mode = 'test'
+game_mode = '1p'
 if __name__ == '__main__':
     if game_mode=='2p':
         run_client_2p()

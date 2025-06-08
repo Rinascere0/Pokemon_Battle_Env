@@ -11,17 +11,19 @@ from lib.read_team import read_team
 
 Common, Mega, Z_Move = range(3)
 
+test_team= 0
+
 # test_team=25
 # test_team = 1
-#test_team = 15 # rain
-test_team= 0
+test_team = 15 # rain
+
 
 
 class UI_Player:
     def __init__(self):
         self.pkms = []
         self.pivot = -1
-        self.alive = np.ones(6)
+        self.alive = [1 for _ in range(6)]
         self.status = Signal.Wait
         self.last_status = Signal.Wait
         self.name = None
@@ -29,8 +31,8 @@ class UI_Player:
         self.pid = -1
         self.log = None
         self.env = None
-        self.mega = np.zeros(6)
-        self.zmove = np.zeros((6, 4))
+        self.mega = [0 for _ in range(6)]
+        self.zmove = [[0 for _ in range(4)] for _ in range(6)]
         self.ui_inited = False
 
     def ui_init(self):
@@ -38,10 +40,10 @@ class UI_Player:
 
     def load_team(self, team):
         self.pkms = team
-        self.alive = np.ones(6)
+        self.alive = [1 for _ in range(6)]
         self.pivot = -1
-        self.mega = np.zeros(6)
-        self.zmove = np.zeros((6, 4))
+        self.mega = [0 for _ in range(6)]
+        self.zmove = [[0 for _ in range(4)] for _ in range(6)]
         for pkm_id, pkm in enumerate(self.pkms):
             pkm.setup(pkm_id, self, self.env, self.log)
             if pkm.item in mega_stones and pkm.name == mega_stones[pkm.item]:
@@ -72,7 +74,7 @@ class UI_Player:
         return self.pkms[self.pivot]
 
     def lose(self):
-        return not self.alive.any()
+        return not any(self.alive)
 
     def get_opponent_pivot(self):
         return self.game.players[1 - self.pid].get_pivot()
@@ -81,11 +83,11 @@ class UI_Player:
         self.alive[pkm_id] = False
 
     def use_mega(self):
-        self.mega = np.zeros(6)
+        self.mega = [0 for _ in range(6)]
 
     def use_z(self):
         for pkm in self.pkms:
-            pkm.z_mask = np.zeros(4)
+            pkm.z_mask = [0 for _ in range(4)]
 
     def cure_all(self):
         for pkm in self.pkms:
@@ -118,7 +120,7 @@ class UI_Player:
 
                 # check valid move
                 if not pivot.move_mask[move_id]:
-                    if pivot.move_mask.sum() == 0:
+                    if sum(pivot.move_mask) == 0:
                         action['item'] = Moves['struggle']
                     else:
                         raise ValueError(pivot.name + ' cannot use ' + move['name'] + ' now!')
@@ -136,7 +138,7 @@ class UI_Player:
                 raise ValueError('Invalid switch action type!')
             elif not 0 <= action['item'] < 6:
                 raise ValueError('Invalid switch action index!')
-            elif action['item'] == self.pivot and self.alive.sum() > 1:
+            elif action['item'] == self.pivot and sum(self.alive) > 1:
                 raise ValueError('Cannot switch to the pokemon on field!')
             elif not self.alive[action['item']]:
                 raise ValueError('Cannot switch to exhausted pokemon!(' + self.pkms[pivot].name + ')')

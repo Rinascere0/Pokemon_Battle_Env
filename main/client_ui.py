@@ -88,8 +88,8 @@ class Client_UI(QWidget):
         super(Client_UI, self).__init__()
         self.uid = uid
 
-        self.z_mask = np.zeros(4)
-        self.move_mask = np.zeros(4)
+        self.z_mask = [0 for _ in range(4)]
+        self.move_mask = [0 for _ in range(4)]
 
         self.msg_buf = ''
 
@@ -105,7 +105,7 @@ class Client_UI(QWidget):
         self.setFixedSize(1130, 720)
         self.move(300, 300)
         self.setWindowTitle('Pokémon Battle Env')
-
+        self.setWindowIcon(QIcon(path+'avatar.png'))
         self.connect_button = QPushButton(self)
         self.connect_button.setText('Connect')
         self.connect_button.clicked.connect(self.toggle_connection)
@@ -316,7 +316,7 @@ class Client_UI(QWidget):
 
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
-            self.z_mask = np.zeros(4)
+            self.z_mask = [0 for _ in range(4)]
             self.chg_pivot_signal.emit(True, 'none')
             self.myPivotMaxHP.setText('')
             self.myPivot.setToolTip('')
@@ -356,7 +356,7 @@ class Client_UI(QWidget):
                     self.moves[i].setEnabled(move_mask[i])
 
         self.z_move.setChecked(False)
-        self.z_move.setEnabled(np.array(z_mask).any() and my_pivot_exist)
+        self.z_move.setEnabled(any(z_mask) and my_pivot_exist)
 
         self.mega.setChecked(False)
         self.mega.setEnabled(mega_mask and my_pivot_exist)
@@ -533,12 +533,15 @@ class Client_UI(QWidget):
     def add_log(self, msg):
         # differs msg and log
         if type(msg) is dict:
+            with open('log.txt','a') as f:
+                f.write(msg['log']+'\n')
             state, log, action_required = msg['state'],msg['log'], msg['action_required']
             self.log.setText(self.log.toPlainText() + log + '\n')
+
             self.log.moveCursor(QTextCursor.End)
             self.update(state,action_required)
         else:
-            self.log.setText(self.log.toPlainText() + '\nServer: ' + str(msg))
+            self.log.setText(self.log.toPlainText() + f'Server: {msg}\n')
             self.log.moveCursor(QTextCursor.End)
 
     # generate action_type by mega and z check_box

@@ -1,6 +1,8 @@
+import random
+
 from data.moves import Moves
 from data.pokedex import pokedex
-import numpy as np
+#import numpy as np
 from lib.functions import move_to_key, pkm_to_key, get_attr_fac, calc_stat_lv, get_ct
 from lib.const import *
 
@@ -41,7 +43,7 @@ def find_best_move(user, target, env, mask=None):
     best_move = None
     max_dmg = -1
     if mask is None:
-        mask = np.ones(4)
+        mask = [1 for _ in range(4)]
     for move_info in user['moves']:
         if mask[move_info['move_id']]:
             move_name = move_to_key(move_info['name'])
@@ -108,8 +110,7 @@ def find_best_action(team, foe_team, pivot_id, foe_pivot_id, masks, env):
         if predict_switch:
             print('pred switch', predict_switch['name'])
 
-    action_space = np.array([greedy_move, greedy_switch, predict_move, predict_switch, random_moves, utvs],
-                            dtype=object)
+    action_space = [greedy_move, greedy_switch, predict_move, predict_switch, random_moves, utvs]
 
     greedy_move_prob = 0.45 * (greedy_move is not None)
     if greedy_dmg < 100:
@@ -129,15 +130,14 @@ def find_best_action(team, foe_team, pivot_id, foe_pivot_id, masks, env):
         if predict_switch_prob:
             utvs_prob += predict_switch_prob / 2
             predict_switch_prob /= 2
-    prob = np.array(
-        [greedy_move_prob, greedy_switch_prob, predict_move_prob, predict_switch_prob, random_moves_prob, utvs_prob])
-    if prob.sum() == 0:
+    prob = [greedy_move_prob, greedy_switch_prob, predict_move_prob, predict_switch_prob, random_moves_prob, utvs_prob]
+    if sum(prob) == 0:
         return {'type': ActionType.Common, 'item': 0}
-    prob = prob / prob.sum()
+    prob = [p/sum(prob) for p in prob]
 
-    action = np.random.choice(action_space, p=prob)
+    action = random.choices(action_space, prob)[0]
     if type(action) is list:
-        action = np.random.choice(random_moves)
+        action = random.choice(random_moves)
     if 'lv' in action:
         action = {'type': ActionType.Switch, 'item': action['id']}
     else:
@@ -166,7 +166,7 @@ def find_best_switch(team, foe_team, pivot_id, foe_pivot_id, env, switch_type):
     else:
         predict_switch = None
 
-    switch_space = np.array([best_switch, predict_switch])
+    switch_space = [best_switch, predict_switch]
 
     # predict work
     if switch_type == SwitchType.Common:
@@ -179,7 +179,7 @@ def find_best_switch(team, foe_team, pivot_id, foe_pivot_id, env, switch_type):
     else:
         return {'type': ActionType.Switch, 'item': 0}
 
-    switch = np.random.choice(switch_space, p=p)
+    switch = random.choices(switch_space, p)[0]
     return {'type': ActionType.Switch, 'item': switch['id']}
 
 

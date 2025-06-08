@@ -27,7 +27,7 @@ class Env:
                                {'healingwish': 0, 'Wish': None, 'lunardance': 0, 'heal': 0}]
         # real weather
         self.real_weather = None
-        # effect weather (None if air lock)
+        # effect weather (effected by air lock)
         self.weather = None
         self.weather_turn = 0
         # {'hail': 0, 'RainDance': 0, 'Sandstorm': 0, 'sunnyday': 0}
@@ -142,6 +142,7 @@ class Env:
             self.weather_turn -= 1
             if self.weather_turn == 0:
                 log.add(event='-' + self.real_weather)
+                self.real_weather = None
                 self.weather = None
             else:
                 log.add(event='=' + self.real_weather)

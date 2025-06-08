@@ -78,6 +78,7 @@ class Client(QObject):
     # receive message from server, flush ui state or add log(or both)
     def recv_msg(self,msg):
         if self.ui:
+            print(f'recv msg: {msg}')
             self.ui.send_log(msg)
 
     # send action to server, activated by ui signal

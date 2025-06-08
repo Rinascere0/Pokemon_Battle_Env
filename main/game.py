@@ -123,7 +123,7 @@ class Game:
         for player in self.players:
             player.signal(Signal.End)
         self.end = True
-        if rmv:
+        if rmv and self.server:
             self.server.remove_game(self.game_id)
 
     def force_wait(self):
@@ -176,7 +176,7 @@ class Game:
         self.move_exist_pid = -1
 
     def call_switch(self, player):
-        if player.alive.sum() <= 1:
+        if sum(player.alive) <= 1:
             return
         player.signal(Signal.Switch_in_turn)
         while len(self.switch_in_turn) == 0:
@@ -324,8 +324,8 @@ class Game:
 
         my_pivot_id = player.pivot
         my_pivot = player.get_pivot()
-        masks = {'switch': my_pivot.can_switch, 'move': my_pivot.move_mask.tolist(),
-                 'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask.tolist()}
+        masks = {'switch': my_pivot.can_switch, 'move': my_pivot.move_mask,
+                 'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask}
         my_team['pkms'] = pkms
         my_team['pivot'] = player.pivot
         my_team['masks'] = masks

@@ -1,8 +1,10 @@
+import random
+
 from data.moves import Moves
 from data.pokedex import pokedex
 #from docs.obs import obs
 from docs.moveset import Moveset
-import numpy as np
+#import numpy as np
 from lib.functions import move_to_key, pkm_to_key, get_attr_fac, calc_stat_lv, get_ct
 from lib.const import *
 
@@ -214,17 +216,15 @@ def find_best_action(team, foe_team, pivot_id, foe_pivot_id, masks, env):
              predict_check_move_prob, predict_counter_switch_prob, predict_check_switch_prob, random_moves_prob,
              utvs_prob]
 
-    probs = np.array(probs)
-    action_space = np.array(action_space, dtype=object)
-
-    if probs.sum() == 0:
+    sum_p = sum(probs)
+    if sum_p == 0:
         return {'type': ActionType.Common, 'item': 0}
-    probs = probs / probs.sum()
+    probs = [p/sum_p for p in probs]
 
-    action = np.random.choice(action_space, p=probs)
+    action = random.choices(action_space, probs)[0]
     print('action', action)
     if type(action) is list:
-        action = np.random.choice(random_moves)
+        action = random.choice(random_moves)
     if 'lv' in action:
         action = {'type': ActionType.Switch, 'item': action['id']}
     else:
@@ -271,14 +271,14 @@ def find_best_switch(team, foe_team, pivot_id, foe_pivot_id, env, switch_type):
         predict_counter_switch_prob = 0
         greedy_check_prob *= 2
 
-    action_space = np.array([greedy_counter, greedy_check, predict_counter_switch, predict_check_switch], dtype=object)
-    probs = np.array([greedy_counter_prob, greedy_check_prob, predict_counter_switch_prob, predict_check_switch_prob])
+    action_space = [greedy_counter, greedy_check, predict_counter_switch, predict_check_switch]
+    probs = [greedy_counter_prob, greedy_check_prob, predict_counter_switch_prob, predict_check_switch_prob]
 
-    if not probs.any():
+    if any(probs):
         return {'type': ActionType.Switch, 'item': greedy_counter['id']}
-    probs = probs / probs.sum()
+    probs = [p/sum(probs) for p in probs]
 
-    action = np.random.choice(action_space, p=probs)
+    action = random.choices(action_space, probs)[0]
 
     return {'type': ActionType.Switch, 'item': action['id']}
 
