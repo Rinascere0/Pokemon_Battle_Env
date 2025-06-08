@@ -61,8 +61,8 @@ class BattleLog:
                 f.write('\n')
         else:
             for log in self.log_text:
-                if log:
-                    print(log)
+               # if log:
+               #     print(log)
                 if log and 'lost!' in log:
                     break
             print()
@@ -78,8 +78,7 @@ class BattleLog:
         logtype = raw_log['logType']
 
         def trans(actor, event, target, val, logtype):
-            log = ''
-
+            log = None
             if actor:
                 if type(actor) is Pokemon:
                     actor = actor.player.name + ' \'s ' + actor.name + ' '
@@ -658,6 +657,8 @@ class BattleLog:
             if log:
                 return actor + log
 
+            return ''
+
         log = trans(actor, event, target, val, logtype)
         if event in ['lost', 'heal', 'use_item']:
             log = '(' + log + ')'
@@ -676,5 +677,5 @@ class BattleLog:
             print('trans_log:',trans_log)
             self.log_text.append(trans_log)
             self.game.send_log(trans_log)
-          #  time.sleep(self.latency)
+            time.sleep(self.latency)
 

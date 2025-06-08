@@ -531,6 +531,9 @@ class Pokemon:
         elif vstatus == 'disable':
             self.disable_move = self.last_move
             turn = 5
+        elif vstatus == 'encore':
+            self.lock_move = self.last_move
+            turn = 3
 
         self.log.add(actor=self, event=vstatus, val=val)
         self.vstatus[vstatus] = turn
@@ -956,6 +959,8 @@ class Pokemon:
                 self.move_mask[move_id] = 0
             elif self.choice_move and self.item in ['Choice Band', 'Choice Specs',
                                                     'Choice Scarf'] and move != self.choice_move:
+                self.move_mask[move_id] = 0
+            elif self.vstatus['encore'] and move!=self.lock_move:
                 self.move_mask[move_id] = 0
             elif self.charge and move != self.charge:
                 self.move_mask[move_id] = 0

@@ -6,7 +6,12 @@ from PyQt5.QtNetwork import QTcpSocket
 
 from lib.functions import move_to_key, pkm_to_key
 
-path = os.path.abspath(__file__) + '/../../resource/'
+path = getattr(sys, '_MEIPASS',  os.path.dirname(os.path.abspath(__file__)))
+if 'MEI' not in path:
+    path+='/..'
+path+= '/resource/'
+#path = os.path.dirname(os.path.abspath(__file__)) + '/../resource/'
+print('path',path)
 pkm_path = path + 'pkm/'
 icon_path = path + 'icon/'
 

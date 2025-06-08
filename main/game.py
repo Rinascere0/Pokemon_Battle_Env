@@ -149,7 +149,7 @@ class Game:
             self.moves.append(move)
             self.round_players.append(self.players[pid])
             self.move_exist_pid = pid
-        print('moves',len(self.moves))
+        # print('moves',len(self.moves))
         print(self.moves)
 
     def send(self, pid, move, in_turn=False):

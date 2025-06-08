@@ -3,12 +3,14 @@ import re
 from main.pokemon import Pokemon
 import pickle
 import os
+import sys
 
-path = os.path.abspath(__file__)
-
-
+#path = os.path.abspath(__file__)
+path = getattr(sys, '_MEIPASS',  os.path.dirname(os.path.abspath(__file__)))
+if 'MEI' not in path:
+    path+='/..'
 def read_set():
-    with open(path+'/../../team/ou.txt', 'r') as f:
+    with open(path+'/team/ou.txt', 'r') as f:
         s = f.read()
     info = '(?P<Name>[a-zA-Z\s\-]+)?((\s)\((?P<Gender>[MF])\))?((\s@ (?P<Item>[a-zA-Z\s]+))?)'
     ability = '\n(Ability:\s(?P<Ability>[a-zA-Z0-9 \-]+))'
@@ -38,10 +40,10 @@ def read_set():
             pkm_sets[name] = [pkm]
             pkm_dicts[name] = [res]
 
-    with open(path+'/../../team/ou.pkl', 'wb') as f:
+    with open(path+'/team/ou.pkl', 'wb') as f:
         pickle.dump(pkm_sets, f)
 
-    with open(path+'/../../team/ou.py', 'w') as f:
+    with open(path+'/team/ou.py', 'w') as f:
         f.write('ou_sets=' + str(pkm_dicts))
 
 
@@ -49,7 +51,7 @@ def read_team(tid=0):
     if tid == 0:
         tid = random.choice(list(range(1, 28)))
     print(path)
-    with open(path+'/../../team/' + str(tid), 'r') as f:
+    with open(path+'/team/' + str(tid), 'r') as f:
         s = f.read()
 
     print(tid)
