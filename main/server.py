@@ -50,6 +50,12 @@ class Server(QTcpServer):
         self.game_players = {}
         print('server init')
         self.game_id = 0
+        # {username:password}
+        # username = client_key
+        self.users = {}
+        # removed socket cuz wrong login
+        self.removed_socket = []
+        self.online_users = []
 
     def create_game(self):
         self.game_id +=1
@@ -69,6 +75,8 @@ class Server(QTcpServer):
     def gen_client_key(self,socket):
         #client_key = socket.peerAddress().toString() + str(socket.peerPort())
         #client_key = socket.socketDescriptor()
+        if socket not in self.client_key:
+            return None
         client_key = self.client_key[socket]
         return client_key
 
@@ -76,12 +84,12 @@ class Server(QTcpServer):
         # get game_id and uid
         client_info = self.game_players[client_key]
         game_id,uid=client_info['game_id'],client_info['uid']
-        print('remove!!')
         # wait 300s to re-connect if game start
         if self.games[game_id].get_status() == START:
-            print('remove!!!!')
             print(self.game_players[client_key]['status'])
-            while self.game_players[client_key]['status'] == DISCONNECT:
+            for _ in range(120):
+                if self.game_players[client_key]['status'] != DISCONNECT:
+                    break
                 time.sleep(1)
                 print(client_key,' wait reconnect')
 
@@ -97,6 +105,8 @@ class Server(QTcpServer):
     def remove_player(self, socket):
         # set client status DISCONNECT
         client_key = self.gen_client_key(socket)
+        if client_key is None:
+            return
         self.game_players[client_key]['status'] = DISCONNECT
         print('start remove')
         thread = Thread(target=self.remove_player_timeout, args=(client_key,))
@@ -117,6 +127,9 @@ class Server(QTcpServer):
 
     def verify_client(self,client_socket):
         while client_socket not in self.client_key:
+            if client_socket in self.removed_socket:
+                self.removed_socket.remove(client_socket)
+                return
             time.sleep(0.1)
             print('wait')
 
@@ -152,6 +165,9 @@ class Server(QTcpServer):
         self.signals.status_updated.emit(f"New Connection: {client_socket.peerAddress().toString()}:{client_socket.peerPort()}")
 
     def client_disconnected(self, socket):
+        client_key = self.gen_client_key(socket)
+        if client_key in self.online_users:
+            self.online_users.remove(client_key)
         self.signals.status_updated.emit(f"Client Disconnectd: {socket.peerAddress().toString()}:{socket.peerPort()}")
         self.clients.remove(socket)
         self.remove_player(socket)
@@ -162,16 +178,36 @@ class Server(QTcpServer):
         while socket.bytesAvailable() > 0:
             data = socket.readAll().data().decode('utf-8')
             print('recieve data:', data)
-            # client key init
-            if data[0] == '$' and socket not in self.client_key:
+            # new incoming socket with auth
+            if data[0] == '$':
                 # check if reconnect
-                client_key = eval(data[1:])
+                (_, username, password) = data.split('$')
+                # TODO: temporary?
+                client_key = username
+                print('user',username,password)
+                if username in self.users:
+                    if client_key in self.online_users:
+                        self.send_signal(socket, f'User: {username} is already online!')
+                        self.removed_socket.append(socket)
+                        socket.close()
+                        return
+                    elif self.users[username] != password:
+                        # TODO: disconnect here?
+                        self.send_signal(socket,f'Wrong Password for user: {username}!')
+                        self.removed_socket.append(socket)
+                        socket.close()
+                        return
+                else:
+                    self.users[username] = password
+
+                self.online_users.append(username)
                 keys_to_update = [k for k, v in self.client_key.items() if v == client_key]
-                if len(keys_to_update)>0:
+                if len(keys_to_update) > 0:
                     # reconnect
                     self.client_key.pop(keys_to_update[0])
                 self.client_key[socket] = client_key
             else:
+                # current exist connection
                 # find game_id & uid according to socket key
                 client_key = self.gen_client_key(socket)
                 uid= self.game_players[client_key]['uid']
@@ -184,6 +220,12 @@ class Server(QTcpServer):
     def resend(self,client):
         client_key = self.client_key[client]
         client.write(self.last_msg[client_key])
+        client.flush()
+
+    def send_signal(self,client,msg):
+        msg = '~' + msg
+        cell = msg.encode('utf-8')
+        client.write(cell)
         client.flush()
 
     def send_message(self, message, game_id=1, uid=None):
