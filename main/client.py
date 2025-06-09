@@ -37,12 +37,15 @@ class Client(QObject):
         self.socket.disconnected.connect(lambda: self.signals.status_updated.emit("Disconnected from server!"))
         self.socket.errorOccurred.connect(self.handle_error)
 
-    def connect_to_server(self, host, port):
+    def connect_to_server(self, host, port, username, password):
+        self.username = username
+        self.password = password
         self.socket.connectToHost(host, port)
 
     def on_connected(self):
         self.socket.setSocketOption(QAbstractSocket.ReceiveBufferSizeSocketOption, 65536)
-        msg_key_id = f'${self.key_id}'
+       # msg_key_id = f'${self.key_id}'
+        msg_key_id = f'${self.username}${self.password}'
         self.send_message(msg_key_id)
 
 
@@ -51,6 +54,7 @@ class Client(QObject):
 
     def set_ui(self,ui):
         self.ui = ui
+        self.socket.disconnected.connect(self.ui.onDisconnect)
 
     # send message to server
     def send_message(self, message):
@@ -142,7 +146,7 @@ def run_client_2p():
 def run_client_online():
     app = QApplication(sys.argv)
     client = Client(0)
-    ui = Client_UI(client,0)
+    ui = Client_UI(client,0,True)
     app.exec_()
 
 if __name__ == '__main__':

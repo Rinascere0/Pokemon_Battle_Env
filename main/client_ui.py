@@ -5,6 +5,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtNetwork import QTcpSocket
 
 from lib.functions import move_to_key, pkm_to_key
+from main.login_diag import LoginDialog
 
 path = getattr(sys, '_MEIPASS',  os.path.dirname(os.path.abspath(__file__)))
 if 'MEI' not in path:
@@ -16,7 +17,7 @@ pkm_path = path + 'pkm/'
 icon_path = path + 'icon/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox
+from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox
 from PyQt5.QtCore import pyqtSignal, QRect, Qt
 
 from data.moves import Moves
@@ -35,14 +36,71 @@ class Client_UI(QWidget):
     chg_pivot_signal = pyqtSignal(bool, str)
 
     def toggle_connection(self):
-        """切换连接状态"""
         if self.client.socket.state() != QTcpSocket.ConnectedState:
-            self.client.connect_to_server(host, port)
+            dialog = LoginDialog(self)
+            if dialog.exec_():
+                username, password = dialog.get_user_info()
+                if not username:
+                    QMessageBox.warning(self, "警告", "用户名不能为空!")
+                    return
+            else:
+                return
+            self.client.connect_to_server(host, port, username, password)
             self.connect_button.setText("Disconnect")
         else:
             self.client.disconnect_from_server()
             self.connect_button.setText("Connect")
 
+
+    def disable_buttons(self):
+        for move in self.moves:
+            move.setEnabled(False)
+
+        for sw in self.pkm_switch:
+            sw.setEnabled(False)
+
+        self.z_move.setEnabled(False)
+        self.mega.setEnabled(False)
+
+    def flush_ui(self):
+        for move in self.moves:
+            move.setText('')
+            move.setEnabled(False)
+
+        for sw in self.pkm_switch:
+            sw.setText('')
+            sw.setEnabled(False)
+            sw.setIcon(QIcon())
+
+        for mini in self.mypkm_mini:
+            mini.setPixmap(QPixmap())
+
+        for mini in self.foepkm_mini:
+            mini.setPixmap(QPixmap())
+
+        self.z_move.setEnabled(False)
+        self.mega.setEnabled(False)
+
+        self.round_label.setText('')
+        self.myPivot.setMovie(QMovie(''))
+        self.foePivot.setMovie(QMovie(''))
+
+        self.myPivotMaxHP.setText('')
+        self.myPivot.setToolTip('')
+        self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+
+        self.foePivot.setToolTip('')
+        self.foePivotMaxHP.setText('')
+        self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+
+    def onDisconnect(self):
+        self.flush_ui()
+        self.connect_button.setText("Connect")
+
+    def onConnect(self):
+        self.flush_ui()
 
     def change_movie(self, back, name):
         mv_name = name.replace(' ', '-').lower() + '.gif'
@@ -89,9 +147,10 @@ class Client_UI(QWidget):
         font.setBold(en)
         button.setFont(font)
 
-    def __init__(self, client,uid=1):
+    def __init__(self, client, uid=1, online=False):
         super(Client_UI, self).__init__()
         self.uid = uid
+        self.online = online
 
         self.z_mask = [0 for _ in range(4)]
         self.move_mask = [0 for _ in range(4)]
@@ -115,6 +174,7 @@ class Client_UI(QWidget):
         self.connect_button.setText('Connect')
         self.connect_button.clicked.connect(self.toggle_connection)
         self.connect_button.move(50, 585)
+        self.connect_button.setVisible(self.online)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -229,6 +289,7 @@ class Client_UI(QWidget):
         self.add_signal.connect(lambda x: self.add_log(x))
         self.chg_pivot_signal.connect(lambda x, y: self.change_movie(x, y))
 
+        self.disable_buttons()
         self.show()
 
     def set_zable_move(self):
@@ -541,12 +602,12 @@ class Client_UI(QWidget):
             with open('log.txt','a') as f:
                 f.write(msg['log']+'\n')
             state, log, action_required = msg['state'],msg['log'], msg['action_required']
-            self.log.setText(self.log.toPlainText() + log + '\n')
+            self.log.append(log)
 
             self.log.moveCursor(QTextCursor.End)
             self.update(state,action_required)
         else:
-            self.log.setText(self.log.toPlainText() + f'Server: {msg}\n')
+            self.log.append(f'Server: {msg}')
             self.log.moveCursor(QTextCursor.End)
 
     # generate action_type by mega and z check_box
@@ -557,16 +618,6 @@ class Client_UI(QWidget):
             return ActionType.Z_Move
         else:
             return ActionType.Common
-
-    def disable_buttons(self):
-        for move in self.moves:
-            move.setEnabled(False)
-
-        for sw in self.pkm_switch:
-            sw.setEnabled(False)
-
-        self.z_move.setEnabled(False)
-        self.mega.setEnabled(False)
 
     # send action to Client
     def send_action(self, action_type, item):
