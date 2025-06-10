@@ -35,9 +35,7 @@ class Game:
         self.status = WAIT
         self.game_id = game_id
         self.uid = [0,0]
-
-        # if use ui
-        # self.ui = []
+        self.log_text = ''
 
         self.client = []
         self.server = None
@@ -58,12 +56,15 @@ class Game:
         else:
             self.game_nums = 1
         self.mode = ONLINE if mode == 'online' else OFFLINE
-        print('player num:', len(self.players))
+
 
     def get_status(self):
         return self.status
 
-    def add_player(self, player=None):
+    def get_player(self, uid):
+        return self.players[uid]
+
+    def add_player(self, player=None, name=None):
         # online mode
         if player is None:
             player = myPlayer()
@@ -72,9 +73,10 @@ class Game:
             self.uid=[0,0]
         else:
             self.uid[uid] = 1
-        player.set_game(self, uid, self.env, self.log)
+        player.set_game(self, uid, self.env, self.log, name)
         print(f'add player {uid}')
         self.players.insert(uid,player)
+        print('player num:', len(self.players))
         return uid
 
     def remove_player(self, uid):
@@ -117,6 +119,7 @@ class Game:
                        'log': log,
                        'action_required': None}
                 self.server.send_message(str(msg), self.game_id, uid)
+        self.log_text += log +'\n'
 
     def force_end(self,rmv=True):
         self.status = END
@@ -214,6 +217,7 @@ class Game:
             for player in self.players:
                 player.set_team()
             self.log.reset(self.players)
+            self.log_text = ''
             self.env.reset()
 
             # Match-up
@@ -260,12 +264,14 @@ class Game:
                 self.log.step_print()
                 self.Round += 1
 
-            if self.log.loser == 'BJK':
+            if self.log.loser == self.players[0].name:
                 win_loss[0] += 1
             else:
                 win_loss[1] += 1
 
-            if self.status==END:
+            if self.server:
+                self.server.game_end(self.game_id,win_loss, self.log_text)
+            if self.status == END:
                 break
         self.force_end()
         print(win_loss)

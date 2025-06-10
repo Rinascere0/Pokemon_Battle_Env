@@ -1,6 +1,9 @@
 import sys
+import threading
 import time
 from threading import Thread
+import redis
+from concurrent.futures import ThreadPoolExecutor
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTextEdit, QLineEdit, QPushButton, QLabel)
@@ -9,7 +12,7 @@ from PyQt5.QtCore import pyqtSignal, QObject, Qt
 
 from main.game import Game
 
-WAIT,START,END=0,1,2
+WAIT, START, END= 0,1,2
 DISCONNECT, READY = 0,1
 class ServerSignals(QObject):
     new_message = pyqtSignal(str)
@@ -17,21 +20,6 @@ class ServerSignals(QObject):
 
 
 class Server(QTcpServer):
-    def flush_server(self):
-        self.clients = []
-        self.client_key = {}
-        self.last_msg = {}
-        self.game_temp = self.games
-        for game in self.games.values():
-            game.force_end(False)
-        print('end')
-        self.games = {}
-        self.game_clients = {}
-        self.game_status = []
-        self.game_waiting = None
-        self.game_players = {}
-        self.game_id = 0
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.signals = ServerSignals()
@@ -56,6 +44,88 @@ class Server(QTcpServer):
         # removed socket cuz wrong login
         self.removed_socket = []
         self.online_users = []
+
+        # redis
+        self.redis_client = redis.Redis(
+            host='localhost',
+            port=6379,
+           # max_connections=100,  # 根据实际情况调整
+            decode_responses=True  # 返回字符串而非字节
+        )
+      #  self.executor = ThreadPoolExecutor(max_workers=4)
+        self.lock = threading.Lock()
+        self.log_counter_key = "log_counter"
+
+    def __del__(self):
+      #  self.executor.shutdown(wait=True, cancel_futures=False)
+        pass
+
+    def flush_server(self):
+        self.clients = []
+        self.client_key = {}
+        self.last_msg = {}
+        self.game_temp = self.games
+        for game in self.games.values():
+            game.force_end(False)
+        print('All games forced end since server close.')
+        self.games = {}
+        self.game_clients = {}
+        self.game_status = []
+        self.game_waiting = None
+        self.game_players = {}
+        self.game_id = 0
+
+    def create_redis_user(self,user_id, pwd):
+        print(f'[Redis]Start create user: {user_id}')
+        user_key = f"user:{user_id}"
+        created = self.redis_client.hmset(
+            user_key,
+            mapping={
+                "pwd": pwd,
+                "win": 0,
+                "total": 0
+            }
+        )
+        if created:
+            logs_key = f"logs:{user_id}"
+            self.redis_client.delete(logs_key)
+            print(f'[Redis]Finish create user: {user_id}')
+            return True
+        print(f'[Redis]Failed create user: {user_id}')
+        return False
+
+    def update_redis_result(self,user_id, win, log_id):
+        # update win loss
+        user_key = f"user:{user_id}"
+        if win:
+            self.redis_client.hincrby(user_key,'win',win)
+        self.redis_client.hincrby(user_key, 'total', 1)
+        # save log
+        log_key = f"logs:{user_id}"
+        self.redis_client.rpush(log_key,log_id)
+
+    def get_redis_user(self,user_id):
+        print(f'[Redis]Start find user: {user_id}')
+        user_key = f"user:{user_id}"
+       # logs_key = f"logs:{user_id}"
+
+        user_data = self.redis_client.hgetall(user_key)
+        print(f'[Redis]Find{user_data}')
+        if user_data:
+            print(f'[Redis]Find user: {user_id}')
+            return user_data['pwd']
+        print(f'[Redis]Not found user: {user_id}')
+        return None
+
+    def game_end(self,game_id,win_loss,log):
+        log_id = self.redis_client.incr(self.log_counter_key)
+
+        # 存储日志内容
+        log_key = f"log:{log_id}"
+        self.redis_client.set(log_key, log)
+
+        self.update_redis_result(self.games[game_id].get_player(0).name, win_loss[0], log_id)
+        self.update_redis_result(self.games[game_id].get_player(1).name, win_loss[1], log_id)
 
     def create_game(self):
         self.game_id +=1
@@ -126,7 +196,9 @@ class Server(QTcpServer):
         thread.start()
 
     def verify_client(self,client_socket):
-        while client_socket not in self.client_key:
+        for _ in range(30):
+            if client_socket in self.client_key:
+                break
             if client_socket in self.removed_socket:
                 self.removed_socket.remove(client_socket)
                 return
@@ -153,7 +225,7 @@ class Server(QTcpServer):
             else:
                 game = self.game_waiting
                 self.game_waiting = None
-            uid = game.add_player()
+            uid = game.add_player(player=None,name=client_key)
 
             self.game_players[client_key]={
                 'uid':uid,
@@ -184,21 +256,22 @@ class Server(QTcpServer):
                 (_, username, password) = data.split('$')
                 # TODO: temporary?
                 client_key = username
-                print('user',username,password)
-                if username in self.users:
+                print('Incoming user', username,password)
+                cur_pwd = self.get_redis_user(username)
+                if cur_pwd:
                     if client_key in self.online_users:
                         self.send_signal(socket, f'User: {username} is already online!')
                         self.removed_socket.append(socket)
                         socket.close()
                         return
-                    elif self.users[username] != password:
+                    elif cur_pwd != password:
                         # TODO: disconnect here?
                         self.send_signal(socket,f'Wrong Password for user: {username}!')
                         self.removed_socket.append(socket)
                         socket.close()
                         return
                 else:
-                    self.users[username] = password
+                    self.create_redis_user(username, password)
 
                 self.online_users.append(username)
                 keys_to_update = [k for k, v in self.client_key.items() if v == client_key]
@@ -244,7 +317,7 @@ class Server(QTcpServer):
         #  split_msg[-1]['end']=1
         #  target_clients = self.game_clients[game_id] if uid is None else [self.game_clients[game_id][uid]]
         if uid is None:
-            target_clients = self.game_clients[game_id]
+            target_clients = self.clients
         else :
             target_clients = [self.game_clients[game_id][uid]]
         for client in target_clients:

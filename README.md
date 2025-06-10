@@ -583,7 +583,7 @@ landorus switch on bug(maybe alakazam trace bug?fixed)
 2025.6.2
 
 【Add】\
-(new branch server)Split out client code which only interactive with game object
+(new branch server)Split out client code which only interactive with game object\
 Fix alakazam trace bug
 
 2025.6.5
@@ -592,7 +592,7 @@ Fix alakazam trace bug
 (new branch online)Built server and client for online gaming, compatible with current modes
 
 【ToFix】\
-foe pivot still display when fainted
+✔foe pivot still display when fainted
 
 2025.6.5
 
@@ -600,8 +600,19 @@ foe pivot still display when fainted
 server support multi-games
 
 【ToFix】\
-client disconnect(socket peer port changes every connection)
-black HP bar before game start
+✔client disconnect(socket peer port changes every connection)\
+✔black HP bar before game start
 
+2025.6.11
+
+【Add】\
+enable login and reconnect
+enable redis store userinfo and log
+
+【ToFix】\
+1. Solar Beam 2nd round can use z-move\
+2. thunder punch and paralyse elec-mons\
+3. login after game finished still in last game\
+4. magic guard no status(e.g burn) hp loss but hurt log
 </details>
 
