@@ -54,12 +54,12 @@ class UI_Player:
                     if move['type'] == attr:
                         self.zmove[pkm_id][move_id] = 1
 
-    def set_game(self, game, pid, env, log):
+    def set_game(self, game, pid, env, log, name=None):
         self.game = game
         self.pid = pid
         self.log = log
         self.env = env
-        self.name = names[pid]
+        self.name = name if name else names[pid]
 
     def get_last_alive(self):
         for pkm in reversed(self.pkms):
