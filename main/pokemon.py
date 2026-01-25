@@ -196,13 +196,13 @@ class Pokemon:
         self.log = None
 
         # masks of the valid move and z-use
-        self.move_mask = [1 for _ in range(4)]
-        self.z_mask = [0 for _ in range(4)]
+        self.move_mask = [True for _ in range(4)]
+        self.z_mask = [False for _ in range(4)]
         if self.item in z_crystals:
             sk_type = z_crystals[self.item]
             for move_id, move in enumerate(self.move_infos):
                 if move['type'] == sk_type:
-                    self.z_mask[move_id] = 1
+                    self.z_mask[move_id] = True
 
     def set_ability(self, move=None, sub=None):
         if move in ['Simple Beam', 'Worry Seed']:
@@ -953,23 +953,23 @@ class Pokemon:
         # TODO: ADD bide
 
     def finish_turn(self, env, target):
-        self.move_mask = [1 for _ in range(4)]
+        self.move_mask = [True for _ in range(4)]
         for move_id, move in enumerate(self.moves):
             if self.lock_move and move != self.lock_move:
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
             elif self.choice_move and self.item in ['Choice Band', 'Choice Specs',
                                                     'Choice Scarf'] and move != self.choice_move:
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
             elif self.vstatus['encore'] and move!=self.lock_move:
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
             elif self.charge and move != self.charge:
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
             elif move == self.disable_move:
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
             elif self.vstatus['taunt'] > 0 and self.move_infos[move_id]['category'] == 'Status':
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
             elif self.pp[move_id] == 0:
-                self.move_mask[move_id] = 0
+                self.move_mask[move_id] = False
 
         self.can_gen_action = not self.vstatus['mustrecharge']
         self.can_gen_move = not (self.next_move and self.ability == 'Truant')

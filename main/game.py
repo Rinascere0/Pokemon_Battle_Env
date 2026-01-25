@@ -19,6 +19,7 @@ save_log = False
 ONLINE, OFFLINE = 0, 1
 WAIT, START,END = 0, 1, 2
 
+BETA = False
 
 class Game:
     def __init__(self, game_id=0,mode='test'):
@@ -45,13 +46,19 @@ class Game:
             self.add_player(myPlayer())
             self.game_nums = 1
         elif mode != 'online':
-            self.add_player(AlphaPlayer())
+            if BETA:
+                self.add_player(BetaPlayer())
+            else:
+                self.add_player(AlphaPlayer())
             # self.add_player(RandomPlayer())
             if mode == '1p':
                 self.add_player(myPlayer())
                 self.game_nums = 1
             else:
-                self.add_player(AlphaPlayer())
+                if BETA:
+                    self.add_player(BetaPlayer())
+                else:
+                    self.add_player(AlphaPlayer())
                 self.game_nums = game_nums
         else:
             self.game_nums = 1
@@ -331,7 +338,7 @@ class Game:
         my_pivot_id = player.pivot
         my_pivot = player.get_pivot()
         masks = {'switch': my_pivot.can_switch, 'move': my_pivot.move_mask,
-                 'mega': player.mega[my_pivot_id], 'z': my_pivot.z_mask}
+                 'mega': bool(player.mega[my_pivot_id]), 'z': my_pivot.z_mask}
         my_team['pkms'] = pkms
         my_team['pivot'] = player.pivot
         my_team['masks'] = masks

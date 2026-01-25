@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTextEdit, QLineEdit, QPushButton, QLabel)
 from PyQt5.QtNetwork import QTcpServer, QTcpSocket, QHostAddress, QAbstractSocket
 from PyQt5.QtCore import pyqtSignal, QObject, Qt
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from main.game import Game
 
@@ -78,10 +79,11 @@ class Server(QTcpServer):
     def create_redis_user(self,user_id, pwd):
         print(f'[Redis]Start create user: {user_id}')
         user_key = f"user:{user_id}"
+        hashed_pwd = generate_password_hash(pwd)
         created = self.redis_client.hmset(
             user_key,
             mapping={
-                "pwd": pwd,
+                "pwd": hashed_pwd,
                 "win": 0,
                 "total": 0
             }
@@ -128,7 +130,7 @@ class Server(QTcpServer):
         self.update_redis_result(self.games[game_id].get_player(1).name, win_loss[1], log_id)
 
     def create_game(self):
-        self.game_id +=1
+        self.game_id += 1
         game_id = self.game_id
         game = Game(self.game_id,'online')
         game.set_server(self)
@@ -264,7 +266,7 @@ class Server(QTcpServer):
                         self.removed_socket.append(socket)
                         socket.close()
                         return
-                    elif cur_pwd != password:
+                    elif not check_password_hash(cur_pwd, password):
                         # TODO: disconnect here?
                         self.send_signal(socket,f'Wrong Password for user: {username}!')
                         self.removed_socket.append(socket)

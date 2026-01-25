@@ -152,8 +152,8 @@ class Client_UI(QWidget):
         self.uid = uid
         self.online = online
 
-        self.z_mask = [0 for _ in range(4)]
-        self.move_mask = [0 for _ in range(4)]
+        self.z_mask = [False for _ in range(4)]
+        self.move_mask = [False for _ in range(4)]
 
         self.msg_buf = ''
 
@@ -295,7 +295,7 @@ class Client_UI(QWidget):
     def set_zable_move(self):
         if self.z_move.isChecked():
             for i, move in enumerate(self.moves):
-                move.setEnabled(self.z_mask[i] * self.move_mask[i])
+                move.setEnabled(self.z_mask[i] & self.move_mask[i])
         else:
             for i, move in enumerate(self.moves):
                 move.setEnabled(self.move_mask[i])
@@ -382,7 +382,7 @@ class Client_UI(QWidget):
 
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
         else:
-            self.z_mask = [0 for _ in range(4)]
+            self.z_mask = [False for _ in range(4)]
             self.chg_pivot_signal.emit(True, 'none')
             self.myPivotMaxHP.setText('')
             self.myPivot.setToolTip('')

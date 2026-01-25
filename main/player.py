@@ -43,7 +43,7 @@ class Player:
                     if move['type'] == attr:
                         self.zmove[pkm_id][move_id] = 1
 
-    def set_game(self, game, pid, env, log):
+    def set_game(self, game, pid, env, log, name= None):
         self.game = game
         self.pid = pid
         self.log = log
@@ -79,7 +79,7 @@ class Player:
 
     def use_z(self):
         for pkm in self.pkms:
-            pkm.z_mask = [0 for _ in range(4)]
+            pkm.z_mask = [False for _ in range(4)]
 
     def cure_all(self):
         for pkm in self.pkms:
@@ -112,7 +112,7 @@ class Player:
 
                 # check valid move
                 if not pivot.move_mask[move_id]:
-                    if sum(pivot.move_mask) == 0:
+                    if not any(pivot.move_mask):
                         action['item'] = Moves['struggle']
                     else:
                         raise ValueError(pivot.name + ' cannot use ' + move['name'] + ' now!')

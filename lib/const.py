@@ -153,7 +153,6 @@ upper_stat = {
     'evasion': 'Eva',
     'accuracy': 'Acc',
     'ct': 'Crit'
-
 }
 
 sound_move = ['Boomburst ', 'Bug Buzz ', 'Chatter ', 'Clanging Scales ', 'Clangorous Soul ', 'Clangorous Soulblaze ',

@@ -60,13 +60,14 @@ def find_best_counter(team, target, env, except_pivot=True):
             best_pkm = pkm
 
     if not best_pkm['name'] or max_weight < 0.2:
-        max_weight = 0
+        max_weight = 0.0000001
     return best_pkm, max_weight
 
 
 def find_best_check(team, target, env, except_pivot=True):
     max_weight = 0
     best_pkm = {'name': None}
+    print('target:',target)
     if not target['name']:
         return best_pkm, 0
     for pkm in team:
@@ -86,7 +87,7 @@ def find_best_check(team, target, env, except_pivot=True):
             best_pkm = pkm
 
     if not best_pkm['name'] or max_weight < 0.2:
-        max_weight = 0
+        max_weight = 0.000001
     return best_pkm, max_weight
 
 
@@ -252,7 +253,7 @@ def find_best_switch(team, foe_team, pivot_id, foe_pivot_id, env, switch_type):
 
     # greedy counter, means can deal max damage to target
     greedy_check, greedy_check_prob = find_best_check(team, foe_pivot, env)
-
+    print('greedy check',greedy_check)
     # predict foe counter
     predict_foe_counter, predict_foe_counter_prob = find_best_counter(foe_team, pivot, env)
 
@@ -274,7 +275,9 @@ def find_best_switch(team, foe_team, pivot_id, foe_pivot_id, env, switch_type):
     action_space = [greedy_counter, greedy_check, predict_counter_switch, predict_check_switch]
     probs = [greedy_counter_prob, greedy_check_prob, predict_counter_switch_prob, predict_check_switch_prob]
 
-    if any(probs):
+    print('action space',action_space)
+    print(probs)
+    if not any(probs):
         return {'type': ActionType.Switch, 'item': greedy_counter['id']}
     probs = [p/sum(probs) for p in probs]
 
