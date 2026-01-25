@@ -691,6 +691,7 @@ class Pokemon:
                 val *= 0.5
 
         val = int(val)
+        foe_pivot = self.player.get_opponent_pivot()
         # substitute block damage
         if user and user.ability != 'Infiltrator' and self.vstatus['substitute'] > 0:
             self.vstatus['substitute'] = max(0, self.vstatus['substitute'] - val)
@@ -728,11 +729,11 @@ class Pokemon:
                                 max_val = val
                         self.log.add(actor=user, event='Beast Boost', type=logType.ability)
                         user.boost(max_stat, 1)
-                foe_pivot = self.player.get_opponent_pivot()
                 if foe_pivot.alive and foe_pivot.ability == 'Soul-Heart':
                     self.log.add(actor=foe_pivot, event='Soul Heart', type=logType.ability)
                     foe_pivot.boost('spa', 1)
-
+                # return w/o following process if faint
+                return self.HP
             else:
                 self.HP = 1
                 val -= 1
