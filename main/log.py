@@ -162,6 +162,11 @@ class BattleLog:
                 if not self.loser:
                     self.loser = actor[:-1]
 
+            elif event == 'surrender':
+                log = 'surrendered!'
+                if not self.loser:
+                    self.loser = actor[:-1]
+
             elif event == 'withdraw':
                 log = 'withdrew ' + str(val) + '!'
 

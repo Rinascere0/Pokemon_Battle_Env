@@ -92,6 +92,12 @@ class Client(QObject):
         if hasattr(pl, 'apply_team_choice'):
             pl.apply_team_choice(choice)
 
+    def request_surrender(self):
+        if self.game:
+            self.game.request_surrender(self.uid)
+        elif self.socket.state() == QTcpSocket.ConnectedState:
+            self.send_message('__SURRENDER__')
+
     # used in local mode
     # receive message from server, flush ui state or add log(or both)
     def recv_msg(self,msg):

@@ -40,6 +40,7 @@ class Game:
 
         self.client = []
         self.server = None
+        self.surrender_requested_uid = None
         # change to your own player class!
         if mode == '2p':
             self.add_player(myPlayer())
@@ -136,6 +137,40 @@ class Game:
         if rmv and self.server:
             self.server.remove_game(self.game_id)
 
+    def request_surrender(self, uid):
+        if self.status != START or self.end:
+            return
+        self.surrender_requested_uid = uid
+
+    def _drain_surrender_request(self):
+        if self.surrender_requested_uid is None:
+            return
+        uid = self.surrender_requested_uid
+        self.surrender_requested_uid = None
+        self.surrender(uid)
+
+    def surrender(self, uid):
+        if self.status != START or self.end or self.log.loser:
+            return
+        if uid < 0 or uid >= len(self.players):
+            return
+        player = self.players[uid]
+        self.log.add(actor=player, event='surrender')
+        self.status = END
+        self.end = True
+        for p in self.players:
+            p.signal(Signal.End)
+
+    def _finalize_aborted_round(self, win_loss, game_id):
+        if self.log.loser:
+            if self.log.loser == self.players[0].name:
+                win_loss[0] += 1
+            else:
+                win_loss[1] += 1
+            if self.server:
+                self.server.game_end(self.game_id, win_loss, self.log_text)
+        self.force_end()
+
     def force_wait(self):
         for player in self.players:
             player.signal(Signal.Wait)
@@ -207,6 +242,7 @@ class Game:
     def mainloop(self):
         print(self.players)
         while len(self.players) < 2:
+            self._drain_surrender_request()
             time.sleep(0.01)
 
         for player in self.players:
@@ -236,20 +272,25 @@ class Game:
             self.players[1].signal(Signal.Switch)
 
             while len(self.moves) < 2:
+                self._drain_surrender_request()
                 time.sleep(0.01)
                 if self.end:
+                    self._finalize_aborted_round(win_loss, game_id)
                     return
             done = self.utils.match_up(self.env, self.round_players, self.moves)
             self.reset_round()
             # Mainloop
             self.Round = 1
             while not done and self.status!= END:
+                self._drain_surrender_request()
                 self.log.add(event='round', val=self.Round)
                 self.players[0].signal(Signal.Move)
                 self.players[1].signal(Signal.Move)
                 while len(self.moves) < 2:
+                    self._drain_surrender_request()
                     time.sleep(0.01)
                     if self.end:
+                        self._finalize_aborted_round(win_loss, game_id)
                         return
                 done, to_switch = self.utils.step_turn(self, self.env, self.round_players, self.moves)
                 self.reset_round()
@@ -259,8 +300,10 @@ class Game:
                     for player in to_switch:
                         player.signal(Signal.Switch)
                     while len(self.moves) < len(to_switch):
+                        self._drain_surrender_request()
                         time.sleep(0.01)
                         if self.end:
+                            self._finalize_aborted_round(win_loss, game_id)
                             return
 
                     if len(to_switch) < 2:

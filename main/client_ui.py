@@ -36,6 +36,18 @@ class Client_UI(QWidget):
     add_signal = pyqtSignal(dict)
     chg_pivot_signal = pyqtSignal(bool, str)
 
+    def on_surrender_clicked(self):
+        reply = QMessageBox.question(
+            self,
+            'Surrender',
+            'Are you sure you want to surrender? The battle will end immediately and the log will record your surrender.',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        self.client.request_surrender()
+
     def toggle_connection(self):
         if self.client.socket.state() != QTcpSocket.ConnectedState:
             dialog = LoginDialog(self)
@@ -69,6 +81,11 @@ class Client_UI(QWidget):
 
         self.z_move.setEnabled(False)
         self.mega.setEnabled(False)
+
+    def lock_ui_game_over(self):
+        """Disable all battle actions including Surrender (normal win, loss, or surrender)."""
+        self.disable_buttons()
+        self.surrender_button.setEnabled(False)
 
     def flush_ui(self):
         for move in self.moves:
@@ -113,6 +130,8 @@ class Client_UI(QWidget):
         self._foe_ko_cleared = True
         self._last_my_hp_field_key = None
         self._last_foe_hp_field_key = None
+
+        self.surrender_button.setEnabled(True)
 
     def onDisconnect(self):
         self.flush_ui()
@@ -206,6 +225,12 @@ class Client_UI(QWidget):
         self.connect_button.clicked.connect(self.toggle_connection)
         self.connect_button.move(50, 585)
         self.connect_button.setVisible(self.online)
+
+        self.surrender_button = QPushButton(self)
+        self.surrender_button.setText('Surrender')
+        self.surrender_button.setFont(QFont("Microsoft YaHei", 10, 30))
+        self.surrender_button.setGeometry(460, 578, 88, 28)
+        self.surrender_button.clicked.connect(self.on_surrender_clicked)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -635,13 +660,15 @@ class Client_UI(QWidget):
         self._prev_foe_field_key = foe_field_key
         self._prev_foe_field_alive = foe_alive_ok
 
+        game_over = state.get('loser') is not None
+
         my_pivot_alive = my_alive_ok
         foe_pivot_alive = foe_alive_ok
 
         # show my moves
         for i, move in enumerate(pivot['moves']):
             self.setBold(self.moves[i],False)
-            if action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_alive:
+            if game_over or action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_alive:
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
             else:
@@ -654,14 +681,14 @@ class Client_UI(QWidget):
                     self.moves[i].setEnabled(move_mask[i])
 
         self.z_move.setChecked(False)
-        self.z_move.setEnabled(any(z_mask) and my_pivot_alive)
+        self.z_move.setEnabled(not game_over and any(z_mask) and my_pivot_alive)
 
         self.mega.setChecked(False)
-        self.mega.setEnabled(mega_mask and my_pivot_alive)
+        self.mega.setEnabled(not game_over and mega_mask and my_pivot_alive)
 
         for pkm_switch, pkm in zip(self.pkm_switch, my_pkms):
             pkm_switch.setEnabled(
-                (action_required is not None and (
+                not game_over and (action_required is not None and (
                         switch_mask or action_required in [Signal.Switch, Signal.Switch_in_turn]) and pkm['alive']))
             pkm_switch.setToolTip(self.pkm_to_tip(pkm))
             hp_perc = pkm['hp'] / pkm['maxhp'] if 'hp' in pkm else pkm['hp_perc']
@@ -679,8 +706,11 @@ class Client_UI(QWidget):
             pkm_switch.setStyleSheet("QPushButton{color:rgb(" + hp_color + ',250);}')
             pkm_switch.setIcon(QIcon(icon_path + pkm_to_key(pkm['name']) + '.png'))
 
-        if my_pivot_alive:
+        if my_pivot_alive and not game_over:
             self.pkm_switch[my_team['pivot']].setEnabled(False)
+
+        if game_over:
+            self.lock_ui_game_over()
 
         # show my mini teams
         for i, pkm in enumerate(my_pkms):

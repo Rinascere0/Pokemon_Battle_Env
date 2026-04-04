@@ -320,14 +320,18 @@ class Server(QTcpServer):
                 self.client_key[socket] = client_key
             else:
                 # current exist connection
-                # find game_id & uid according to socket key
                 client_key = self.gen_client_key(socket)
-                uid= self.game_players[client_key]['uid']
+                if client_key is None or client_key not in self.game_players:
+                    continue
+                uid = self.game_players[client_key]['uid']
                 game_id = self.game_players[client_key]['game_id']
-                # send action to game
-                self.games[game_id].send_action(uid,eval(data))
-                # DFX: display on server UI
-                self.signals.new_message.emit(f"Client: {data}")
+                data_stripped = data.strip()
+                if data_stripped == '__SURRENDER__':
+                    self.games[game_id].surrender(uid)
+                    self.signals.new_message.emit(f"Client: __SURRENDER__ uid={uid}")
+                else:
+                    self.games[game_id].send_action(uid, eval(data))
+                    self.signals.new_message.emit(f"Client: {data}")
 
     def resend(self,client):
         client_key = self.client_key[client]
