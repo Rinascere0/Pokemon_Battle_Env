@@ -1,58 +1,21 @@
-import random
 import time
-from abc import abstractmethod
 import copy
-
-from data.moves import Moves
 
 from lib.const import *
 from threading import Thread
-from lib.read_team import read_team
+from lib.read_team import read_team, read_team_by_id, parse_team_sheet
 
-Common, Mega, Z_Move = range(3)
-
-test_team= 0
-
-# test_team=25
-# test_team = 1
-#test_team = 15 # rain
+from main.player import Player
 
 
-
-class UI_Player:
+class UI_Player(Player):
     def __init__(self):
-        self.pkms = []
-        self.pivot = -1
-        self.alive = [1 for _ in range(6)]
-        self.status = Signal.Wait
+        super(UI_Player, self).__init__()
         self.last_status = Signal.Wait
-        self.name = None
-        self.game = None
-        self.pid = -1
-        self.log = None
-        self.env = None
-        self.mega = [0 for _ in range(6)]
-        self.zmove = [[0 for _ in range(4)] for _ in range(6)]
         self.ui_inited = False
 
     def ui_init(self):
         self.ui_inited = True
-
-    def load_team(self, team):
-        self.pkms = team
-        self.alive = [1 for _ in range(6)]
-        self.pivot = -1
-        self.mega = [0 for _ in range(6)]
-        self.zmove = [[0 for _ in range(4)] for _ in range(6)]
-        for pkm_id, pkm in enumerate(self.pkms):
-            pkm.setup(pkm_id, self, self.env, self.log)
-            if pkm.item in mega_stones and pkm.name == mega_stones[pkm.item]:
-                self.mega[pkm_id] = 1
-            if pkm.item in z_crystals:
-                attr = z_crystals[pkm.item]
-                for move_id, move in enumerate(pkm.move_infos):
-                    if move['type'] == attr:
-                        self.zmove[pkm_id][move_id] = 1
 
     def set_game(self, game, pid, env, log, name=None):
         self.game = game
@@ -60,76 +23,6 @@ class UI_Player:
         self.log = log
         self.env = env
         self.name = name if name else names[pid]
-
-    def get_last_alive(self):
-        for pkm in reversed(self.pkms):
-            if pkm.alive:
-                return pkm
-
-    def start(self):
-        thread = Thread(target=self.mainloop, args=())
-        thread.start()
-
-    def get_pivot(self):
-        return self.pkms[self.pivot]
-
-    def lose(self):
-        return not any(self.alive)
-
-    def get_opponent_pivot(self):
-        return self.game.players[1 - self.pid].get_pivot()
-
-    def faint(self, pkm_id):
-        self.alive[pkm_id] = False
-
-    def use_mega(self):
-        self.mega = [0 for _ in range(6)]
-
-    def use_z(self):
-        for pkm in self.pkms:
-            pkm.z_mask = [False for _ in range(4)]
-
-    def cure_all(self):
-        for pkm in self.pkms:
-            if pkm.alive:
-                pkm.cure_status()
-
-    def check_valid_action(self, action):
-        try:
-            if action['type'] == ActionType.Switch:
-                return self.check_valid_switch(action, common_action=True)
-            else:
-                pivot = self.get_pivot()
-                move_id = action['item']
-
-                # check valid move index
-                if not 0 <= move_id < 4:
-                    raise ValueError('Invalid move id!')
-
-                move = pivot.move_infos[move_id]
-                action['item'] = move
-
-                # check valid mega
-                if action['type'] == ActionType.Mega:
-                    if not self.mega[self.pivot]:
-                        raise ValueError(pivot.name + ' cannot mega now!')
-
-                # check valid z
-                if action['type'] == ActionType.Z_Move and not pivot.z_mask[move_id]:
-                    raise ValueError(pivot.name + ' cannot use Z now!')
-
-                # check valid move
-                if not pivot.move_mask[move_id]:
-                    if not any(pivot.move_mask):
-                        action['item'] = Moves['struggle']
-                    else:
-                        raise ValueError(pivot.name + ' cannot use ' + move['name'] + ' now!')
-
-        except ValueError as e:
-            print(repr(e))
-            return False
-        else:
-            return True
 
     def check_valid_switch(self, action, common_action=False):
         try:
@@ -159,8 +52,8 @@ class UI_Player:
         else:
             self.game.force_end()
 
-    def gen_valid_switch(self):
-        action = self.gen_switch()
+    def gen_valid_switch(self, switch_type):
+        action = self.gen_switch(switch_type)
         if self.status == Signal.End:
             return
         if self.check_valid_switch(action):
@@ -182,78 +75,53 @@ class UI_Player:
             time.sleep(0.1)
             if self.status == Signal.Move:
                 self.status = Signal.Wait
-                # self.last_status= Signal.Move
                 self.game.send(self.pid, self.gen_valid_action())
             elif self.status == Signal.Switch:
                 self.status = Signal.Wait
-                # self.last_status = Signal.Switch
-                self.game.send(self.pid, self.gen_valid_switch())
+                self.game.send(self.pid, self.gen_valid_switch(SwitchType.End_turn))
             elif self.status == Signal.Switch_in_turn:
                 self.status = Signal.Wait
-                # self.last_status = Signal.Switch_in_turn
-                self.game.send(self.pid, self.gen_valid_switch(), in_turn=True)
+                self.game.send(self.pid, self.gen_valid_switch(SwitchType.In_turn), in_turn=True)
             elif self.status == Signal.End:
                 return
-
-    def switch(self, env, pivot, foe=None, withdraw=False):
-        if withdraw:
-            self.log.add(actor=self, event='withdraw', val=self.get_pivot().name)
-        self.log.add(actor=self, event='switch', val=self.pkms[pivot].name)
-        if self.pivot == -1:
-            self.pkms[pivot].switch(env, None, foe)
-        else:
-            self.pkms[pivot].switch(env, self.get_pivot(), foe)
-        self.pivot = pivot
 
     # Change tid into your own team name!
     def set_team(self):
         self.load_team(read_team(tid=0))
-
-    @abstractmethod
-    # You should return a dict:{'type':ActionType.Switch,'item':pivot}
-    # where pivot represents the index of pkm in team you want to switch: range (0,6), type Int
-    def gen_switch(self):
-        # TODO
-        return
-
-    @abstractmethod
-    # You should return a dict:{'type':your action_type,'item':move_id}
-    # where action_type includes ActionType.mega, ActionType.z_move and ActionType.common representing not using former two
-    # and move_id represents the index of move you want to use in your pkm on field: range (0,4), type Int
-    def gen_action(self):
-        # TODO
-        return
-
-    # functional methods for AI
-
-    # get current state in your view
-    def get_state(self):
-        return self.game.get_state(self.pid)
-
-    # get masks for action
-    def get_masks(self):
-        return {
-            # np(4), representing which move of pkm on field could use
-            'move_mask': self.get_pivot().move_mask,
-            # np(6), representing which pkm in team can mega
-            'mega_mask': self.mega,
-            # np(6,4), representing which move of which pkm can use-z
-            'z_mask': self.zmove,
-            # bool, representing whether you can switch as an action of turn
-            # notice that, switch forced by foe(roar) or as side effect of skill(u-turn) are not effected
-            'can_switch': self.get_pivot().can_switch,
-        }
 
 
 class myPlayer(UI_Player):
     def __init__(self):
         super(myPlayer, self).__init__()
         self.action = None
+        self._team_configured = False
+        self._team_load_mode = None
+        self._team_preset_id = None
+        self._team_showdown_text = None
+
+    def apply_team_choice(self, choice):
+        """由客户端 UI 在开局前注入（离线）；在线由 apply_team_wire_to_my_player 设置。"""
+        if choice.mode == 'text':
+            self._team_load_mode = 'text'
+            self._team_showdown_text = choice.showdown_text
+            self._team_preset_id = None
+        elif choice.mode == 'preset':
+            self._team_load_mode = 'preset'
+            self._team_preset_id = choice.preset_id
+            self._team_showdown_text = None
+        else:
+            self._team_load_mode = 'random'
+            self._team_preset_id = None
+            self._team_showdown_text = None
+        self._team_configured = True
 
     def set_team(self):
-        # 11 victini
-        self.load_team(read_team(tid=test_team))
-        # for test
+        if self._team_load_mode == 'text' and self._team_showdown_text:
+            self.load_team(parse_team_sheet(self._team_showdown_text))
+        elif self._team_load_mode == 'preset' and self._team_preset_id is not None:
+            self.load_team(read_team_by_id(self._team_preset_id))
+        else:
+            self.load_team(read_team(tid=0))
         for pkm in self.pkms:
             pkm.calc_stat(self.env)
 
@@ -270,7 +138,7 @@ class myPlayer(UI_Player):
         print(f'actrion{temp}')
         return temp
 
-    def gen_switch(self):
+    def gen_switch(self, switch_type):
         while not self.action:
             time.sleep(0.1)
             if self.status == Signal.End:

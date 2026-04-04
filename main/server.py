@@ -12,6 +12,8 @@ from PyQt5.QtCore import pyqtSignal, QObject, Qt
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from main.game import Game
+from main.team_selection import apply_team_wire_to_my_player
+from main.ui_player import myPlayer
 
 WAIT, START, END= 0,1,2
 DISCONNECT, READY = 0,1
@@ -57,6 +59,7 @@ class Server(QTcpServer):
       #  self.executor = ThreadPoolExecutor(max_workers=4)
         self.lock = threading.Lock()
         self.log_counter_key = "log_counter"
+        self.pending_team_wire = {}
 
     def __del__(self):
       #  self.executor.shutdown(wait=True, cancel_futures=False)
@@ -76,6 +79,7 @@ class Server(QTcpServer):
         self.game_waiting = None
         self.game_players = {}
         self.game_id = 0
+        self.pending_team_wire.clear()
 
     def create_redis_user(self,user_id, pwd):
         print(f'[Redis]Start create user: {user_id}')
@@ -198,6 +202,24 @@ class Server(QTcpServer):
         thread = Thread(target=self.verify_client, args=(client_socket,))
         thread.start()
 
+    @staticmethod
+    def _parse_login_payload(data):
+        if not data or data[0] != '$':
+            raise ValueError('not login')
+        body = data[1:].rstrip('\r\n')
+        idx = body.find('$')
+        if idx < 0:
+            raise ValueError('bad login')
+        username = body[:idx]
+        rest = body[idx + 1:]
+        if '|TEAM|' in rest:
+            password, team_wire = rest.split('|TEAM|', 1)
+            team_wire = team_wire.strip()
+        else:
+            password = rest
+            team_wire = 'RANDOM'
+        return username, password, team_wire
+
     def verify_client(self,client_socket):
         for _ in range(30):
             if client_socket in self.client_key:
@@ -237,11 +259,22 @@ class Server(QTcpServer):
             }
             self.game_clients[game.game_id].insert(uid, client_socket)
 
+        uid = self.game_players[client_key]['uid']
+        game_id = self.game_players[client_key]['game_id']
+        pl = self.games[game_id].get_player(uid)
+        wire = self.pending_team_wire.pop(client_key, 'RANDOM')
+        if isinstance(pl, myPlayer):
+            apply_team_wire_to_my_player(pl, wire)
+        else:
+            pl._team_configured = True
+
         self.signals.status_updated.emit(f"New Connection: {client_socket.peerAddress().toString()}:{client_socket.peerPort()}")
 
     def client_disconnected(self, socket):
         client_key = self.gen_client_key(socket)
-        if client_key in self.online_users:
+        if client_key:
+            self.pending_team_wire.pop(client_key, None)
+        if client_key and client_key in self.online_users:
             self.online_users.remove(client_key)
         self.signals.status_updated.emit(f"Client Disconnectd: {socket.peerAddress().toString()}:{socket.peerPort()}")
         self.clients.remove(socket)
@@ -255,11 +288,15 @@ class Server(QTcpServer):
             print('recieve data:', data)
             # new incoming socket with auth
             if data[0] == '$':
-                # check if reconnect
-                (_, username, password) = data.split('$')
-                # TODO: temporary?
+                try:
+                    username, password, team_wire = self._parse_login_payload(data)
+                except ValueError:
+                    self.send_signal(socket, 'Invalid login packet')
+                    self.removed_socket.append(socket)
+                    socket.close()
+                    return
                 client_key = username
-                print('Incoming user', username,password)
+                print('Incoming user', username, password, 'team', team_wire[:40] if len(team_wire) > 40 else team_wire)
                 cur_pwd = self.get_redis_user(username)
                 if cur_pwd:
                     if client_key in self.online_users:
@@ -268,7 +305,6 @@ class Server(QTcpServer):
                         socket.close()
                         return
                     elif not check_password_hash(cur_pwd, password):
-                        # TODO: disconnect here?
                         self.send_signal(socket,f'Wrong Password for user: {username}!')
                         self.removed_socket.append(socket)
                         socket.close()
@@ -276,10 +312,10 @@ class Server(QTcpServer):
                 else:
                     self.create_redis_user(username, password)
 
+                self.pending_team_wire[client_key] = team_wire
                 self.online_users.append(username)
                 keys_to_update = [k for k, v in self.client_key.items() if v == client_key]
                 if len(keys_to_update) > 0:
-                    # reconnect
                     self.client_key.pop(keys_to_update[0])
                 self.client_key[socket] = client_key
             else:

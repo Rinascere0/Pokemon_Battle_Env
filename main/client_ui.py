@@ -6,6 +6,7 @@ from PyQt5.QtNetwork import QTcpSocket
 
 from lib.functions import move_to_key, pkm_to_key
 from main.login_diag import LoginDialog
+from main.team_selection import TeamSelectionDialog
 
 path = getattr(sys, '_MEIPASS',  os.path.dirname(os.path.abspath(__file__)))
 if 'MEI' not in path:
@@ -17,7 +18,7 @@ pkm_path = path + 'pkm/'
 icon_path = path + 'icon/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox
+from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox, QDialog
 from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve
 
 from data.moves import Moves
@@ -45,6 +46,13 @@ class Client_UI(QWidget):
                     return
             else:
                 return
+            team_dlg = TeamSelectionDialog(self)
+            if team_dlg.exec_() != QDialog.Accepted:
+                return
+            choice = team_dlg.get_choice()
+            if choice is None:
+                return
+            self.client.set_pending_team_choice(choice)
             self.client.connect_to_server(host, port, username, password)
             self.connect_button.setText("Disconnect")
         else:
@@ -175,6 +183,18 @@ class Client_UI(QWidget):
         self.client.signals.status_updated.connect(self.update_status)
 
         self.init_ui()
+
+        if not self.online:
+            while True:
+                team_dlg = TeamSelectionDialog(self)
+                if team_dlg.exec_() != QDialog.Accepted:
+                    QMessageBox.information(self, '队伍', '请选择队伍后再进行对战（取消将重新打开本窗口）')
+                    continue
+                choice = team_dlg.get_choice()
+                if choice is None:
+                    continue
+                self.client.apply_team_choice_to_player(choice)
+                break
 
     def init_ui(self):
         self.setFixedSize(1130, 720)

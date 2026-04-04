@@ -25,6 +25,7 @@ class Client(QObject):
 
         # offline
         self.game = None
+        self.team_wire_payload = 'RANDOM'
 
         # online
         self.socket = QTcpSocket(self)
@@ -44,8 +45,8 @@ class Client(QObject):
 
     def on_connected(self):
         self.socket.setSocketOption(QAbstractSocket.ReceiveBufferSizeSocketOption, 65536)
-       # msg_key_id = f'${self.key_id}'
-        msg_key_id = f'${self.username}${self.password}'
+        tw = getattr(self, 'team_wire_payload', None) or 'RANDOM'
+        msg_key_id = f'${self.username}${self.password}|TEAM|{tw}'
         self.send_message(msg_key_id)
 
 
@@ -77,6 +78,19 @@ class Client(QObject):
     # used in local mode
     def set_game(self,game):
         self.game = game
+
+    def set_pending_team_choice(self, choice):
+        if choice is None:
+            self.team_wire_payload = 'RANDOM'
+        else:
+            self.team_wire_payload = choice.to_wire()
+
+    def apply_team_choice_to_player(self, choice):
+        if self.game is None or self.uid >= len(self.game.players):
+            return
+        pl = self.game.players[self.uid]
+        if hasattr(pl, 'apply_team_choice'):
+            pl.apply_team_choice(choice)
 
     # used in local mode
     # receive message from server, flush ui state or add log(or both)
@@ -110,15 +124,12 @@ def run_client_test():
 def run_client_1p():
     app = QApplication(sys.argv)
     game = Game(mode='1p')
-    game.start()
-    # add client0
     client0 = Client(0)
-    # add client1
     client1 = Client(1)
-    ui1 = Client_UI(client1,1)
-
     game.set_client(client0)
     game.set_client(client1)
+    game.start()
+    ui1 = Client_UI(client1, 1)
     game.ui_init(1)
 
     app.exec_()
@@ -127,16 +138,13 @@ def run_client_1p():
 def run_client_2p():
     app = QApplication(sys.argv)
     game = Game(mode='2p')
-    game.start()
-    # add client0
     client0 = Client(0)
-    ui0 = Client_UI(client0,0)
-    # add client1
     client1 = Client(1)
-    ui1 = Client_UI(client1,1)
-
     game.set_client(client0)
     game.set_client(client1)
+    game.start()
+    ui0 = Client_UI(client0, 0)
+    ui1 = Client_UI(client1, 1)
     game.ui_init(0)
     game.ui_init(1)
 

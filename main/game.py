@@ -222,6 +222,8 @@ class Game:
         for game_id in range(self.game_nums):
             print('Game', game_id)
             for player in self.players:
+                player.wait_team_config_if_needed()
+            for player in self.players:
                 player.set_team()
             self.log.reset(self.players)
             self.log_text = ''

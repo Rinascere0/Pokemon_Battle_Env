@@ -1,7 +1,7 @@
 import copy
 import random
 import time
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from data.moves import Moves
 
 from lib.const import *
@@ -13,7 +13,7 @@ Common, Mega, Z_Move = range(3)
 
 test_team = 0
 
-class Player:
+class Player(ABC):
     def __init__(self):
         self.pkms = []
         self.pivot = -1
@@ -26,6 +26,11 @@ class Player:
         self.env = None
         self.mega = [0 for _ in range(6)]
         self.zmove = [[0 for _ in range(4)] for _ in range(6)]
+        self._team_configured = True
+
+    def wait_team_config_if_needed(self):
+        while not self._team_configured:
+            time.sleep(0.05)
 
     def load_team(self, team):
         self.pkms = team
