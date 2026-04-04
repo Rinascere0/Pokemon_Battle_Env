@@ -19,7 +19,281 @@ icon_path = path + 'icon/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox, QDialog
-from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve
+from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve, QSize
+
+
+def _ui_font_family():
+    f = QFont()
+    fam = f.family()
+    if fam and fam.lower() not in ('ms shell dlg 2', 'fixedsys'):
+        return fam
+    return "Segoe UI"
+
+
+def _accent_font_stack_qss():
+    """Display font for round badge / switch title — slightly more character than default UI."""
+    return '"Bahnschrift", "Trebuchet MS", "Candara", "Segoe UI", sans-serif'
+
+
+def _accent_font_pointsize(pt):
+    f = QFont("Bahnschrift", pt)
+    if not f.exactMatch():
+        f = QFont("Trebuchet MS", pt)
+    if not f.exactMatch():
+        f = QFont("Segoe UI", pt)
+    return f
+
+
+def _pivot_gender_symbol(gender):
+    if gender == "M":
+        return "\u2642"
+    if gender == "F":
+        return "\u2640"
+    return ""
+
+
+def _pivot_field_caption(pkm):
+    name = pkm.get("name") or ""
+    sym = _pivot_gender_symbol(pkm.get("gender"))
+    lv = pkm.get("lv")
+    parts = [name]
+    if sym:
+        parts.append(sym)
+    if lv is not None and lv != "":
+        parts.append(f"Lv.{lv}")
+    return " ".join(parts)
+
+
+def _move_btn_text_color(rgb_csv):
+    r, g, b = (int(x.strip()) for x in rgb_csv.split(","))
+    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return "#0e1118" if lum > 155 else "#f4f6fc"
+
+
+def _qss_move_idle():
+    ff = _ui_font_family()
+    return (
+        "QPushButton {"
+        f"font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;"
+        f"font-size: 11pt;"
+        "background-color: rgba(52, 56, 72, 0.92);"
+        "color: rgba(230, 233, 245, 0.28);"
+        "border: 1px solid rgba(255, 255, 255, 0.09);"
+        "border-radius: 12px;"
+        "padding: 10px 12px;"
+        "}"
+        "QPushButton:disabled {"
+        "background-color: rgba(44, 47, 60, 0.85);"
+        "color: rgba(230, 233, 245, 0.22);"
+        "border: 1px solid rgba(255, 255, 255, 0.06);"
+        "}"
+    )
+
+
+def _qss_move_typed(rgb_csv, alpha=195):
+    fg = _move_btn_text_color(rgb_csv)
+    return (
+        "QPushButton {"
+        f"font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;"
+        f"font-size: 11pt;"
+        f"font-weight: 600;"
+        f"background-color: rgba({rgb_csv}, {alpha});"
+        f"color: {fg};"
+        "border: 1px solid rgba(0, 0, 0, 0.22);"
+        "border-radius: 12px;"
+        "padding: 10px 12px;"
+        "}"
+        "QPushButton:hover:enabled {"
+        "border: 1px solid rgba(255, 255, 255, 0.42);"
+        "}"
+        "QPushButton:disabled {"
+        "background-color: rgba(44, 47, 60, 0.88);"
+        "color: rgba(230, 233, 245, 0.3);"
+        "border: 1px solid rgba(255, 255, 255, 0.06);"
+        "}"
+    )
+
+
+def _qss_switch_slot(hp_rgb_csv):
+    return (
+        "QPushButton {"
+        f"font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;"
+        f"font-size: 10pt;"
+        "background-color: rgba(40, 43, 56, 0.96);"
+        f"color: rgb({hp_rgb_csv});"
+        "border: 1px solid rgba(255, 255, 255, 0.11);"
+        "border-radius: 10px;"
+        "padding: 7px 10px 7px 14px;"
+        "text-align: left;"
+        "}"
+        "QPushButton:hover:enabled {"
+        "background-color: rgba(52, 56, 72, 0.98);"
+        "border: 1px solid rgba(120, 160, 255, 0.35);"
+        "}"
+        "QPushButton:disabled {"
+        "background-color: rgba(34, 36, 46, 0.92);"
+        "color: rgba(180, 186, 202, 0.45);"
+        "border: 1px solid rgba(255, 255, 255, 0.05);"
+        "}"
+    )
+
+
+def _hp_track_style_active():
+    return (
+        "QLabel {"
+        "background-color: rgba(252, 252, 255, 0.94);"
+        "border: 1px solid rgba(20, 24, 40, 0.22);"
+        "border-radius: 5px;"
+        "}"
+    )
+
+
+def _hp_pct_overlay_style():
+    return (
+        "QLabel {"
+        "background-color: transparent;"
+        "color: #0d101a;"
+        "font-weight: 800;"
+        "border: none;"
+        "}"
+    )
+
+
+def _main_window_stylesheet():
+    ff = _ui_font_family()
+    return f"""
+    QWidget#ClientRoot {{
+        background-color: #1f2230;
+    }}
+    QTextEdit#BattleLog {{
+        background-color: #161822;
+        color: #d8dce8;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 10px;
+        font-family: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+        font-size: 10pt;
+        selection-background-color: #3d4f7a;
+    }}
+    QLabel#FieldBackdrop {{
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }}
+    QLabel#RoundBadge {{
+        color: #f2f5ff;
+        font-family: {_accent_font_stack_qss()};
+        font-size: 16pt;
+        font-weight: 600;
+        font-style: italic;
+        letter-spacing: 0.03em;
+        background-color: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        padding: 8px 14px;
+    }}
+    QLabel#SideVignette {{
+        background-color: rgba(0, 0, 0, 0.42);
+        border: none;
+    }}
+    QLabel#SwitchTitle {{
+        color: rgba(236, 240, 255, 0.88);
+        font-family: {_accent_font_stack_qss()};
+        font-size: 13pt;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+    }}
+    QLabel#FieldPkmCaption {{
+        color: #f4f6ff;
+        font-family: {_accent_font_stack_qss()};
+        font-size: 9pt;
+        font-weight: 600;
+        background-color: rgba(10, 12, 22, 0.58);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 5px;
+        padding: 2px 6px;
+    }}
+    QLabel#PkmThumb {{
+        background-color: rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+    }}
+    QPushButton#ConnectBtn {{
+        font-family: "{ff}";
+        font-size: 10pt;
+        font-weight: 600;
+        min-width: 108px;
+        min-height: 32px;
+        color: #f0f4ff;
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #4a6cf0, stop:1 #3558d6);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 9px;
+        padding: 6px 14px;
+    }}
+    QPushButton#ConnectBtn:hover {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #5a7aff, stop:1 #4568e8);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+    }}
+    QPushButton#ConnectBtn:pressed {{
+        background: #2f4cb8;
+    }}
+    QPushButton#SurrenderBtn {{
+        font-family: "{ff}";
+        font-size: 10pt;
+        font-weight: 600;
+        color: #ffd0d0;
+        background-color: rgba(180, 60, 70, 0.35);
+        border: 1px solid rgba(255, 120, 130, 0.45);
+        border-radius: 9px;
+        padding: 6px 14px;
+    }}
+    QPushButton#SurrenderBtn:hover {{
+        background-color: rgba(200, 70, 82, 0.5);
+        border: 1px solid rgba(255, 150, 160, 0.55);
+    }}
+    QPushButton#SurrenderBtn:pressed {{
+        background-color: rgba(160, 50, 60, 0.55);
+    }}
+    QPushButton#SurrenderBtn:disabled {{
+        color: rgba(255, 200, 200, 0.35);
+        background-color: rgba(80, 45, 50, 0.35);
+        border: 1px solid rgba(255, 100, 110, 0.15);
+    }}
+    QCheckBox {{
+        font-family: "{ff}";
+        font-size: 10pt;
+        color: rgba(230, 233, 245, 0.9);
+        spacing: 8px;
+    }}
+    QCheckBox::indicator {{
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background-color: rgba(40, 43, 56, 0.95);
+    }}
+    QCheckBox::indicator:checked {{
+        background-color: #4a6cf0;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+    }}
+    QCheckBox::indicator:hover {{
+        border: 1px solid rgba(120, 160, 255, 0.55);
+    }}
+    QCheckBox::indicator:disabled {{
+        background-color: rgba(34, 36, 46, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }}
+    QToolTip {{
+        color: #1a1c26;
+        background-color: #f2f4fa;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-family: "{ff}";
+        font-size: 9pt;
+    }}
+    """
 
 from data.moves import Moves
 from lib.const import *
@@ -91,11 +365,13 @@ class Client_UI(QWidget):
         for move in self.moves:
             move.setText('')
             move.setEnabled(False)
+            move.setStyleSheet(_qss_move_idle())
 
         for sw in self.pkm_switch:
             sw.setText('')
             sw.setEnabled(False)
             sw.setIcon(QIcon())
+            sw.setStyleSheet(_qss_switch_slot("145,153,161"))
 
         for mini in self.mypkm_mini:
             mini.setPixmap(QPixmap())
@@ -111,14 +387,20 @@ class Client_UI(QWidget):
         self.foePivot.setMovie(QMovie(''))
 
         self.myPivotMaxHP.setText('')
+        self.myPivotPct.setText('')
+        self.myPivotCaption.setText('')
         self.myPivot.setToolTip('')
         self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.myPivotPct.setStyleSheet("background-color: transparent; border: none;")
 
         self.foePivot.setToolTip('')
         self.foePivotMaxHP.setText('')
+        self.foePivotPct.setText('')
+        self.foePivotCaption.setText('')
         self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.foePivotPct.setStyleSheet("background-color: transparent; border: none;")
 
         self._stop_hp_anim('my')
         self._stop_hp_anim('foe')
@@ -216,20 +498,24 @@ class Client_UI(QWidget):
                 break
 
     def init_ui(self):
+        self.setObjectName("ClientRoot")
         self.setFixedSize(1130, 720)
         self.move(300, 300)
         self.setWindowTitle('Pokémon Battle Env')
         self.setWindowIcon(QIcon(path+'avatar.png'))
+        self.setStyleSheet(_main_window_stylesheet())
+
         self.connect_button = QPushButton(self)
+        self.connect_button.setObjectName("ConnectBtn")
         self.connect_button.setText('Connect')
         self.connect_button.clicked.connect(self.toggle_connection)
-        self.connect_button.move(50, 585)
+        self.connect_button.move(42, 582)
         self.connect_button.setVisible(self.online)
 
         self.surrender_button = QPushButton(self)
+        self.surrender_button.setObjectName("SurrenderBtn")
         self.surrender_button.setText('Surrender')
-        self.surrender_button.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.surrender_button.setGeometry(460, 578, 88, 28)
+        self.surrender_button.setGeometry(452, 586, 100, 34)
         self.surrender_button.clicked.connect(self.on_surrender_clicked)
 
         # pkm_infos
@@ -238,96 +524,120 @@ class Client_UI(QWidget):
 
         # field
         self.bg = QLabel(self)
+        self.bg.setObjectName("FieldBackdrop")
         self.bg.setGeometry(0, 0, 600, 370)
         self.bg.setPixmap(QPixmap(path + 'bg.png'))
         self.bg.setScaledContents(True)
 
         self.log = QTextEdit(self)
+        self.log.setObjectName("BattleLog")
         self.log.setReadOnly(True)
-        self.log.setGeometry(580, 0, 550, 600)
-        self.log.setFont(QFont("Consolas", 10, 30))
+        self.log.setGeometry(612, 12, 506, 576)
+        self.log.setFont(QFont("Cascadia Mono", 10))
+        if not self.log.font().exactMatch():
+            self.log.setFont(QFont("Consolas", 10))
 
         self.myPivot = QLabel(self)
         self.myPivot.setGeometry(100, 130, 250, 250)
         self.myPivot.setMovie(QMovie())
 
+        self.myPivotCaption = QLabel(self)
+        self.myPivotCaption.setObjectName("FieldPkmCaption")
+        self.myPivotCaption.setGeometry(90, 160, 150, 18)
+        self.myPivotCaption.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.myPivotCaption.setFont(_accent_font_pointsize(9))
+
         self.myPivotMaxHP = QLabel(self)
-        self.myPivotMaxHP.setGeometry(90, 180, 150, 15)
-        self.myPivotMaxHP.setFrameShape(QtWidgets.QFrame.Box)
-        self.myPivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.myPivotMaxHP.setGeometry(90, 180, 150, 16)
+        self.myPivotMaxHP.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.myPivotMaxHP.setStyleSheet(
-            "border-width: 2px;border-style: solid;border-color: rgb(255,255,255,0);background-color:rgb(255,255,255,0)")
-        self.myPivotMaxHP.setFont(QFont("Microsoft YaHei", 8, 75))
-        self.myPivotMaxHP.setAlignment(Qt.AlignCenter)
+            "background-color: transparent; border: none; border-radius: 5px;")
 
         self.myPivotHP = QLabel(self)
         self.myPivotHP.setGeometry(90, 180, 150, 15)
+
+        self.myPivotPct = QLabel(self)
+        self.myPivotPct.setGeometry(90, 180, 150, 16)
+        self.myPivotPct.setFont(QFont(_ui_font_family(), 8, QFont.Black))
+        self.myPivotPct.setAlignment(Qt.AlignCenter)
+        self.myPivotPct.setStyleSheet(_hp_pct_overlay_style())
+        self.myPivotPct.setAttribute(Qt.WA_TransparentForMouseEvents)
 
         self.foePivot = QLabel(self)
         self.foePivot.setGeometry(370, 10, 250, 250)
         self.foePivot.setMovie(QMovie())
 
+        self.foePivotCaption = QLabel(self)
+        self.foePivotCaption.setObjectName("FieldPkmCaption")
+        self.foePivotCaption.setGeometry(350, 40, 150, 18)
+        self.foePivotCaption.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.foePivotCaption.setFont(_accent_font_pointsize(9))
+
         self.foePivotMaxHP = QLabel(self)
-        self.foePivotMaxHP.setGeometry(350, 60, 150, 15)
-        self.foePivotMaxHP.setFrameShape(QtWidgets.QFrame.Box)
-        self.foePivotMaxHP.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.foePivotMaxHP.setGeometry(350, 60, 150, 16)
+        self.foePivotMaxHP.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.foePivotMaxHP.setStyleSheet(
-            "border-width: 2px;border-style: solid;border-color:rgb(255,255,255,0);background-color:rgb(255,255,255,0)")
-        self.foePivotMaxHP.setFont(QFont("Microsoft YaHei", 8, 75))
-        self.foePivotMaxHP.setAlignment(Qt.AlignCenter)
+            "background-color: transparent; border: none; border-radius: 5px;")
 
         self.foePivotHP = QLabel(self)
         self.foePivotHP.setGeometry(350, 60, 150, 15)
 
+        self.foePivotPct = QLabel(self)
+        self.foePivotPct.setGeometry(350, 60, 150, 16)
+        self.foePivotPct.setFont(QFont(_ui_font_family(), 8, QFont.Black))
+        self.foePivotPct.setAlignment(Qt.AlignCenter)
+        self.foePivotPct.setStyleSheet(_hp_pct_overlay_style())
+        self.foePivotPct.setAttribute(Qt.WA_TransparentForMouseEvents)
+
         # round info
         self.round_label = QLabel(self)
-        self.round_label.setGeometry(85, 15, 120, 50)
-        self.round_label.setStyleSheet("QLabel{color:rgb(255,228,181,200)}QToolTip{color:black}")
-        self.round_label.setFont(QFont("Consolas", 15, 75))
+        self.round_label.setObjectName("RoundBadge")
+        self.round_label.setGeometry(72, 12, 200, 48)
+        self.round_label.setAlignment(Qt.AlignCenter)
 
         self.left_margin = QLabel(self)
-        self.left_margin.setStyleSheet("background-color:rgb(0,0,0,50)")
+        self.left_margin.setObjectName("SideVignette")
         self.left_margin.setGeometry(0, 0, 60, 370)
 
         self.right_margin = QLabel(self)
-        self.right_margin.setStyleSheet("background-color:rgb(0,0,0,50)")
+        self.right_margin.setObjectName("SideVignette")
         self.right_margin.setGeometry(520, 0, 60, 370)
 
         self.mypkm_mini = [QLabel(self) for _ in range(6)]
         for i, label in enumerate(self.mypkm_mini):
+            label.setObjectName("PkmThumb")
             label.setGeometry(10, 60 + 50 * i, 45, 45)
 
         self.foepkm_mini = [QLabel(self) for _ in range(6)]
         for i, label in enumerate(self.foepkm_mini):
+            label.setObjectName("PkmThumb")
             label.setGeometry(530, 50 * i, 45, 45)
 
         # move button
         self.moves = [QPushButton(self) for _ in range(4)]
-        for i, move in enumerate(self.moves):
-            move.setFont(QFont("Consolas", 11, 30))
+        for move in self.moves:
+            move.setStyleSheet(_qss_move_idle())
 
-        self.moves[0].setGeometry(50, 390, 200, 80)
-        self.moves[1].setGeometry(320, 390, 200, 80)
-        self.moves[2].setGeometry(50, 490, 200, 80)
-        self.moves[3].setGeometry(320, 490, 200, 80)
+        self.moves[0].setGeometry(44, 388, 208, 84)
+        self.moves[1].setGeometry(316, 388, 208, 84)
+        self.moves[2].setGeometry(44, 486, 208, 84)
+        self.moves[3].setGeometry(316, 486, 208, 84)
 
         self.mega = QCheckBox('Mega', self)
-        self.mega.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.mega.move(200, 585)
+        self.mega.move(158, 590)
 
         self.z_move = QCheckBox('Z-Move', self)
-        self.z_move.setFont(QFont("Microsoft YaHei", 10, 30))
-        self.z_move.move(360, 585)
+        self.z_move.move(298, 590)
         self.z_move.clicked.connect(self.set_zable_move)
 
-        self.label = QLabel('Switch', self)
-        self.label.setGeometry(18, 635, 100, 50)
-        self.label.setFont(QFont("Tahoma", 14, 75))
+        self.label = QLabel('SWITCH', self)
+        self.label.setObjectName("SwitchTitle")
+        self.label.setGeometry(18, 636, 96, 44)
 
         self.pkm_switch = [QPushButton(self) for _ in range(6)]
         for i, pkm in enumerate(self.pkm_switch):
-            pkm.setFont(QFont("Consolas", 10, 30))
-            pkm.setGeometry(113 + 170 * i, 633, 150, 60)
+            pkm.setGeometry(108 + 168 * i, 632, 156, 62)
+            pkm.setIconSize(QSize(38, 38))
 
         # connect
         self.moves[0].clicked.connect(lambda: self.send_action(self.gen_action_type(), 0))
@@ -368,16 +678,22 @@ class Client_UI(QWidget):
             return 255, 255, 0
         return 255, 0, 0
 
-    def _hp_apply_bar(self, max_HP_bar, HP_bar, hp_perc, r, g, b, update_pct_label=True):
+    def _hp_apply_bar(self, side, max_HP_bar, HP_bar, hp_perc, r, g, b, update_pct_label=True):
         w = max(0.0, min(1.0, hp_perc)) * 150
-        HP_bar.setStyleSheet(f"background-color:rgba({r},{g},{b},150)")
+        HP_bar.setStyleSheet(
+            f"background-color:rgba({r},{g},{b},220); border-radius: 4px;"
+            "border: 1px solid rgba(0,0,0,0.12);"
+        )
         HP_bar.setGeometry(HP_bar.x(), HP_bar.y(), int(round(w)), 15)
         if not update_pct_label:
             return
+        pct = self.myPivotPct if side == "my" else self.foePivotPct
         if hp_perc > 0:
-            max_HP_bar.setText(str(round(hp_perc * 100, 2)) + '%')
+            pct.setText(str(round(hp_perc * 100, 2)) + "%")
+            pct.setStyleSheet(_hp_pct_overlay_style())
+            pct.raise_()
         else:
-            max_HP_bar.setText('')
+            pct.setText("")
 
     def _stop_hp_anim(self, side, flush_label_pair=None):
         """Stops running HP animation. If flush_label_pair (max_bar, hp_bar) is given,
@@ -397,19 +713,22 @@ class Client_UI(QWidget):
             anim.deleteLater()
             setattr(self, anim_attr, None)
         if flush_label_pair is not None:
-            max_hp_bar, hp_bar = flush_label_pair
+            max_hp_bar, hp_bar, side = flush_label_pair
             p = max(0.0, min(1.0, float(getattr(self, disp_attr))))
             r, g, b = self._hp_zone_rgb(p)
-            self._hp_apply_bar(max_hp_bar, hp_bar, p, r, g, b, update_pct_label=True)
+            self._hp_apply_bar(side, max_hp_bar, hp_bar, p, r, g, b, update_pct_label=True)
 
     def _finish_my_ko_hp_anim(self):
         self._stop_hp_anim('my')
         self._my_hp_display_perc = 0.0
         self.chg_pivot_signal.emit(True, 'none')
         self.myPivotMaxHP.setText('')
+        self.myPivotPct.setText('')
+        self.myPivotCaption.setText('')
         self.myPivot.setToolTip('')
         self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.myPivotPct.setStyleSheet("background-color: transparent; border: none;")
         self._my_ko_cleared = True
 
     def _finish_foe_ko_hp_anim(self):
@@ -418,8 +737,11 @@ class Client_UI(QWidget):
         self.chg_pivot_signal.emit(False, 'none')
         self.foePivot.setToolTip('')
         self.foePivotMaxHP.setText('')
+        self.foePivotPct.setText('')
+        self.foePivotCaption.setText('')
         self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.foePivotPct.setStyleSheet("background-color: transparent; border: none;")
         self._foe_ko_cleared = True
 
     def _update_pivot_hp_bar(self, side, max_HP_bar, HP_bar, target_perc, identity_changed,
@@ -431,10 +753,10 @@ class Client_UI(QWidget):
             self._stop_hp_anim(side)
             setattr(self, disp_attr, target_perc)
             r, g, b = self._hp_zone_rgb(target_perc)
-            self._hp_apply_bar(max_HP_bar, HP_bar, target_perc, r, g, b, update_pct_label=True)
+            self._hp_apply_bar(side, max_HP_bar, HP_bar, target_perc, r, g, b, update_pct_label=True)
             return
 
-        self._stop_hp_anim(side, (max_HP_bar, HP_bar))
+        self._stop_hp_anim(side, (max_HP_bar, HP_bar, side))
         start_perc = getattr(self, disp_attr)
         if abs(start_perc - target_perc) < 1e-6:
             if zero_finish_callback is not None and target_perc <= 1e-9:
@@ -446,7 +768,7 @@ class Client_UI(QWidget):
         span = target_perc - start_perc
         if abs(span) < 1e-9:
             setattr(self, disp_attr, target_perc)
-            self._hp_apply_bar(max_HP_bar, HP_bar, target_perc, r1, g1, b1, update_pct_label=True)
+            self._hp_apply_bar(side, max_HP_bar, HP_bar, target_perc, r1, g1, b1, update_pct_label=True)
             if zero_finish_callback is not None and target_perc <= 1e-9:
                 zero_finish_callback()
             return
@@ -465,14 +787,14 @@ class Client_UI(QWidget):
             r = int(round(r0 + (r1 - r0) * t))
             g = int(round(g0 + (g1 - g0) * t))
             b = int(round(b0 + (b1 - b0) * t))
-            self._hp_apply_bar(max_HP_bar, HP_bar, p, r, g, b, update_pct_label=False)
+            self._hp_apply_bar(side, max_HP_bar, HP_bar, p, r, g, b, update_pct_label=False)
             setattr(self, disp_attr, p)
 
         def on_finished():
             setattr(self, anim_attr, None)
             setattr(self, disp_attr, target_perc)
             r, g, b = self._hp_zone_rgb(target_perc)
-            self._hp_apply_bar(max_HP_bar, HP_bar, target_perc, r, g, b, update_pct_label=True)
+            self._hp_apply_bar(side, max_HP_bar, HP_bar, target_perc, r, g, b, update_pct_label=True)
             if zero_finish_callback is not None and target_perc <= 1e-9:
                 zero_finish_callback()
             anim.deleteLater()
@@ -579,7 +901,8 @@ class Client_UI(QWidget):
                 self.chg_pivot_signal.emit(True, pivot['name'])
 
             self.myPivot.setToolTip(self.pkm_to_tip(pivot))
-            self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
+            self.myPivotCaption.setText(_pivot_field_caption(pivot))
+            self.myPivotMaxHP.setStyleSheet(_hp_track_style_active())
 
             if my_alive_ok:
                 self._update_pivot_hp_bar(
@@ -598,9 +921,12 @@ class Client_UI(QWidget):
             self.z_mask = [False for _ in range(4)]
             self.chg_pivot_signal.emit(True, 'none')
             self.myPivotMaxHP.setText('')
+            self.myPivotPct.setText('')
+            self.myPivotCaption.setText('')
             self.myPivot.setToolTip('')
             self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+            self.myPivotPct.setStyleSheet("background-color: transparent; border: none;")
 
         self._last_my_hp_field_key = my_field_key
         self._prev_my_field_key = my_field_key
@@ -634,7 +960,8 @@ class Client_UI(QWidget):
             else:
                 self.chg_pivot_signal.emit(False, foe_pivot['name'])
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
-            self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
+            self.foePivotCaption.setText(_pivot_field_caption(foe_pivot))
+            self.foePivotMaxHP.setStyleSheet(_hp_track_style_active())
 
             if foe_alive_ok:
                 self._update_pivot_hp_bar(
@@ -653,8 +980,11 @@ class Client_UI(QWidget):
             self.chg_pivot_signal.emit(False, 'none')
             self.foePivot.setToolTip('')
             self.foePivotMaxHP.setText('')
+            self.foePivotPct.setText('')
+            self.foePivotCaption.setText('')
             self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+            self.foePivotPct.setStyleSheet("background-color: transparent; border: none;")
 
         self._last_foe_hp_field_key = foe_field_key
         self._prev_foe_field_key = foe_field_key
@@ -671,12 +1001,13 @@ class Client_UI(QWidget):
             if game_over or action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_alive:
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
+                self.moves[i].setStyleSheet(_qss_move_idle())
             else:
                 move_info = Moves[move_to_key(move['name'])]
                 attr_key = move_info['type'].lower()
                 self.moves[i].setText(move['name'] + '\n' + str(move['pp']) + '/' + str(move['maxpp']))
                 self.moves[i].setToolTip(move_to_tip(move_info))
-                self.moves[i].setStyleSheet("background-color:rgb(" + Color[attr_key] + ',120)')
+                self.moves[i].setStyleSheet(_qss_move_typed(Color[attr_key]))
                 if action_required is not None:
                     self.moves[i].setEnabled(move_mask[i])
 
@@ -701,9 +1032,7 @@ class Client_UI(QWidget):
                 hp_color = '255,0,0'
             else:
                 hp_color = '145,153,161'
-            # seems not displaying well
-            # pkm_switch.setStyleSheet("background-color:rgb(" + hp_color + ',50)')
-            pkm_switch.setStyleSheet("QPushButton{color:rgb(" + hp_color + ',250);}')
+            pkm_switch.setStyleSheet(_qss_switch_slot(hp_color))
             pkm_switch.setIcon(QIcon(icon_path + pkm_to_key(pkm['name']) + '.png'))
 
         if my_pivot_alive and not game_over:
