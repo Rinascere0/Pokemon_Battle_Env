@@ -18,7 +18,7 @@ icon_path = path + 'icon/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox
-from PyQt5.QtCore import pyqtSignal, QRect, Qt
+from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve
 
 from data.moves import Moves
 from lib.const import *
@@ -94,6 +94,17 @@ class Client_UI(QWidget):
         self.foePivotMaxHP.setText('')
         self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+
+        self._stop_hp_anim('my')
+        self._stop_hp_anim('foe')
+        self._prev_my_field_key = None
+        self._prev_my_field_alive = False
+        self._prev_foe_field_key = None
+        self._prev_foe_field_alive = False
+        self._my_ko_cleared = True
+        self._foe_ko_cleared = True
+        self._last_my_hp_field_key = None
+        self._last_foe_hp_field_key = None
 
     def onDisconnect(self):
         self.flush_ui()
@@ -289,8 +300,142 @@ class Client_UI(QWidget):
         self.add_signal.connect(lambda x: self.add_log(x))
         self.chg_pivot_signal.connect(lambda x, y: self.change_movie(x, y))
 
+        self._hp_anim_my = None
+        self._hp_anim_foe = None
+        self._prev_my_field_key = None
+        self._prev_my_field_alive = False
+        self._prev_foe_field_key = None
+        self._prev_foe_field_alive = False
+        self._my_ko_cleared = True
+        self._foe_ko_cleared = True
+        self._last_my_hp_field_key = None
+        self._last_foe_hp_field_key = None
+        self._my_hp_display_perc = 1.0
+        self._foe_hp_display_perc = 1.0
+
         self.disable_buttons()
         self.show()
+
+    def _hp_zone_rgb(self, hp_perc):
+        if hp_perc >= 0.5:
+            return 0, 255, 50
+        if hp_perc >= 0.25:
+            return 255, 255, 0
+        return 255, 0, 0
+
+    def _hp_apply_bar(self, max_HP_bar, HP_bar, hp_perc, r, g, b, update_pct_label=True):
+        w = max(0.0, min(1.0, hp_perc)) * 150
+        HP_bar.setStyleSheet(f"background-color:rgba({r},{g},{b},150)")
+        HP_bar.setGeometry(HP_bar.x(), HP_bar.y(), int(round(w)), 15)
+        if not update_pct_label:
+            return
+        if hp_perc > 0:
+            max_HP_bar.setText(str(round(hp_perc * 100, 2)) + '%')
+        else:
+            max_HP_bar.setText('')
+
+    def _stop_hp_anim(self, side, flush_label_pair=None):
+        """Stops running HP animation. If flush_label_pair (max_bar, hp_bar) is given,
+        syncs display perc from the animation's current frame and updates the % label —
+        so each interrupted tween still gets a label 'finish' before the next one."""
+        disp_attr = '_my_hp_display_perc' if side == 'my' else '_foe_hp_display_perc'
+        anim_attr = '_hp_anim_my' if side == 'my' else '_hp_anim_foe'
+        anim = getattr(self, anim_attr)
+        if anim is not None:
+            cv = anim.currentValue()
+            if cv is not None:
+                try:
+                    setattr(self, disp_attr, max(0.0, min(1.0, float(cv))))
+                except (TypeError, ValueError):
+                    pass
+            anim.stop()
+            anim.deleteLater()
+            setattr(self, anim_attr, None)
+        if flush_label_pair is not None:
+            max_hp_bar, hp_bar = flush_label_pair
+            p = max(0.0, min(1.0, float(getattr(self, disp_attr))))
+            r, g, b = self._hp_zone_rgb(p)
+            self._hp_apply_bar(max_hp_bar, hp_bar, p, r, g, b, update_pct_label=True)
+
+    def _finish_my_ko_hp_anim(self):
+        self._stop_hp_anim('my')
+        self._my_hp_display_perc = 0.0
+        self.chg_pivot_signal.emit(True, 'none')
+        self.myPivotMaxHP.setText('')
+        self.myPivot.setToolTip('')
+        self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self._my_ko_cleared = True
+
+    def _finish_foe_ko_hp_anim(self):
+        self._stop_hp_anim('foe')
+        self._foe_hp_display_perc = 0.0
+        self.chg_pivot_signal.emit(False, 'none')
+        self.foePivot.setToolTip('')
+        self.foePivotMaxHP.setText('')
+        self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
+        self._foe_ko_cleared = True
+
+    def _update_pivot_hp_bar(self, side, max_HP_bar, HP_bar, target_perc, identity_changed,
+                              zero_finish_callback=None):
+        disp_attr = '_my_hp_display_perc' if side == 'my' else '_foe_hp_display_perc'
+        target_perc = max(0.0, min(1.0, float(target_perc)))
+
+        if identity_changed:
+            self._stop_hp_anim(side)
+            setattr(self, disp_attr, target_perc)
+            r, g, b = self._hp_zone_rgb(target_perc)
+            self._hp_apply_bar(max_HP_bar, HP_bar, target_perc, r, g, b, update_pct_label=True)
+            return
+
+        self._stop_hp_anim(side, (max_HP_bar, HP_bar))
+        start_perc = getattr(self, disp_attr)
+        if abs(start_perc - target_perc) < 1e-6:
+            if zero_finish_callback is not None and target_perc <= 1e-9:
+                zero_finish_callback()
+            return
+
+        r0, g0, b0 = self._hp_zone_rgb(start_perc)
+        r1, g1, b1 = self._hp_zone_rgb(target_perc)
+        span = target_perc - start_perc
+        if abs(span) < 1e-9:
+            setattr(self, disp_attr, target_perc)
+            self._hp_apply_bar(max_HP_bar, HP_bar, target_perc, r1, g1, b1, update_pct_label=True)
+            if zero_finish_callback is not None and target_perc <= 1e-9:
+                zero_finish_callback()
+            return
+
+        anim_attr = '_hp_anim_my' if side == 'my' else '_hp_anim_foe'
+        anim = QVariantAnimation(self)
+        anim.setDuration(350)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        anim.setStartValue(start_perc)
+        anim.setEndValue(target_perc)
+
+        def on_value(v):
+            p = float(v)
+            t = (p - start_perc) / span
+            t = max(0.0, min(1.0, t))
+            r = int(round(r0 + (r1 - r0) * t))
+            g = int(round(g0 + (g1 - g0) * t))
+            b = int(round(b0 + (b1 - b0) * t))
+            self._hp_apply_bar(max_HP_bar, HP_bar, p, r, g, b, update_pct_label=False)
+            setattr(self, disp_attr, p)
+
+        def on_finished():
+            setattr(self, anim_attr, None)
+            setattr(self, disp_attr, target_perc)
+            r, g, b = self._hp_zone_rgb(target_perc)
+            self._hp_apply_bar(max_HP_bar, HP_bar, target_perc, r, g, b, update_pct_label=True)
+            if zero_finish_callback is not None and target_perc <= 1e-9:
+                zero_finish_callback()
+            anim.deleteLater()
+
+        anim.valueChanged.connect(on_value)
+        anim.finished.connect(on_finished)
+        anim.start()
+        setattr(self, anim_attr, anim)
 
     def set_zable_move(self):
         if self.z_move.isChecked():
@@ -341,20 +486,6 @@ class Client_UI(QWidget):
         mega_mask = masks['mega']
         z_mask = masks['z']
 
-        def set_HP_bar(max_HP_bar,HP_bar, HP_perc):
-            if HP_perc >= 1 / 2:
-                color = "background-color:rgb(0,255,50,150)"
-            elif HP_perc >= 1 / 4:
-                color = "background-color:rgb(255,255,0,150)"
-            else:
-                color = "background-color:rgb(255,0,0,150)"
-            HP_bar.setStyleSheet(color)
-            HP_bar.setGeometry(HP_bar.x(), HP_bar.y(), HP_perc * 150, 15)
-            if HP_perc>0:
-                max_HP_bar.setText(str(round(HP_perc*100,2))+'%')
-            else:
-                max_HP_bar.setText('')
-
         def move_to_tip(move):
             s = ''
             s += 'Type: ' + move['type'] + '\n'
@@ -368,20 +499,57 @@ class Client_UI(QWidget):
 
         # show pivots
         pivot = my_pkms[my_team['pivot']]
-        my_pivot_exist = my_team['pivot'] != -1 and pivot['alive']
-        if my_pivot_exist:
-            self.z_mask = z_mask
-            self.move_mask = move_mask
+        my_idx = my_team['pivot']
+        my_field_key = (my_idx, pivot['name']) if my_idx != -1 else None
+        my_alive_ok = bool(my_field_key and pivot['alive'])
+        if my_field_key != self._prev_my_field_key:
+            self._my_ko_cleared = False
+        my_faint_edge = (
+            my_field_key
+            and not my_alive_ok
+            and self._prev_my_field_alive
+            and self._prev_my_field_key == my_field_key
+        )
+        anim_my_running = self._hp_anim_my is not None
+        show_my_pivot = bool(
+            my_field_key
+            and (
+                my_alive_ok
+                or (not self._my_ko_cleared and (my_faint_edge or anim_my_running))
+            )
+        )
+        my_hp_identity_changed = my_field_key != self._last_my_hp_field_key
+
+        if show_my_pivot:
+            if my_alive_ok:
+                self.z_mask = z_mask
+                self.move_mask = move_mask
+            else:
+                self.z_mask = [False for _ in range(4)]
+                self.move_mask = [False for _ in range(4)]
+
             if pivot['vstatus']['substitute']:
                 self.chg_pivot_signal.emit(True, 'substitute')
             else:
                 self.chg_pivot_signal.emit(True, pivot['name'])
 
             self.myPivot.setToolTip(self.pkm_to_tip(pivot))
-            set_HP_bar(self.myPivotMaxHP, self.myPivotHP, pivot['hp_perc'])
-
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
+
+            if my_alive_ok:
+                self._update_pivot_hp_bar(
+                    'my', self.myPivotMaxHP, self.myPivotHP, pivot['hp_perc'], my_hp_identity_changed
+                )
+            elif my_faint_edge:
+                if self._my_hp_display_perc <= 1e-6:
+                    self._finish_my_ko_hp_anim()
+                else:
+                    self._update_pivot_hp_bar(
+                        'my', self.myPivotMaxHP, self.myPivotHP, 0.0, False,
+                        zero_finish_callback=self._finish_my_ko_hp_anim,
+                    )
         else:
+            self._stop_hp_anim('my')
             self.z_mask = [False for _ in range(4)]
             self.chg_pivot_signal.emit(True, 'none')
             self.myPivotMaxHP.setText('')
@@ -389,27 +557,71 @@ class Client_UI(QWidget):
             self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 
+        self._last_my_hp_field_key = my_field_key
+        self._prev_my_field_key = my_field_key
+        self._prev_my_field_alive = my_alive_ok
+
         foe_pivot = foe_pkms[foe_team['pivot']]
-        foe_pivot_exist = foe_team['pivot'] != -1 and foe_pivot['alive']
-        if foe_pivot_exist:
+        foe_idx = foe_team['pivot']
+        foe_field_key = (foe_idx, foe_pivot['name']) if foe_idx != -1 else None
+        foe_alive_ok = bool(foe_field_key and foe_pivot['alive'])
+        if foe_field_key != self._prev_foe_field_key:
+            self._foe_ko_cleared = False
+        foe_faint_edge = (
+            foe_field_key
+            and not foe_alive_ok
+            and self._prev_foe_field_alive
+            and self._prev_foe_field_key == foe_field_key
+        )
+        anim_foe_running = self._hp_anim_foe is not None
+        show_foe_pivot = bool(
+            foe_field_key
+            and (
+                foe_alive_ok
+                or (not self._foe_ko_cleared and (foe_faint_edge or anim_foe_running))
+            )
+        )
+        foe_hp_identity_changed = foe_field_key != self._last_foe_hp_field_key
+
+        if show_foe_pivot:
             if foe_pivot['vstatus']['substitute']:
                 self.chg_pivot_signal.emit(False, 'substitute')
             else:
                 self.chg_pivot_signal.emit(False, foe_pivot['name'])
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
-            set_HP_bar(self.foePivotMaxHP, self.foePivotHP, foe_pivot['hp_perc'])
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(255,255,255,200)")
+
+            if foe_alive_ok:
+                self._update_pivot_hp_bar(
+                    'foe', self.foePivotMaxHP, self.foePivotHP, foe_pivot['hp_perc'], foe_hp_identity_changed
+                )
+            elif foe_faint_edge:
+                if self._foe_hp_display_perc <= 1e-6:
+                    self._finish_foe_ko_hp_anim()
+                else:
+                    self._update_pivot_hp_bar(
+                        'foe', self.foePivotMaxHP, self.foePivotHP, 0.0, False,
+                        zero_finish_callback=self._finish_foe_ko_hp_anim,
+                    )
         else:
+            self._stop_hp_anim('foe')
             self.chg_pivot_signal.emit(False, 'none')
             self.foePivot.setToolTip('')
             self.foePivotMaxHP.setText('')
             self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
 
+        self._last_foe_hp_field_key = foe_field_key
+        self._prev_foe_field_key = foe_field_key
+        self._prev_foe_field_alive = foe_alive_ok
+
+        my_pivot_alive = my_alive_ok
+        foe_pivot_alive = foe_alive_ok
+
         # show my moves
         for i, move in enumerate(pivot['moves']):
             self.setBold(self.moves[i],False)
-            if action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_exist:
+            if action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_alive:
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
             else:
@@ -422,10 +634,10 @@ class Client_UI(QWidget):
                     self.moves[i].setEnabled(move_mask[i])
 
         self.z_move.setChecked(False)
-        self.z_move.setEnabled(any(z_mask) and my_pivot_exist)
+        self.z_move.setEnabled(any(z_mask) and my_pivot_alive)
 
         self.mega.setChecked(False)
-        self.mega.setEnabled(mega_mask and my_pivot_exist)
+        self.mega.setEnabled(mega_mask and my_pivot_alive)
 
         for pkm_switch, pkm in zip(self.pkm_switch, my_pkms):
             pkm_switch.setEnabled(
@@ -447,7 +659,7 @@ class Client_UI(QWidget):
             pkm_switch.setStyleSheet("QPushButton{color:rgb(" + hp_color + ',250);}')
             pkm_switch.setIcon(QIcon(icon_path + pkm_to_key(pkm['name']) + '.png'))
 
-        if my_pivot_exist:
+        if my_pivot_alive:
             self.pkm_switch[my_team['pivot']].setEnabled(False)
 
         # show my mini teams

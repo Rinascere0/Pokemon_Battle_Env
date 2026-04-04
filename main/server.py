@@ -45,11 +45,12 @@ class Server(QTcpServer):
         # removed socket cuz wrong login
         self.removed_socket = []
         self.online_users = []
-
+        self.get_redis_port = 6380
+        
         # redis
         self.redis_client = redis.Redis(
             host='localhost',
-            port=6379,
+            port=6380,
            # max_connections=100,  # 根据实际情况调整
             decode_responses=True  # 返回字符串而非字节
         )
@@ -353,6 +354,11 @@ class ServerWindow(QMainWindow):
         self.message_display.setReadOnly(True)
         self.layout.addWidget(self.message_display)
 
+        # Redis区域
+        self.redis_input = QLineEdit()
+        self.redis_input.setPlaceholderText("6380")
+        self.layout.addWidget(self.redis_input)
+
         # 输入区域
         self.message_input = QLineEdit()
         self.message_input.setPlaceholderText("输入消息...")
@@ -371,6 +377,7 @@ class ServerWindow(QMainWindow):
 
         # 服务器实例
         self.server = Server()
+        self.server.get_redis_port = self.redis_input.text()
         self.server.signals.new_message.connect(self.update_messages)
         self.server.signals.status_updated.connect(self.update_status)
 
