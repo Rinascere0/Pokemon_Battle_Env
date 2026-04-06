@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import copy
 
 from PyQt5 import QtWidgets
 from PyQt5.QtNetwork import QTcpSocket
@@ -20,7 +21,7 @@ icon_path = path + 'icon/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon, QTextCharFormat
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox, QDialog
-from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve, QSize
+from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve, QSize, QTimer
 
 
 # Lines from log.translate(event=='round') look like "\nRound 3" → split yields "Round 3"
@@ -315,6 +316,28 @@ def _main_window_stylesheet():
         background-color: rgba(45, 65, 58, 0.35);
         border: 1px solid rgba(100, 160, 130, 0.12);
     }}
+    QPushButton#ReplayBtn {{
+        font-family: "{ff}";
+        font-size: 10pt;
+        font-weight: 600;
+        color: #e8ecff;
+        background-color: rgba(90, 110, 200, 0.38);
+        border: 1px solid rgba(150, 170, 255, 0.42);
+        border-radius: 9px;
+        padding: 6px 14px;
+    }}
+    QPushButton#ReplayBtn:hover:enabled {{
+        background-color: rgba(105, 128, 220, 0.5);
+        border: 1px solid rgba(170, 190, 255, 0.55);
+    }}
+    QPushButton#ReplayBtn:pressed {{
+        background-color: rgba(70, 88, 170, 0.52);
+    }}
+    QPushButton#ReplayBtn:disabled {{
+        color: rgba(210, 220, 245, 0.3);
+        background-color: rgba(45, 52, 80, 0.35);
+        border: 1px solid rgba(100, 120, 180, 0.15);
+    }}
     QCheckBox {{
         font-family: "{ff}";
         font-size: 10pt;
@@ -379,13 +402,18 @@ class Client_UI(QWidget):
 
     def on_rematch_clicked(self):
         self.rematch_button.setEnabled(False)
+        self.replay_button.setEnabled(False)
         team_dlg = TeamSelectionDialog(self)
         if team_dlg.exec_() != QDialog.Accepted:
             self.rematch_button.setEnabled(True)
+            if self._replay_snapshots:
+                self.replay_button.setEnabled(True)
             return
         choice = team_dlg.get_choice()
         if choice is None:
             self.rematch_button.setEnabled(True)
+            if self._replay_snapshots:
+                self.replay_button.setEnabled(True)
             return
         self.client.set_pending_team_choice(choice)
         self.client.apply_team_choice_to_player(choice)
@@ -396,47 +424,35 @@ class Client_UI(QWidget):
             self.flush_ui()
             self.client.restart_local_battle()
 
-    def toggle_connection(self):
-        if self.client.socket.state() != QTcpSocket.ConnectedState:
-            dialog = LoginDialog(self)
-            if dialog.exec_():
-                username, password = dialog.get_user_info()
-                if not username:
-                    QMessageBox.warning(self, "警告", "用户名不能为空!")
-                    return
-            else:
-                return
-            team_dlg = TeamSelectionDialog(self)
-            if team_dlg.exec_() != QDialog.Accepted:
-                return
-            choice = team_dlg.get_choice()
-            if choice is None:
-                return
-            self.client.set_pending_team_choice(choice)
-            self.client.connect_to_server(host, port, username, password)
-            self.connect_button.setText("Disconnect")
-        else:
-            self.client.disconnect_from_server()
-            self.connect_button.setText("Connect")
+    def _cancel_replay(self):
+        if getattr(self, '_replay_timer', None) is not None:
+            self._replay_timer.stop()
+            self._replay_timer.deleteLater()
+            self._replay_timer = None
+        self._replay_active = False
+        rb = getattr(self, 'replay_button', None)
+        if rb is not None:
+            rb.setText('Replay')
 
-
-    def disable_buttons(self):
-        for move in self.moves:
-            move.setEnabled(False)
-
-        for sw in self.pkm_switch:
-            sw.setEnabled(False)
-
-        self.z_move.setEnabled(False)
-        self.mega.setEnabled(False)
-
-    def lock_ui_game_over(self):
-        """Disable all battle actions including Surrender (normal win, loss, or surrender)."""
+    def _apply_replay_playback_lock(self):
+        """During replay, force-disable all battle inputs (update() re-enables them by state)."""
         self.disable_buttons()
         self.surrender_button.setEnabled(False)
-        self.rematch_button.setEnabled(True)
+        self.rematch_button.setEnabled(False)
+        self.replay_button.setEnabled(True)
+        self.replay_button.setText('Stop')
 
-    def flush_ui(self):
+    def _replay_user_stop(self):
+        if getattr(self, '_replay_timer', None) is not None:
+            self._replay_timer.stop()
+            self._replay_timer.deleteLater()
+            self._replay_timer = None
+        self._replay_active = False
+        self.replay_button.setText('Replay')
+        self._rebuild_battle_log_from_snapshots()
+        self.lock_ui_game_over()
+
+    def _reset_battle_field_state(self):
         for move in self.moves:
             move.setText('')
             move.setEnabled(False)
@@ -487,9 +503,116 @@ class Client_UI(QWidget):
         self._foe_ko_cleared = True
         self._last_my_hp_field_key = None
         self._last_foe_hp_field_key = None
+        self._my_hp_display_perc = 1.0
+        self._foe_hp_display_perc = 1.0
 
+    def on_replay_clicked(self):
+        if self._replay_active:
+            self._replay_user_stop()
+            return
+        if not self._replay_snapshots:
+            return
+        self._begin_replay()
+
+    def _begin_replay(self):
+        self._cancel_replay()
+        if not self._replay_snapshots:
+            return
+        self._replay_active = True
+        self.replay_button.setText('Stop')
+        self.replay_button.setEnabled(True)
+        self.rematch_button.setEnabled(False)
+        self._reset_battle_field_state()
+        self._replay_index = 0
+        self.log.clear()
+        self._battlelog_round_lines = 0
+        self._replay_step()
+
+    def _rebuild_battle_log_from_snapshots(self):
+        self.log.clear()
+        self._battlelog_round_lines = 0
+        for snap in self._replay_snapshots:
+            line = snap.get('log')
+            if line:
+                self._append_battle_log_line(line)
+        self.log.moveCursor(QTextCursor.End)
+
+    def _replay_step(self):
+        if self._replay_index >= len(self._replay_snapshots):
+            self._replay_finish()
+            return
+        snap = self._replay_snapshots[self._replay_index]
+        self._replay_index += 1
+        line = snap.get('log')
+        if line:
+            self._append_battle_log_line(line)
+            self.log.moveCursor(QTextCursor.End)
+        self.update(snap['state'], snap['action_required'])
+        if self._replay_index < len(self._replay_snapshots):
+            self._replay_timer = QTimer(self)
+            self._replay_timer.setSingleShot(True)
+            self._replay_timer.timeout.connect(self._replay_step)
+            self._replay_timer.start(450)
+        else:
+            self._replay_finish()
+
+    def _replay_finish(self):
+        self._replay_active = False
+        if getattr(self, '_replay_timer', None) is not None:
+            self._replay_timer.stop()
+            self._replay_timer.deleteLater()
+            self._replay_timer = None
+        self.replay_button.setText('Replay')
+        self.lock_ui_game_over()
+
+    def toggle_connection(self):
+        if self.client.socket.state() != QTcpSocket.ConnectedState:
+            dialog = LoginDialog(self)
+            if dialog.exec_():
+                username, password = dialog.get_user_info()
+                if not username:
+                    QMessageBox.warning(self, "警告", "用户名不能为空!")
+                    return
+            else:
+                return
+            team_dlg = TeamSelectionDialog(self)
+            if team_dlg.exec_() != QDialog.Accepted:
+                return
+            choice = team_dlg.get_choice()
+            if choice is None:
+                return
+            self.client.set_pending_team_choice(choice)
+            self.client.connect_to_server(host, port, username, password)
+            self.connect_button.setText("Disconnect")
+        else:
+            self.client.disconnect_from_server()
+            self.connect_button.setText("Connect")
+
+
+    def disable_buttons(self):
+        for move in self.moves:
+            move.setEnabled(False)
+
+        for sw in self.pkm_switch:
+            sw.setEnabled(False)
+
+        self.z_move.setEnabled(False)
+        self.mega.setEnabled(False)
+
+    def lock_ui_game_over(self):
+        """Disable all battle actions including Surrender (normal win, loss, or surrender)."""
+        self.disable_buttons()
+        self.surrender_button.setEnabled(False)
+        self.rematch_button.setEnabled(True)
+        self.replay_button.setEnabled(bool(self._replay_snapshots))
+
+    def flush_ui(self):
+        self._cancel_replay()
+        self._replay_snapshots.clear()
+        self._reset_battle_field_state()
         self.surrender_button.setEnabled(True)
         self.rematch_button.setEnabled(False)
+        self.replay_button.setEnabled(False)
 
     def onDisconnect(self):
         self.flush_ui()
@@ -573,6 +696,11 @@ class Client_UI(QWidget):
 
         self.msg_buf = ''
 
+        self._replay_snapshots = []
+        self._replay_active = False
+        self._replay_index = 0
+        self._replay_timer = None
+
         self.action_required = False
         self.client = client
         self.client.set_ui(self)
@@ -620,6 +748,13 @@ class Client_UI(QWidget):
         self.rematch_button.setGeometry(10, 472, 100, 34)
         self.rematch_button.setEnabled(False)
         self.rematch_button.clicked.connect(self.on_rematch_clicked)
+
+        self.replay_button = QPushButton(self)
+        self.replay_button.setObjectName("ReplayBtn")
+        self.replay_button.setText('Replay')
+        self.replay_button.setGeometry(10, 514, 100, 34)
+        self.replay_button.setEnabled(False)
+        self.replay_button.clicked.connect(self.on_replay_clicked)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -1148,9 +1283,12 @@ class Client_UI(QWidget):
             self.pkm_switch[my_team['pivot']].setEnabled(False)
 
         if game_over:
-            self.lock_ui_game_over()
+            if not self._replay_active:
+                self.lock_ui_game_over()
         else:
-            self.rematch_button.setEnabled(False)
+            if not self._replay_active:
+                self.rematch_button.setEnabled(False)
+                self.replay_button.setEnabled(False)
 
         # show my mini teams
         for i, pkm in enumerate(my_pkms):
@@ -1173,6 +1311,9 @@ class Client_UI(QWidget):
             self.foepkm_mini[i].setPixmap(pixmap)
             self.foepkm_mini[i].setScaledContents(True)
             self.foepkm_mini[i].setToolTip(self.pkm_to_tip(pkm))
+
+        if self._replay_active:
+            self._apply_replay_playback_lock()
 
     # generate pkm info to display as tip
     def pkm_to_tip(self, pkm):
@@ -1324,6 +1465,11 @@ class Client_UI(QWidget):
             with open('log.txt','a') as f:
                 f.write(msg['log']+'\n')
             state, log, action_required = msg['state'],msg['log'], msg['action_required']
+            self._replay_snapshots.append(copy.deepcopy({
+                'state': state,
+                'action_required': action_required,
+                'log': log,
+            }))
             self._append_battle_log_line(log)
 
             self.log.moveCursor(QTextCursor.End)
