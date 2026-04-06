@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 from PyQt5 import QtWidgets
 from PyQt5.QtNetwork import QTcpSocket
@@ -17,9 +18,18 @@ print('path',path)
 pkm_path = path + 'pkm/'
 icon_path = path + 'icon/'
 
-from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon
+from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon, QTextCharFormat
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox, QDialog
 from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve, QSize
+
+
+# Lines from log.translate(event=='round') look like "\nRound 3" → split yields "Round 3"
+_BATTLE_LOG_ROUND_LINE = re.compile(r"^(\s*)(Round \d+)(\s*)$", re.IGNORECASE)
+
+_BATTLE_LOG_HR_HTML = (
+    '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.14);'
+    'margin:10px 0 12px 0;height:0;"/>'
+)
 
 
 def _ui_font_family():
@@ -159,6 +169,41 @@ def _hp_pct_overlay_style():
     )
 
 
+def _field_caption_style_active():
+    return (
+        "QLabel#FieldPkmCaption {"
+        "color: #f4f6ff;"
+        f"font-family: {_accent_font_stack_qss()};"
+        "font-size: 9pt;"
+        "font-weight: 600;"
+        "background-color: rgba(10, 12, 22, 0.58);"
+        "border: 1px solid rgba(255, 255, 255, 0.12);"
+        "border-radius: 5px;"
+        "padding: 2px 6px;"
+        "}"
+    )
+
+
+def _field_caption_style_hidden():
+    return (
+        "QLabel#FieldPkmCaption {"
+        "background: transparent;"
+        "border: none;"
+        "color: transparent;"
+        "padding: 0px;"
+        "}"
+    )
+
+
+def _apply_field_caption_label(label, text):
+    if text and str(text).strip():
+        label.setStyleSheet(_field_caption_style_active())
+        label.setText(str(text).strip())
+    else:
+        label.setStyleSheet(_field_caption_style_hidden())
+        label.setText("")
+
+
 def _main_window_stylesheet():
     ff = _ui_font_family()
     return f"""
@@ -201,16 +246,6 @@ def _main_window_stylesheet():
         font-size: 13pt;
         font-weight: 600;
         letter-spacing: 0.22em;
-    }}
-    QLabel#FieldPkmCaption {{
-        color: #f4f6ff;
-        font-family: {_accent_font_stack_qss()};
-        font-size: 9pt;
-        font-weight: 600;
-        background-color: rgba(10, 12, 22, 0.58);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 5px;
-        padding: 2px 6px;
     }}
     QLabel#PkmThumb {{
         background-color: rgba(0, 0, 0, 0.25);
@@ -388,7 +423,7 @@ class Client_UI(QWidget):
 
         self.myPivotMaxHP.setText('')
         self.myPivotPct.setText('')
-        self.myPivotCaption.setText('')
+        _apply_field_caption_label(self.myPivotCaption, "")
         self.myPivot.setToolTip('')
         self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
@@ -397,7 +432,7 @@ class Client_UI(QWidget):
         self.foePivot.setToolTip('')
         self.foePivotMaxHP.setText('')
         self.foePivotPct.setText('')
-        self.foePivotCaption.setText('')
+        _apply_field_caption_label(self.foePivotCaption, "")
         self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotPct.setStyleSheet("background-color: transparent; border: none;")
@@ -514,7 +549,7 @@ class Client_UI(QWidget):
 
         self.surrender_button = QPushButton(self)
         self.surrender_button.setObjectName("SurrenderBtn")
-        self.surrender_button.setText('Surrender')
+        self.surrender_button.setText('Forfeit')
         self.surrender_button.setGeometry(452, 586, 100, 34)
         self.surrender_button.clicked.connect(self.on_surrender_clicked)
 
@@ -536,6 +571,8 @@ class Client_UI(QWidget):
         self.log.setFont(QFont("Cascadia Mono", 10))
         if not self.log.font().exactMatch():
             self.log.setFont(QFont("Consolas", 10))
+        self.log.setAcceptRichText(True)
+        self._battlelog_round_lines = 0
 
         self.myPivot = QLabel(self)
         self.myPivot.setGeometry(100, 130, 250, 250)
@@ -546,6 +583,7 @@ class Client_UI(QWidget):
         self.myPivotCaption.setGeometry(90, 160, 150, 18)
         self.myPivotCaption.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.myPivotCaption.setFont(_accent_font_pointsize(9))
+        _apply_field_caption_label(self.myPivotCaption, "")
 
         self.myPivotMaxHP = QLabel(self)
         self.myPivotMaxHP.setGeometry(90, 180, 150, 16)
@@ -572,6 +610,7 @@ class Client_UI(QWidget):
         self.foePivotCaption.setGeometry(350, 40, 150, 18)
         self.foePivotCaption.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.foePivotCaption.setFont(_accent_font_pointsize(9))
+        _apply_field_caption_label(self.foePivotCaption, "")
 
         self.foePivotMaxHP = QLabel(self)
         self.foePivotMaxHP.setGeometry(350, 60, 150, 16)
@@ -724,7 +763,7 @@ class Client_UI(QWidget):
         self.chg_pivot_signal.emit(True, 'none')
         self.myPivotMaxHP.setText('')
         self.myPivotPct.setText('')
-        self.myPivotCaption.setText('')
+        _apply_field_caption_label(self.myPivotCaption, "")
         self.myPivot.setToolTip('')
         self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
@@ -738,7 +777,7 @@ class Client_UI(QWidget):
         self.foePivot.setToolTip('')
         self.foePivotMaxHP.setText('')
         self.foePivotPct.setText('')
-        self.foePivotCaption.setText('')
+        _apply_field_caption_label(self.foePivotCaption, "")
         self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
         self.foePivotPct.setStyleSheet("background-color: transparent; border: none;")
@@ -901,7 +940,7 @@ class Client_UI(QWidget):
                 self.chg_pivot_signal.emit(True, pivot['name'])
 
             self.myPivot.setToolTip(self.pkm_to_tip(pivot))
-            self.myPivotCaption.setText(_pivot_field_caption(pivot))
+            _apply_field_caption_label(self.myPivotCaption, _pivot_field_caption(pivot))
             self.myPivotMaxHP.setStyleSheet(_hp_track_style_active())
 
             if my_alive_ok:
@@ -922,7 +961,7 @@ class Client_UI(QWidget):
             self.chg_pivot_signal.emit(True, 'none')
             self.myPivotMaxHP.setText('')
             self.myPivotPct.setText('')
-            self.myPivotCaption.setText('')
+            _apply_field_caption_label(self.myPivotCaption, "")
             self.myPivot.setToolTip('')
             self.myPivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.myPivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
@@ -960,7 +999,7 @@ class Client_UI(QWidget):
             else:
                 self.chg_pivot_signal.emit(False, foe_pivot['name'])
             self.foePivot.setToolTip(self.pkm_to_tip(foe_pivot))
-            self.foePivotCaption.setText(_pivot_field_caption(foe_pivot))
+            _apply_field_caption_label(self.foePivotCaption, _pivot_field_caption(foe_pivot))
             self.foePivotMaxHP.setStyleSheet(_hp_track_style_active())
 
             if foe_alive_ok:
@@ -981,7 +1020,7 @@ class Client_UI(QWidget):
             self.foePivot.setToolTip('')
             self.foePivotMaxHP.setText('')
             self.foePivotPct.setText('')
-            self.foePivotCaption.setText('')
+            _apply_field_caption_label(self.foePivotCaption, "")
             self.foePivotHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotMaxHP.setStyleSheet("background-color:rgb(0,0,0,0)")
             self.foePivotPct.setStyleSheet("background-color: transparent; border: none;")
@@ -1186,6 +1225,26 @@ class Client_UI(QWidget):
     def send_log(self, msg):
         self.add_signal.emit(msg)
 
+    def _append_battle_log_line(self, log):
+        m = _BATTLE_LOG_ROUND_LINE.match(log)
+        if not m:
+            self.log.append(log)
+            return
+        n = int(m.group(2).split()[1])
+        cursor = self.log.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        plain_fmt = QTextCharFormat()
+        divider_fmt = QTextCharFormat()
+        divider_fmt.setForeground(QColor(80, 84, 102))
+        bold_fmt = QTextCharFormat()
+        bold_fmt.setFontWeight(QFont.Bold)
+        if log.startswith('\n'):
+            cursor.insertText('\n', plain_fmt)
+        cursor.insertText('\n', plain_fmt)
+        cursor.insertText('\u2500' * 56 + '\n', divider_fmt)
+        cursor.insertText(f'Round {n}', bold_fmt)
+        self.log.setTextCursor(cursor)
+
     # add log to gui textbox
     def add_log(self, msg):
         # differs msg and log
@@ -1193,7 +1252,7 @@ class Client_UI(QWidget):
             with open('log.txt','a') as f:
                 f.write(msg['log']+'\n')
             state, log, action_required = msg['state'],msg['log'], msg['action_required']
-            self.log.append(log)
+            self._append_battle_log_line(log)
 
             self.log.moveCursor(QTextCursor.End)
             self.update(state,action_required)
