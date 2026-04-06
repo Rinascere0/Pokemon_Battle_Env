@@ -1,53 +1,151 @@
-# Pokemon_Battle_Env
+# Pokémon Battle Environment
 
-## About it
+A research- and play-oriented battle simulator for **Pokémon Generation VII** **6v6** singles (full teams of six), targeting **OU** and **UU** tier mechanics. The project is in **alpha**: core rules are largely implemented, but edge cases and parity with official cartridges or [Pokémon Showdown](https://pokemonshowdown.com/) are not guaranteed.
 
-It's an alpha version of Pokémon Gen7 6v6 battle env, implementing most mechanism of OU and UU tier.
+---
 
-It provides human-vs-human(online) or human-vs-AI(offline) battle GUI for playing, and AI-vs-AI automatic battle for training.
+## Overview
 
-More features will continue to be updated, and any reports of bugs and unimplemented mechanisms are always welcome!
+This environment provides:
 
-Thanks to Pokémon Showdown for providing pokémon and move data.\
-Thanks to BJK for providing battle teams.
+- **Human vs. built-in AI** (offline, graphical client)
+- **Human vs. human** over a **custom TCP server** (online), with optional **Redis**-backed accounts and match logging
+- **AI vs. AI** headless battles for automated testing or training workflows
+- **Replay playback** from saved battle logs
 
+Bug reports and notes on missing or incorrect mechanics are welcome.
 
-## How to use?
+---
 
-### For offline mode:
-Run `run.py` and
+## Features
 
-#### For GUI: 
+| Area | Notes |
+|------|--------|
+| Ruleset | Gen VII–oriented; OU/UU-oriented move, ability, and item behavior (see changelog for incremental coverage) |
+| Clients | PyQt5-based battle UI; server UI for hosting |
+| Networking | Multi-game server; login and reconnect supported on the online branch |
+| Data | Pokémon and move datasets derived from **Pokémon Showdown**–style sources; sample teams credited below |
 
-set mode = '1p', and battle with the built-in AI!
+---
 
-set mode = '2p', and battle with another offline players!
+## Requirements
 
-#### For non-GUI:
+- **Python** 3.8 or newer (recommended)
+- **Operating system**: Windows is the primary development target; other platforms may work if dependencies install cleanly
+- **Online / persistence** (when enabled): **Redis** (default server configuration expects port **6380**; adjust in `main/server.py` if needed)
 
-set mode = 'test', and built-in AI will automatically perform a battle!
+---
 
-Note:
-Change the player class in `Game.py` to switch between the three modes!
+## Installation
 
-### For online mode:
-Run one 'server.py' and each player runs one 'client.py', then battle online!
+Clone the repository and install dependencies:
 
+```bash
+git clone https://github.com/Rinascere0/Pokemon_Battle_Env.git
+cd Pokemon_Battle_Env
+pip install -r requirements.txt
+```
 
+Main runtime dependencies are listed in `requirements.txt` (including **PyQt5**, **redis**, and **werkzeug** for the online server).
 
-## How to create my own AI?
+---
 
-1. Create your own player class by inheriting Player class in `player.py`,
-2. Implement abstract methods in your class according to your strategy,
-3. Import your own team into 'team' directory, and edit according parameters in your class (Of course you can just use
-   built-in teams!).
+## Usage
 
+### Entry point: `run.py`
 
-## GUI Example
-![image](https://github.com/Rinascere0/Pokemon_Battle_Env/blob/RoundPrint/docs/gui_new.png)
+From the repository root, run:
+
+```bash
+python run.py
+```
+
+You will be prompted to select a mode:
+
+| Key | Mode | Description |
+|-----|------|-------------|
+| `0` | **AI vs. AI** | Non-interactive automatic battle (no GUI for play; suitable for smoke tests) |
+| `1` | **PVE** | Human vs. built-in AI (GUI) |
+| `2` | **PVP online** | Connect to a running server (GUI client) |
+| `3` | **Replay** | Playback-only mode using saved logs |
+
+### Online play
+
+1. Start the server (host machine):
+
+   ```bash
+   python main/server.py
+   ```
+
+2. Ensure **Redis** is running if you rely on account storage and logging features configured in the server.
+
+3. Each player runs `python run.py`, chooses **PVP online** (`2`), and connects using the host address and credentials as required by your deployment.
+
+The server supports multiple concurrent games; see `main/server.py` for host/port and Redis settings.
+
+### Local two-player (advanced)
+
+Local **human vs. human** on one machine is implemented via `Game(mode='2p')` and `run_client_2p()` in `main/client.py`. This path is not exposed in the default `run.py` menu; developers may call `run_client_2p()` from a small launcher script or extend `run.py` to expose it.
+
+### Swapping AI or player implementations (offline)
+
+Default offline participants are wired in `main/game.py` (e.g. `AlphaPlayer`, `BetaPlayer`, `RandomPlayer`, and `myPlayer` from `main/ui_player.py`). Edit the constructor logic there to change which classes are used for `test` / `1p` modes, or subclass `Player` as described below.
+
+---
+
+## Implementing a custom agent
+
+1. Subclass **`Player`** in `main/player.py` (or a module of your choice) and implement the abstract interface used by the battle loop.
+2. Register your class in `main/game.py` (or inject it where `Game` builds its `players` list) according to your experiment or match setup.
+3. Add team definitions under the **`team/`** package and reference them from your player class, or reuse the built-in teams.
+
+---
+
+## Repository layout (high level)
+
+| Path | Role |
+|------|------|
+| `run.py` | Interactive launcher |
+| `main/` | Game loop, UI client, server, players |
+| `lib/` | Shared battle logic helpers |
+| `data/` | Static game data (e.g. dex, moves) |
+| `team/` | Team definitions |
+| `docs/` | Documentation assets (e.g. screenshots) |
+| `replays/` | Typical location for replay files (if used) |
+
+---
+
+## Screenshots
+
+![Battle GUI example](docs/gui_cur.jpg)
+
+---
+
+## Acknowledgments
+
+- **[Pokémon Showdown](https://pokemonshowdown.com/)** — Pokémon, move, and related data used as a reference and data source.
+- **BJK** — Sample battle teams.
+
+---
+
+## Contributing and support
+
+Issues and pull requests are welcome. When reporting bugs, please include:
+
+- Python version and OS  
+- Mode (offline PVE, online, AI vs. AI, replay)  
+- Steps to reproduce and, if possible, a minimal log or replay  
+
+---
+
+## Legal notice
+
+*Pokémon* is a trademark of Nintendo, Game Freak, and The Pokémon Company. This project is an independent, non-commercial fan work and is not affiliated with or endorsed by those entities.
+
+---
 
 <details>
-<summary>Battle Log Example</summary>
+<summary>Example battle log</summary>
 
 The game between Satoshi and BJK started!\
 Satoshi's pokemons: Garchomp/Landorus-Therian/Tapu Fini/Heatran/Amoonguss/Weavile\
@@ -374,8 +472,7 @@ Satoshi lost!
 </details>
 
 <details>
-<summary>Update Log</summary>
-
+<summary>Update log (historical)</summary>
 
 2023.6.3
 【Add】\
@@ -615,4 +712,3 @@ enable redis store userinfo and log
 3. login after game finished still in last game\
 4. magic guard no status(e.g burn) hp loss but hurt log
 </details>
-

@@ -1,0 +1,6 @@
+# Pokemon_Battle_Env — main-flow dependencies (Python 3.8+ recommended)
+#
+# Only packages required by the main entry flow (run.py -> main/*).
+PyQt5>=5.15.0
+redis>=4.0.0
+werkzeug>=2.0.0
