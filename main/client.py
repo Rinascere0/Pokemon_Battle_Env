@@ -26,6 +26,7 @@ class Client(QObject):
         # offline
         self.game = None
         self.team_wire_payload = 'RANDOM'
+        self._offline_team_choice = None
 
         # online
         self.socket = QTcpSocket(self)
@@ -86,11 +87,43 @@ class Client(QObject):
             self.team_wire_payload = choice.to_wire()
 
     def apply_team_choice_to_player(self, choice):
+        self._offline_team_choice = choice
         if self.game is None or self.uid >= len(self.game.players):
             return
         pl = self.game.players[self.uid]
         if hasattr(pl, 'apply_team_choice'):
             pl.apply_team_choice(choice)
+
+    def restart_local_battle(self):
+        if self.socket.state() == QTcpSocket.ConnectedState:
+            return
+        old = self.game
+        if old is None:
+            return
+        mode = getattr(old, 'play_mode', '1p')
+        if mode != '1p':
+            self.signals.status_updated.emit('Rematch is only available in 1P vs AI.')
+            return
+        old.shutdown_and_join()
+        uid = self.uid
+        ai = Client(0)
+        game = Game(mode='1p')
+        game.set_client(ai)
+        game.set_client(self)
+        self.set_game(game)
+        human = game.get_player(uid)
+        if self._offline_team_choice is not None and hasattr(human, 'apply_team_choice'):
+            human.apply_team_choice(self._offline_team_choice)
+        game.start()
+        game.ui_init(uid)
+        self.signals.status_updated.emit('New battle started.')
+
+    def request_rematch_online(self):
+        if self.socket.state() != QTcpSocket.ConnectedState:
+            return
+        tw = self.team_wire_payload
+        self.send_message(f'__REMATCH__|TEAM|{tw}')
+        self.signals.status_updated.emit('Waiting for opponent…')
 
     def request_surrender(self):
         if self.game:
@@ -139,7 +172,9 @@ def run_client_1p():
     game.ui_init(1)
 
     app.exec_()
-    game.force_end()
+    live = client1.game
+    if live is not None:
+        live.shutdown_and_join()
 
 def run_client_2p():
     app = QApplication(sys.argv)
@@ -155,13 +190,17 @@ def run_client_2p():
     game.ui_init(1)
 
     app.exec_()
-    game.force_end()
+    live = client0.game
+    if live is not None:
+        live.shutdown_and_join()
 
 def run_client_online():
     app = QApplication(sys.argv)
     client = Client(0)
-    ui = Client_UI(client,0,True)
+    ui = Client_UI(client, 0, True)
     app.exec_()
+    if client.socket.state() == QTcpSocket.ConnectedState:
+        client.disconnect_from_server()
 
 if __name__ == '__main__':
     run_client_online()

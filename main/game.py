@@ -64,6 +64,7 @@ class Game:
         else:
             self.game_nums = 1
         self.mode = ONLINE if mode == 'online' else OFFLINE
+        self.play_mode = mode
 
 
     def get_status(self):
@@ -129,13 +130,21 @@ class Game:
                 self.server.send_message(str(msg), self.game_id, uid)
         self.log_text += log +'\n'
 
-    def force_end(self,rmv=True):
-        self.status = END
-        for player in self.players:
-            player.signal(Signal.End)
-        self.end = True
-        if rmv and self.server:
+    def force_end(self, rmv=True):
+        if not self.end:
+            self.status = END
+            self.end = True
+            for player in self.players:
+                player.signal(Signal.End)
+        if rmv and self.server is not None and self.game_id in self.server.games:
             self.server.remove_game(self.game_id)
+
+    def shutdown_and_join(self, timeout=5.0):
+        """Stop battle threads and wait for the game mainloop to exit (e.g. on GUI close)."""
+        self.force_end()
+        t = getattr(self, 'thread', None)
+        if t is not None and t.is_alive():
+            t.join(timeout=timeout)
 
     def request_surrender(self, uid):
         if self.status != START or self.end:

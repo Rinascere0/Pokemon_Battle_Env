@@ -60,6 +60,7 @@ class Server(QTcpServer):
         self.lock = threading.Lock()
         self.log_counter_key = "log_counter"
         self.pending_team_wire = {}
+        self.last_team_wire = {}
 
     def __del__(self):
       #  self.executor.shutdown(wait=True, cancel_futures=False)
@@ -80,6 +81,7 @@ class Server(QTcpServer):
         self.game_players = {}
         self.game_id = 0
         self.pending_team_wire.clear()
+        self.last_team_wire.clear()
 
     def create_redis_user(self,user_id, pwd):
         print(f'[Redis]Start create user: {user_id}')
@@ -262,7 +264,11 @@ class Server(QTcpServer):
         uid = self.game_players[client_key]['uid']
         game_id = self.game_players[client_key]['game_id']
         pl = self.games[game_id].get_player(uid)
-        wire = self.pending_team_wire.pop(client_key, 'RANDOM')
+        if client_key in self.pending_team_wire:
+            wire = self.pending_team_wire.pop(client_key)
+            self.last_team_wire[client_key] = wire
+        else:
+            wire = self.last_team_wire.get(client_key, 'RANDOM')
         if isinstance(pl, myPlayer):
             apply_team_wire_to_my_player(pl, wire)
         else:
@@ -274,12 +280,46 @@ class Server(QTcpServer):
         client_key = self.gen_client_key(socket)
         if client_key:
             self.pending_team_wire.pop(client_key, None)
+            self.last_team_wire.pop(client_key, None)
         if client_key and client_key in self.online_users:
             self.online_users.remove(client_key)
         self.signals.status_updated.emit(f"Client Disconnectd: {socket.peerAddress().toString()}:{socket.peerPort()}")
         self.clients.remove(socket)
         self.remove_player(socket)
         socket.deleteLater()
+
+    def handle_rematch(self, socket, team_wire=None):
+        client_key = self.gen_client_key(socket)
+        if not client_key or client_key not in self.game_players:
+            return
+        old_gid = self.game_players[client_key]['game_id']
+        if old_gid in self.games:
+            g = self.games[old_gid]
+            if not g.end and g.get_status() != END:
+                return
+        del self.game_players[client_key]
+        if not self.game_waiting:
+            game = self.create_game()
+            self.game_waiting = game
+        else:
+            game = self.game_waiting
+            self.game_waiting = None
+        uid = game.add_player(player=None, name=client_key)
+        self.game_players[client_key] = {
+            'uid': uid,
+            'game_id': game.game_id,
+            'status': READY,
+        }
+        self.game_clients[game.game_id].insert(uid, socket)
+        pl = self.games[game.game_id].get_player(uid)
+        if team_wire is not None:
+            self.last_team_wire[client_key] = team_wire if team_wire else 'RANDOM'
+        wire = self.last_team_wire.get(client_key, 'RANDOM')
+        if isinstance(pl, myPlayer):
+            apply_team_wire_to_my_player(pl, wire)
+        else:
+            pl._team_configured = True
+        self.signals.status_updated.emit(f'Rematch queue: {client_key}')
 
     def read_client(self, socket):
         print('read client')
@@ -323,9 +363,18 @@ class Server(QTcpServer):
                 client_key = self.gen_client_key(socket)
                 if client_key is None or client_key not in self.game_players:
                     continue
-                uid = self.game_players[client_key]['uid']
-                game_id = self.game_players[client_key]['game_id']
                 data_stripped = data.strip()
+                if data_stripped.startswith('__REMATCH__'):
+                    tw = None
+                    prefix = '__REMATCH__|TEAM|'
+                    if data_stripped.startswith(prefix):
+                        tw = data_stripped[len(prefix):]
+                    self.handle_rematch(socket, tw)
+                    continue
+                game_id = self.game_players[client_key]['game_id']
+                if game_id not in self.games:
+                    continue
+                uid = self.game_players[client_key]['uid']
                 if data_stripped == '__SURRENDER__':
                     self.games[game_id].surrender(uid)
                     self.signals.new_message.emit(f"Client: __SURRENDER__ uid={uid}")

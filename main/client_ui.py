@@ -256,8 +256,6 @@ def _main_window_stylesheet():
         font-family: "{ff}";
         font-size: 10pt;
         font-weight: 600;
-        min-width: 108px;
-        min-height: 32px;
         color: #f0f4ff;
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
             stop:0 #4a6cf0, stop:1 #3558d6);
@@ -294,6 +292,28 @@ def _main_window_stylesheet():
         color: rgba(255, 200, 200, 0.35);
         background-color: rgba(80, 45, 50, 0.35);
         border: 1px solid rgba(255, 100, 110, 0.15);
+    }}
+    QPushButton#RematchBtn {{
+        font-family: "{ff}";
+        font-size: 10pt;
+        font-weight: 600;
+        color: #dff7ee;
+        background-color: rgba(50, 140, 110, 0.4);
+        border: 1px solid rgba(120, 220, 180, 0.45);
+        border-radius: 9px;
+        padding: 6px 14px;
+    }}
+    QPushButton#RematchBtn:hover:enabled {{
+        background-color: rgba(60, 160, 125, 0.52);
+        border: 1px solid rgba(150, 235, 200, 0.55);
+    }}
+    QPushButton#RematchBtn:pressed {{
+        background-color: rgba(40, 110, 88, 0.55);
+    }}
+    QPushButton#RematchBtn:disabled {{
+        color: rgba(200, 230, 215, 0.3);
+        background-color: rgba(45, 65, 58, 0.35);
+        border: 1px solid rgba(100, 160, 130, 0.12);
     }}
     QCheckBox {{
         font-family: "{ff}";
@@ -357,6 +377,25 @@ class Client_UI(QWidget):
             return
         self.client.request_surrender()
 
+    def on_rematch_clicked(self):
+        self.rematch_button.setEnabled(False)
+        team_dlg = TeamSelectionDialog(self)
+        if team_dlg.exec_() != QDialog.Accepted:
+            self.rematch_button.setEnabled(True)
+            return
+        choice = team_dlg.get_choice()
+        if choice is None:
+            self.rematch_button.setEnabled(True)
+            return
+        self.client.set_pending_team_choice(choice)
+        self.client.apply_team_choice_to_player(choice)
+        if self.online:
+            self.client.request_rematch_online()
+        else:
+            self.log.clear()
+            self.flush_ui()
+            self.client.restart_local_battle()
+
     def toggle_connection(self):
         if self.client.socket.state() != QTcpSocket.ConnectedState:
             dialog = LoginDialog(self)
@@ -395,6 +434,7 @@ class Client_UI(QWidget):
         """Disable all battle actions including Surrender (normal win, loss, or surrender)."""
         self.disable_buttons()
         self.surrender_button.setEnabled(False)
+        self.rematch_button.setEnabled(True)
 
     def flush_ui(self):
         for move in self.moves:
@@ -449,6 +489,7 @@ class Client_UI(QWidget):
         self._last_foe_hp_field_key = None
 
         self.surrender_button.setEnabled(True)
+        self.rematch_button.setEnabled(False)
 
     def onDisconnect(self):
         self.flush_ui()
@@ -456,6 +497,26 @@ class Client_UI(QWidget):
 
     def onConnect(self):
         self.flush_ui()
+
+    def _shutdown_battle_environment(self):
+        if getattr(self, '_shutdown_battle_environment_done', False):
+            return
+        self._shutdown_battle_environment_done = True
+        c = self.client
+        if c is None:
+            return
+        try:
+            if c.socket.state() == QTcpSocket.ConnectedState:
+                c.disconnect_from_server()
+            g = c.game
+            if g is not None:
+                g.shutdown_and_join()
+        except Exception:
+            pass
+
+    def closeEvent(self, event):
+        self._shutdown_battle_environment()
+        super().closeEvent(event)
 
     def change_movie(self, back, name):
         mv_name = name.replace(' ', '-').lower() + '.gif'
@@ -544,14 +605,21 @@ class Client_UI(QWidget):
         self.connect_button.setObjectName("ConnectBtn")
         self.connect_button.setText('Connect')
         self.connect_button.clicked.connect(self.toggle_connection)
-        self.connect_button.move(42, 582)
+        self.connect_button.setGeometry(10, 388, 100, 34)
         self.connect_button.setVisible(self.online)
 
         self.surrender_button = QPushButton(self)
         self.surrender_button.setObjectName("SurrenderBtn")
         self.surrender_button.setText('Forfeit')
-        self.surrender_button.setGeometry(452, 586, 100, 34)
+        self.surrender_button.setGeometry(10, 430, 100, 34)
         self.surrender_button.clicked.connect(self.on_surrender_clicked)
+
+        self.rematch_button = QPushButton(self)
+        self.rematch_button.setObjectName("RematchBtn")
+        self.rematch_button.setText('Rematch')
+        self.rematch_button.setGeometry(10, 472, 100, 34)
+        self.rematch_button.setEnabled(False)
+        self.rematch_button.clicked.connect(self.on_rematch_clicked)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -657,16 +725,18 @@ class Client_UI(QWidget):
         for move in self.moves:
             move.setStyleSheet(_qss_move_idle())
 
-        self.moves[0].setGeometry(44, 388, 208, 84)
-        self.moves[1].setGeometry(316, 388, 208, 84)
-        self.moves[2].setGeometry(44, 486, 208, 84)
-        self.moves[3].setGeometry(316, 486, 208, 84)
+        _move_x0 = 124
+        _move_x1 = 392
+        self.moves[0].setGeometry(_move_x0, 388, 208, 84)
+        self.moves[1].setGeometry(_move_x1, 388, 208, 84)
+        self.moves[2].setGeometry(_move_x0, 486, 208, 84)
+        self.moves[3].setGeometry(_move_x1, 486, 208, 84)
 
         self.mega = QCheckBox('Mega', self)
-        self.mega.move(158, 590)
+        self.mega.move(238, 586)
 
         self.z_move = QCheckBox('Z-Move', self)
-        self.z_move.move(298, 590)
+        self.z_move.move(378, 586)
         self.z_move.clicked.connect(self.set_zable_move)
 
         self.label = QLabel('SWITCH', self)
@@ -1079,6 +1149,8 @@ class Client_UI(QWidget):
 
         if game_over:
             self.lock_ui_game_over()
+        else:
+            self.rematch_button.setEnabled(False)
 
         # show my mini teams
         for i, pkm in enumerate(my_pkms):
