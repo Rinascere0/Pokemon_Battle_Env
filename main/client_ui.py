@@ -2,6 +2,8 @@ import sys
 import os
 import re
 import copy
+import pickle
+from datetime import datetime
 
 from PyQt5 import QtWidgets
 from PyQt5.QtNetwork import QTcpSocket
@@ -14,13 +16,36 @@ path = getattr(sys, '_MEIPASS',  os.path.dirname(os.path.abspath(__file__)))
 if 'MEI' not in path:
     path+='/..'
 path+= '/resource/'
+
+
+def _writable_project_root():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
+
+def _replays_dir():
+    d = os.path.join(_writable_project_root(), 'replays')
+    os.makedirs(d, exist_ok=True)
+    return d
 #path = os.path.dirname(os.path.abspath(__file__)) + '/../resource/'
 print('path',path)
 pkm_path = path + 'pkm/'
 icon_path = path + 'icon/'
 
 from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QTextCursor, QCursor, QMovie, QIcon, QTextCharFormat
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QLabel, QPushButton, QCheckBox, QComboBox, QMessageBox, QDialog
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QTextEdit,
+    QLabel,
+    QPushButton,
+    QCheckBox,
+    QComboBox,
+    QMessageBox,
+    QDialog,
+    QFileDialog,
+)
 from PyQt5.QtCore import pyqtSignal, QRect, Qt, QVariantAnimation, QEasingCurve, QSize, QTimer
 
 
@@ -338,6 +363,28 @@ def _main_window_stylesheet():
         background-color: rgba(45, 52, 80, 0.35);
         border: 1px solid rgba(100, 120, 180, 0.15);
     }}
+    QPushButton#LoadReplayBtn {{
+        font-family: "{ff}";
+        font-size: 10pt;
+        font-weight: 600;
+        color: #fff4e8;
+        background-color: rgba(200, 130, 55, 0.38);
+        border: 1px solid rgba(255, 190, 110, 0.45);
+        border-radius: 9px;
+        padding: 6px 14px;
+    }}
+    QPushButton#LoadReplayBtn:hover:enabled {{
+        background-color: rgba(220, 150, 70, 0.5);
+        border: 1px solid rgba(255, 210, 140, 0.55);
+    }}
+    QPushButton#LoadReplayBtn:pressed {{
+        background-color: rgba(170, 100, 45, 0.52);
+    }}
+    QPushButton#LoadReplayBtn:disabled {{
+        color: rgba(245, 225, 200, 0.3);
+        background-color: rgba(70, 55, 40, 0.35);
+        border: 1px solid rgba(160, 120, 70, 0.15);
+    }}
     QCheckBox {{
         font-family: "{ff}";
         font-size: 10pt;
@@ -389,6 +436,8 @@ class Client_UI(QWidget):
     chg_pivot_signal = pyqtSignal(bool, str)
 
     def on_surrender_clicked(self):
+        if self.replay_only:
+            return
         reply = QMessageBox.question(
             self,
             'Surrender',
@@ -401,19 +450,24 @@ class Client_UI(QWidget):
         self.client.request_surrender()
 
     def on_rematch_clicked(self):
+        if self.replay_only:
+            return
         self.rematch_button.setEnabled(False)
         self.replay_button.setEnabled(False)
+        self.load_replay_button.setEnabled(False)
         team_dlg = TeamSelectionDialog(self)
         if team_dlg.exec_() != QDialog.Accepted:
             self.rematch_button.setEnabled(True)
             if self._replay_snapshots:
                 self.replay_button.setEnabled(True)
+            self.load_replay_button.setEnabled(True)
             return
         choice = team_dlg.get_choice()
         if choice is None:
             self.rematch_button.setEnabled(True)
             if self._replay_snapshots:
                 self.replay_button.setEnabled(True)
+            self.load_replay_button.setEnabled(True)
             return
         self.client.set_pending_team_choice(choice)
         self.client.apply_team_choice_to_player(choice)
@@ -440,6 +494,7 @@ class Client_UI(QWidget):
         self.surrender_button.setEnabled(False)
         self.rematch_button.setEnabled(False)
         self.replay_button.setEnabled(True)
+        self.load_replay_button.setEnabled(True)
         self.replay_button.setText('Stop')
 
     def _replay_user_stop(self):
@@ -547,7 +602,7 @@ class Client_UI(QWidget):
         if line:
             self._append_battle_log_line(line)
             self.log.moveCursor(QTextCursor.End)
-        self.update(snap['state'], snap['action_required'])
+        self.update(snap['state'], snap.get('action_required'))
         if self._replay_index < len(self._replay_snapshots):
             self._replay_timer = QTimer(self)
             self._replay_timer.setSingleShot(True)
@@ -566,6 +621,8 @@ class Client_UI(QWidget):
         self.lock_ui_game_over()
 
     def toggle_connection(self):
+        if self.replay_only:
+            return
         if self.client.socket.state() != QTcpSocket.ConnectedState:
             dialog = LoginDialog(self)
             if dialog.exec_():
@@ -603,16 +660,71 @@ class Client_UI(QWidget):
         """Disable all battle actions including Surrender (normal win, loss, or surrender)."""
         self.disable_buttons()
         self.surrender_button.setEnabled(False)
-        self.rematch_button.setEnabled(True)
+        self.rematch_button.setEnabled(not self.replay_only)
         self.replay_button.setEnabled(bool(self._replay_snapshots))
+        self.load_replay_button.setEnabled(True)
+
+    def _save_replay_autosave(self):
+        if not self._replay_snapshots:
+            return
+        try:
+            out_dir = _replays_dir()
+            name = datetime.now().strftime('battle_%Y%m%d_%H%M%S_%f') + '.pkl'
+            fp = os.path.join(out_dir, name)
+            with open(fp, 'wb') as f:
+                pickle.dump(self._replay_snapshots, f, protocol=4)
+            self.update_status(f'Replay saved: {fp}')
+        except Exception as e:
+            QMessageBox.warning(self, 'Save replay', f'Could not save replay:\n{e}')
+
+    def _validate_replay_snapshots(self, data):
+        if not isinstance(data, list) or not data:
+            return False
+        for snap in data:
+            if not isinstance(snap, dict) or 'state' not in snap:
+                return False
+        return True
+
+    def on_load_replay_clicked(self):
+        start_dir = _replays_dir()
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            'Load battle replay',
+            start_dir,
+            'Pokemon battle replay (*.pkl);;All files (*)',
+        )
+        if not path:
+            return
+        try:
+            with open(path, 'rb') as f:
+                data = pickle.load(f)
+        except Exception as e:
+            QMessageBox.critical(self, 'Load replay', f'Could not read file:\n{e}')
+            return
+        if not self._validate_replay_snapshots(data):
+            QMessageBox.critical(
+                self,
+                'Load replay',
+                'Invalid replay file (expected a non-empty list of snapshot dicts with a "state" key).',
+            )
+            return
+        self._cancel_replay()
+        self._replay_snapshots = [copy.deepcopy(s) for s in data]
+        self._replay_auto_saved = True
+        self._rebuild_battle_log_from_snapshots()
+        self.lock_ui_game_over()
+        self.update_status(f'Loaded replay: {path}')
+        self._begin_replay()
 
     def flush_ui(self):
         self._cancel_replay()
         self._replay_snapshots.clear()
+        self._replay_auto_saved = False
         self._reset_battle_field_state()
-        self.surrender_button.setEnabled(True)
+        self.surrender_button.setEnabled(not self.replay_only)
         self.rematch_button.setEnabled(False)
         self.replay_button.setEnabled(False)
+        self.load_replay_button.setEnabled(True)
 
     def onDisconnect(self):
         self.flush_ui()
@@ -686,10 +798,11 @@ class Client_UI(QWidget):
         font.setBold(en)
         button.setFont(font)
 
-    def __init__(self, client, uid=1, online=False):
+    def __init__(self, client, uid=1, online=False, replay_only=False):
         super(Client_UI, self).__init__()
         self.uid = uid
         self.online = online
+        self.replay_only = replay_only
 
         self.z_mask = [False for _ in range(4)]
         self.move_mask = [False for _ in range(4)]
@@ -697,6 +810,7 @@ class Client_UI(QWidget):
         self.msg_buf = ''
 
         self._replay_snapshots = []
+        self._replay_auto_saved = False
         self._replay_active = False
         self._replay_index = 0
         self._replay_timer = None
@@ -709,7 +823,7 @@ class Client_UI(QWidget):
 
         self.init_ui()
 
-        if not self.online:
+        if not self.online and not self.replay_only:
             while True:
                 team_dlg = TeamSelectionDialog(self)
                 if team_dlg.exec_() != QDialog.Accepted:
@@ -755,6 +869,13 @@ class Client_UI(QWidget):
         self.replay_button.setGeometry(10, 514, 100, 34)
         self.replay_button.setEnabled(False)
         self.replay_button.clicked.connect(self.on_replay_clicked)
+
+        self.load_replay_button = QPushButton(self)
+        self.load_replay_button.setObjectName('LoadReplayBtn')
+        self.load_replay_button.setText('Load')
+        self.load_replay_button.setGeometry(10, 552, 100, 34)
+        self.load_replay_button.setEnabled(True)
+        self.load_replay_button.clicked.connect(self.on_load_replay_clicked)
 
         # pkm_infos
         self.my_pkm_infos = [None for _ in range(6)]
@@ -913,6 +1034,13 @@ class Client_UI(QWidget):
         self._foe_hp_display_perc = 1.0
 
         self.disable_buttons()
+        if self.replay_only:
+            self.setWindowTitle('Pokémon Battle Env — Replay')
+            self.surrender_button.setEnabled(False)
+            self.rematch_button.setEnabled(False)
+            self.replay_button.setEnabled(False)
+            self.load_replay_button.setEnabled(True)
+            self.log.append('[Status] Replay mode: use Load to open a .pkl file.')
         self.show()
 
     def _hp_zone_rgb(self, hp_perc):
@@ -1049,6 +1177,8 @@ class Client_UI(QWidget):
         setattr(self, anim_attr, anim)
 
     def set_zable_move(self):
+        if self.replay_only:
+            return
         if self.z_move.isChecked():
             for i, move in enumerate(self.moves):
                 move.setEnabled(self.z_mask[i] & self.move_mask[i])
@@ -1061,6 +1191,8 @@ class Client_UI(QWidget):
             self.action_required = action_required
         else:
             action_required = self.action_required
+
+        ro = self.replay_only
 
         Round = state['round']
         self.round_label.setText('Round ' + str(Round))
@@ -1241,7 +1373,31 @@ class Client_UI(QWidget):
 
         # show my moves
         for i, move in enumerate(pivot['moves']):
-            self.setBold(self.moves[i],False)
+            self.setBold(self.moves[i], False)
+            if ro:
+                name = move.get('name') or ''
+                if not name or name == 'unrevealed':
+                    self.moves[i].setText('')
+                    self.moves[i].setToolTip('')
+                    self.moves[i].setEnabled(False)
+                    self.moves[i].setStyleSheet(_qss_move_idle())
+                    continue
+                try:
+                    move_info = Moves[move_to_key(name)]
+                except KeyError:
+                    self.moves[i].setText(
+                        name + '\n' + str(move.get('pp', '')) + '/' + str(move.get('maxpp', ''))
+                    )
+                    self.moves[i].setToolTip('')
+                    self.moves[i].setStyleSheet(_qss_move_idle())
+                    self.moves[i].setEnabled(False)
+                    continue
+                attr_key = move_info['type'].lower()
+                self.moves[i].setText(name + '\n' + str(move['pp']) + '/' + str(move['maxpp']))
+                self.moves[i].setToolTip(move_to_tip(move_info))
+                self.moves[i].setStyleSheet(_qss_move_typed(Color[attr_key]))
+                self.moves[i].setEnabled(False)
+                continue
             if game_over or action_required in [Signal.Switch, Signal.Switch_in_turn] or not foe_pivot_alive:
                 self.moves[i].setText('')
                 self.moves[i].setEnabled(False)
@@ -1255,15 +1411,22 @@ class Client_UI(QWidget):
                 if action_required is not None:
                     self.moves[i].setEnabled(move_mask[i])
 
+        for j in range(len(pivot['moves']), len(self.moves)):
+            self.setBold(self.moves[j], False)
+            self.moves[j].setText('')
+            self.moves[j].setToolTip('')
+            self.moves[j].setEnabled(False)
+            self.moves[j].setStyleSheet(_qss_move_idle())
+
         self.z_move.setChecked(False)
-        self.z_move.setEnabled(not game_over and any(z_mask) and my_pivot_alive)
+        self.z_move.setEnabled(not ro and not game_over and any(z_mask) and my_pivot_alive)
 
         self.mega.setChecked(False)
-        self.mega.setEnabled(not game_over and mega_mask and my_pivot_alive)
+        self.mega.setEnabled(not ro and not game_over and mega_mask and my_pivot_alive)
 
         for pkm_switch, pkm in zip(self.pkm_switch, my_pkms):
             pkm_switch.setEnabled(
-                not game_over and (action_required is not None and (
+                not ro and not game_over and (action_required is not None and (
                         switch_mask or action_required in [Signal.Switch, Signal.Switch_in_turn]) and pkm['alive']))
             pkm_switch.setToolTip(self.pkm_to_tip(pkm))
             hp_perc = pkm['hp'] / pkm['maxhp'] if 'hp' in pkm else pkm['hp_perc']
@@ -1289,6 +1452,7 @@ class Client_UI(QWidget):
             if not self._replay_active:
                 self.rematch_button.setEnabled(False)
                 self.replay_button.setEnabled(False)
+                self.load_replay_button.setEnabled(ro or not self._replay_snapshots)
 
         # show my mini teams
         for i, pkm in enumerate(my_pkms):
@@ -1474,6 +1638,14 @@ class Client_UI(QWidget):
 
             self.log.moveCursor(QTextCursor.End)
             self.update(state,action_required)
+            if (
+                not self.replay_only
+                and state.get('loser') is not None
+                and not self._replay_auto_saved
+                and self._replay_snapshots
+            ):
+                self._save_replay_autosave()
+                self._replay_auto_saved = True
         else:
             self.log.append(f'Server: {msg}')
             self.log.moveCursor(QTextCursor.End)
@@ -1489,6 +1661,8 @@ class Client_UI(QWidget):
 
     # send action to Client
     def send_action(self, action_type, item):
+        if self.replay_only:
+            return
         if action_type==ActionType.Switch:
             self.setBold(self.pkm_switch[item],True)
         elif action_type in [ActionType.Common,ActionType.Z_Move]:

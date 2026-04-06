@@ -202,5 +202,13 @@ def run_client_online():
     if client.socket.state() == QTcpSocket.ConnectedState:
         client.disconnect_from_server()
 
+
+def run_client_replay():
+    app = QApplication(sys.argv)
+    client = Client(0)
+    Client_UI(client, 0, online=False, replay_only=True)
+    app.exec_()
+
+
 if __name__ == '__main__':
     run_client_online()
